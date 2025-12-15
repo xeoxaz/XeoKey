@@ -1,0 +1,21 @@
+{
+  "name": "xeokey-server",
+  "version": "1.0.0",
+  "description": "Bun web server",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch server.ts",
+    "start": "bun run server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@frostal/monitor": "github:xeoxaz/Monitor",
+    "bcryptjs": "^3.0.3",
+    "mongodb": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0"
+  }
+}
