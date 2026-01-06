@@ -13,7 +13,8 @@ export interface Session {
 }
 
 // Session configuration
-const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+// Fixed vault session duration (does NOT extend on activity)
+const SESSION_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const SESSION_COOKIE_NAME = 'xeokey_session';
 
 // Get SESSION_SECRET - fail if not set in production

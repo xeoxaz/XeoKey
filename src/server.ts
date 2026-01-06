@@ -863,6 +863,35 @@ router.get("/logout", async (request, params, query) => {
   });
 });
 
+// Returns remaining session time for the current logged-in user (ms)
+router.get("/session/remaining", async (request, params, query) => {
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  const sessionId = getSessionIdFromRequest(request);
+  if (!sessionId) {
+    return createErrorResponse(401, "Unauthorized");
+  }
+
+  const session = await getSession(sessionId);
+  if (!session) {
+    return createErrorResponse(401, "Unauthorized");
+  }
+
+  const remainingMs = Math.max(0, session.expiresAt.getTime() - Date.now());
+  return Response.json(
+    { remainingMs },
+    {
+      headers: {
+        ...SECURITY_HEADERS,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    }
+  );
+});
+
 router.get("/register", async (request, params, query) => {
   const session = await attachSession(request);
   if (session) {

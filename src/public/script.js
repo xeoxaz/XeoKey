@@ -423,17 +423,29 @@ function initVaultSessionTimer() {
   if (!timer || !fill) return; // only present when logged in
 
   const DURATION_MS = 5 * 60 * 1000; // 5 minutes
-  const startTime = Date.now(); // Fixed start time - never resets
+  let deadlineMs = 0; // pulled from server so it persists across page loads
   let expired = false;
 
   // Keep CSS in sync even if header layout changes
   timer.style.display = 'block';
 
+  async function syncFromServer() {
+    try {
+      const res = await fetch('/session/remaining', { cache: 'no-store' });
+      if (!res.ok) return false;
+      const data = await res.json();
+      const remainingMs = (data && typeof data.remainingMs === 'number') ? data.remainingMs : 0;
+      deadlineMs = Date.now() + Math.max(0, remainingMs);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function tick() {
     if (expired) return;
     const now = Date.now();
-    const elapsed = now - startTime;
-    const remaining = Math.max(0, DURATION_MS - elapsed);
+    const remaining = Math.max(0, deadlineMs - now);
     const pct = Math.max(0, Math.min(100, (remaining / DURATION_MS) * 100));
     fill.style.width = pct + '%';
 
@@ -447,7 +459,14 @@ function initVaultSessionTimer() {
     requestAnimationFrame(tick);
   }
 
-  requestAnimationFrame(tick);
+  // Sync once on page load; if it fails, fall back to immediate logout to avoid lying about session state.
+  syncFromServer().then(ok => {
+    if (!ok || deadlineMs <= Date.now()) {
+      window.location.href = '/logout';
+      return;
+    }
+    requestAnimationFrame(tick);
+  });
 }
 
 // Generate a strong password that works on any site
