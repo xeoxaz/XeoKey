@@ -1,11 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
-import {
-  setupTestEnv,
-  cleanupTestEnv,
-  connectTestDatabase,
-  dropTestDatabase,
-  randomString,
-} from '../helpers/test-utils';
+import { setupTestEnv, cleanupTestEnv, randomString } from '../helpers/test-utils';
 import { connectMongoDB, closeMongoDB } from '../../db/mongodb';
 import { createUser } from '../../auth/users';
 import {
@@ -43,11 +37,11 @@ describe('Password Management Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    // Clean up password entries before each test
+    // Clean up password entries in the same database used by the app
     try {
-      const { client, db } = await connectTestDatabase();
+      const { getDatabase } = await import('../../db/mongodb');
+      const db = getDatabase();
       await db.collection('passwords').deleteMany({ userId });
-      await client.close();
     } catch (error) {
       // MongoDB might not be available
     }

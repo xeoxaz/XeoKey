@@ -459,14 +459,24 @@ function initVaultSessionTimer() {
     requestAnimationFrame(tick);
   }
 
-  // Sync once on page load; if it fails, fall back to immediate logout to avoid lying about session state.
-  syncFromServer().then(ok => {
-    if (!ok || deadlineMs <= Date.now()) {
-      window.location.href = '/logout';
-      return;
+  // Initial sync with simple retry to avoid false logouts on transient failures.
+  (async () => {
+    const maxAttempts = 5;
+    let attempt = 0;
+    while (attempt < maxAttempts) {
+      // Keep bar full until we have the first authoritative timestamp
+      fill.style.width = '100%';
+      const ok = await syncFromServer();
+      if (ok && deadlineMs > Date.now()) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      attempt++;
+      await new Promise(r => setTimeout(r, 1000 * attempt)); // backoff
     }
-    requestAnimationFrame(tick);
-  });
+    // If we still cannot sync, hide the bar and do nothing; server will enforce expiry on next request.
+    timer.style.display = 'none';
+  })();
 }
 
 // Generate a strong password that works on any site
