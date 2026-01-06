@@ -2453,7 +2453,8 @@ async function handleRequest(request: Request): Promise<Response> {
           headers: {
             ...SECURITY_HEADERS,
             "Content-Type": "text/css",
-            "Cache-Control": "public, max-age=3600",
+            // Avoid stale UI after updates (especially for session timer/nav behavior)
+            "Cache-Control": "no-store",
           },
         });
       } catch (error) {
@@ -2474,7 +2475,8 @@ async function handleRequest(request: Request): Promise<Response> {
           headers: {
             ...SECURITY_HEADERS,
             "Content-Type": "application/javascript",
-            "Cache-Control": "public, max-age=3600",
+            // Avoid stale JS after updates (session timer, nav, TOTP live updates, etc.)
+            "Cache-Control": "no-store",
           },
         });
       } catch (error) {
