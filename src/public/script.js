@@ -24,6 +24,9 @@ function initAll() {
 
   // Live TOTP updater and copy buttons
   initTotpLive();
+
+  // Vault session timer (5 min inactivity) with top bar + auto logout
+  initVaultSessionTimer();
 }
 
 // Initialize when DOM is ready - use multiple strategies
@@ -412,6 +415,51 @@ document.addEventListener('submit', function(event) {
     event.stopPropagation();
   }
 }, true);
+
+// Vault session timer (client-side inactivity timeout)
+function initVaultSessionTimer() {
+  const timer = document.getElementById('sessionTimer');
+  const fill = document.getElementById('sessionTimerFill');
+  if (!timer || !fill) return; // only present when logged in
+
+  const DURATION_MS = 5 * 60 * 1000; // 5 minutes
+  let lastActivity = Date.now();
+  let expired = false;
+
+  // Keep CSS in sync even if header layout changes
+  timer.style.display = 'block';
+
+  function reset() {
+    lastActivity = Date.now();
+  }
+
+  // Activity signals (lightweight set)
+  const activityHandler = () => reset();
+  document.addEventListener('pointerdown', activityHandler, { passive: true, capture: true });
+  document.addEventListener('keydown', activityHandler, { passive: true, capture: true });
+  document.addEventListener('touchstart', activityHandler, { passive: true, capture: true });
+  document.addEventListener('scroll', activityHandler, { passive: true, capture: true });
+
+  function tick() {
+    if (expired) return;
+    const now = Date.now();
+    const elapsed = now - lastActivity;
+    const remaining = Math.max(0, DURATION_MS - elapsed);
+    const pct = Math.max(0, Math.min(100, (remaining / DURATION_MS) * 100));
+    fill.style.width = pct + '%';
+
+    if (remaining <= 0) {
+      expired = true;
+      // Hard logout so server session is cleared
+      window.location.href = '/logout';
+      return;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+}
 
 // Generate a strong password that works on any site
 function generateStrongPassword() {

@@ -289,6 +289,8 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
   if (!session) {
     // Remove the nav element completely
     header = header.replace(/<nav>[\s\S]*?<\/nav>/, '');
+    // Remove session timer bar
+    header = header.replace(/<div id="sessionTimer"[\s\S]*?<\/div>\s*/m, '');
   } else {
     // Add notification badge to Dashboard link
     const dashboardBadge = issueCount > 0
