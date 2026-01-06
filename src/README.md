@@ -5,6 +5,7 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
 ## Features
 
 - 🔐 **Secure Password Storage** - AES-256 encryption for all passwords
+- 🔑 **TOTP/HOTP Support** - Two-factor authentication code generation and management
 - 👤 **User Authentication** - Secure session management with bcrypt password hashing
 - 📊 **Analytics Dashboard** - Track password views, copies, additions, and more with interactive charts
 - 🔍 **Password Strength Analysis** - Automatic detection of weak and duplicate passwords

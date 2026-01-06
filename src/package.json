@@ -42,6 +42,7 @@
   "dependencies": {
     "@frostal/monitor": "github:xeoxaz/Monitor",
     "bcryptjs": "^3.0.3",
+    "chart.js": "^4.5.1",
     "mongodb": "^7.0.0"
   },
   "devDependencies": {

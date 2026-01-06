@@ -131,6 +131,74 @@ All endpoints are relative to the server base URL (default: `http://localhost:30
   - `id` (string, required) - Password entry ID
 - **Response**: JSON response with success status
 
+## TOTP (Two-Factor Authentication) Endpoints
+
+### List TOTP Entries
+
+**GET `/totp`**
+- **Description**: List all TOTP/HOTP entries for the authenticated user
+- **Authentication**: Required
+- **Response**: HTML page with list of TOTP codes (auto-refreshing for TOTP)
+
+### Add TOTP Entry
+
+**GET `/totp/add`**
+- **Description**: Display add TOTP entry form
+- **Authentication**: Required
+- **Response**: HTML form for adding a new TOTP entry
+
+**POST `/totp/add`**
+- **Description**: Create new TOTP/HOTP entry
+- **Authentication**: Required
+- **Request Body** (Form Data):
+  - `label` (string, required) - Service name (e.g., "GitHub")
+  - `account` (string, optional) - Account identifier (e.g., email)
+  - `secret` (string, required) - Base32-encoded secret key
+  - `type` (string, optional) - "TOTP" or "HOTP" (default: "TOTP")
+  - `algorithm` (string, optional) - "SHA1", "SHA256", or "SHA512" (default: "SHA1")
+  - `digits` (number, optional) - Number of digits (default: 6)
+  - `period` (number, optional) - Time period in seconds for TOTP (default: 30)
+  - `withBackupCodes` (boolean, optional) - Generate backup codes
+  - `csrfToken` (string, required)
+- **Response**:
+  - Success: Redirects to TOTP list with backup codes (if generated)
+  - Failure: Error message
+
+### Get TOTP Code
+
+**GET `/totp/code`**
+- **Description**: Get current TOTP code for an entry (JSON API)
+- **Authentication**: Required
+- **Query Parameters**:
+  - `id` (string, required) - TOTP entry ID
+- **Response**: JSON object with code and remaining seconds
+  ```json
+  {
+    "code": "123456",
+    "period": 30,
+    "now": 1234567890,
+    "remainingSeconds": 15
+  }
+  ```
+
+### Advance HOTP Counter
+
+**GET `/totp/next`**
+- **Description**: Advance HOTP counter and get next code
+- **Authentication**: Required
+- **Query Parameters**:
+  - `id` (string, required) - TOTP entry ID (must be HOTP type)
+- **Response**: Redirects to TOTP list
+
+### Delete TOTP Entry
+
+**GET `/totp/delete`**
+- **Description**: Delete TOTP entry
+- **Authentication**: Required
+- **Query Parameters**:
+  - `id` (string, required) - TOTP entry ID
+- **Response**: Redirects to TOTP list
+
 ## Analytics Endpoints
 
 ### Get Analytics Data

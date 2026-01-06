@@ -57,6 +57,13 @@ Comprehensive security headers on all responses:
 - Warns users about password reuse
 - Helps maintain unique passwords per account
 
+### ✅ TOTP/HOTP Support
+- Two-factor authentication code generation
+- Support for TOTP (Time-based) and HOTP (Counter-based) codes
+- Encrypted storage of TOTP secrets
+- Automatic code refresh for TOTP entries
+- Backup code generation for account recovery
+
 ### ✅ Error Logging Sanitization
 - Sensitive data filtered from logs
 - Passwords never logged

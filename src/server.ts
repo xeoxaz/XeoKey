@@ -29,7 +29,7 @@ const SECURITY_HEADERS = {
   "X-Frame-Options": "DENY",
   "X-XSS-Protection": "1; mode=block",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net;",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self';",
   "Referrer-Policy": "strict-origin-when-cross-origin",
 };
 
@@ -1042,6 +1042,33 @@ router.get("/favicon.ico", async (request, params, query) => {
   }
 });
 
+// Serve Chart.js locally to avoid tracking prevention issues
+router.get("/chart.js", async (request, params, query) => {
+  try {
+    // Try to load from node_modules
+    const chartJsPath = "node_modules/chart.js/dist/chart.umd.min.js";
+    const chartJsFile = Bun.file(chartJsPath);
+    const exists = await chartJsFile.exists();
+
+    if (!exists) {
+      logger.warn(`Chart.js file not found at ${chartJsPath}`);
+      return createErrorResponse(404, "Chart.js not found");
+    }
+
+    const chartJs = await chartJsFile.text();
+    return new Response(chartJs, {
+      headers: {
+        ...SECURITY_HEADERS,
+        "Content-Type": "application/javascript",
+        "Cache-Control": "public, max-age=31536000", // Cache for 1 year
+      },
+    });
+  } catch (error) {
+    logger.error(`Error serving Chart.js: ${error}`);
+    return createErrorResponse(500, "Error loading Chart.js");
+  }
+});
+
 // Root routes serve HTML pages with header/footer (require authentication)
 router.get("/", async (request, params, query) => {
   const session = await attachSession(request);
@@ -1072,6 +1099,29 @@ router.get("/", async (request, params, query) => {
     // Continue without recent passwords if there's an error
   }
 
+  // Get TOTP entries
+  let totpEntries: any[] = [];
+  let totpCount = 0;
+  try {
+    totpEntries = await listTotpEntries(userIdString);
+    totpCount = totpEntries.length;
+    // Get recent TOTP entries (last 3)
+    totpEntries = totpEntries.slice(0, 3);
+  } catch (error) {
+    logger.error(`Error fetching TOTP entries: ${error}`);
+    // Continue without TOTP entries if there's an error
+  }
+
+  // Get database metadata
+  let dbMetadata: any = null;
+  try {
+    const { getDatabaseMetadata } = await import('./db/mongodb');
+    dbMetadata = await getDatabaseMetadata();
+  } catch (error) {
+    logger.debug(`Error fetching database metadata: ${error}`);
+    // Non-critical, continue
+  }
+
   // Build dashboard body with statistics - compact design with graphs
   const dashboardBody = `
     <h1 style="margin-bottom: 0.5rem;">Dashboard</h1>
@@ -1082,6 +1132,10 @@ router.get("/", async (request, params, query) => {
       <div style="background: #2d2d2d; padding: 0.75rem; border-radius: 6px; border: 1px solid #3d3d3d;">
         <div style="font-size: 1.5rem; font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">${passwordCount}</div>
         <div style="color: #888; font-size: 0.75rem;">Passwords</div>
+      </div>
+      <div style="background: #2d2d2d; padding: 0.75rem; border-radius: 6px; border: 1px solid #3d3d3d;">
+        <div style="font-size: 1.5rem; font-weight: bold; color: #7fb069; margin-bottom: 0.25rem;">${totpCount}</div>
+        <div style="color: #888; font-size: 0.75rem;">TOTP Codes</div>
       </div>
       <div style="background: #2d2d2d; padding: 0.75rem; border-radius: 6px; border: 1px solid #3d3d3d;">
         <div style="font-size: 1.5rem; font-weight: bold; color: #7fb069; margin-bottom: 0.25rem;" id="totalAdds">-</div>
@@ -1105,6 +1159,46 @@ router.get("/", async (request, params, query) => {
       </div>
     </div>
 
+    <!-- Quick Actions Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+      <a href="/passwords/add" style="display: block; background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d; text-decoration: none; color: #e0e0e0; transition: background 0.2s;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.5rem;">🔐</span>
+          <div>
+            <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">Add Password</div>
+            <div style="color: #888; font-size: 0.8rem;">Store a new password</div>
+          </div>
+        </div>
+      </a>
+      <a href="/totp/add" style="display: block; background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d; text-decoration: none; color: #e0e0e0; transition: background 0.2s;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.5rem;">🔑</span>
+          <div>
+            <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">Add TOTP</div>
+            <div style="color: #888; font-size: 0.8rem;">Add 2FA authenticator</div>
+          </div>
+        </div>
+      </a>
+      <a href="/passwords" style="display: block; background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d; text-decoration: none; color: #e0e0e0; transition: background 0.2s;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.5rem;">📋</span>
+          <div>
+            <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">View Passwords</div>
+            <div style="color: #888; font-size: 0.8rem;">Browse all passwords</div>
+          </div>
+        </div>
+      </a>
+      <a href="/totp" style="display: block; background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d; text-decoration: none; color: #e0e0e0; transition: background 0.2s;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.5rem;">⏱️</span>
+          <div>
+            <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">View TOTP</div>
+            <div style="color: #888; font-size: 0.8rem;">Manage 2FA codes</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
     <!-- System Status Row -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
       <div style="background: #2d2d2d; padding: 0.75rem; border-radius: 6px; border: 1px solid #3d3d3d;">
@@ -1113,22 +1207,47 @@ router.get("/", async (request, params, query) => {
           <span style="color: #b0b0b0; font-size: 0.85rem;">Database: <span id="dbStatus">${isConnected() ? 'Connected' : 'Disconnected'}</span></span>
         </div>
         <div style="color: #888; font-size: 0.7rem;" id="dbUptime">Uptime: -</div>
+        ${dbMetadata ? `<div style="color: #888; font-size: 0.7rem; margin-top: 0.25rem;">Schema v${dbMetadata.schemaVersion || '?'}</div>` : ''}
       </div>
       <div style="background: #2d2d2d; padding: 0.75rem; border-radius: 6px; border: 1px solid #3d3d3d;">
         <div style="color: #b0b0b0; font-size: 0.85rem; margin-bottom: 0.25rem;">Server Uptime</div>
         <div style="color: #888; font-size: 0.7rem;" id="serverUptime">-</div>
       </div>
+      ${dbMetadata && dbMetadata.indexesInitialized ? `
+      <div style="background: #2d2d2d; padding: 0.75rem; border-radius: 6px; border: 1px solid #3d3d3d;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+          <span style="color: #7fb069; font-size: 1.2rem;">✓</span>
+          <span style="color: #b0b0b0; font-size: 0.85rem;">Database Indexes</span>
+        </div>
+        <div style="color: #888; font-size: 0.7rem;">Optimized</div>
+      </div>
+      ` : ''}
     </div>
 
     <!-- Charts Row -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
       <div style="background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d;">
-        <h3 style="color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.75rem; font-weight: normal;">Activity (Last 30 Days)</h3>
-        <canvas id="activityChart" style="max-height: 200px;"></canvas>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h3 style="color: #9db4d4; font-size: 0.9rem; font-weight: normal; margin: 0;">Activity (Last 30 Days)</h3>
+          <span style="color: #888; font-size: 0.75rem;" id="chartLastUpdate">Loading...</span>
+        </div>
+        <div style="position: relative; height: 200px;">
+          <canvas id="activityChart"></canvas>
+        </div>
+        <div id="chartNoData" style="display: none; text-align: center; padding: 2rem; color: #888; font-size: 0.9rem;">
+          No activity data available yet. Start using the vault to see analytics!
+        </div>
       </div>
       <div style="background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d;">
-        <h3 style="color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.75rem; font-weight: normal;">Event Distribution</h3>
-        <canvas id="distributionChart" style="max-height: 200px;"></canvas>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h3 style="color: #9db4d4; font-size: 0.9rem; font-weight: normal; margin: 0;">Event Distribution</h3>
+        </div>
+        <div style="position: relative; height: 200px;">
+          <canvas id="distributionChart"></canvas>
+        </div>
+        <div id="chartNoDataDist" style="display: none; text-align: center; padding: 2rem; color: #888; font-size: 0.9rem;">
+          No events recorded yet.
+        </div>
       </div>
     </div>
 
@@ -1178,35 +1297,84 @@ router.get("/", async (request, params, query) => {
       </div>
     `}
 
-    ${recentPasswords.length > 0 ? `
-      <div style="background: #2d2d2d; padding: 1.5rem; border-radius: 8px; border: 1px solid #3d3d3d; margin-top: 1.5rem; margin-bottom: 1.5rem;">
-        <h2 style="color: #9db4d4; margin-bottom: 1rem;">Most Recent Passwords</h2>
-        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-          ${recentPasswords.map(p => `
-            <a href="/passwords/${p._id}" style="display: block; background: #1d1d1d; padding: 1rem; border-radius: 4px; border: 1px solid #3d3d3d; text-decoration: none; color: #e0e0e0; transition: background 0.2s;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">${escapeHtml(p.website)}</div>
-                  ${p.username ? `<div style="font-size: 0.85rem; color: #b0b0b0;">${escapeHtml(p.username)}</div>` : ''}
-                  <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Added ${p.createdAt.toLocaleDateString()}</div>
+    <!-- Recent Items Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+      ${recentPasswords.length > 0 ? `
+        <div style="background: #2d2d2d; padding: 1.5rem; border-radius: 8px; border: 1px solid #3d3d3d;">
+          <h2 style="color: #9db4d4; margin-bottom: 1rem; font-size: 1.1rem;">Recent Passwords</h2>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            ${recentPasswords.map(p => `
+              <a href="/passwords/${p._id}" style="display: block; background: #1d1d1d; padding: 1rem; border-radius: 4px; border: 1px solid #3d3d3d; text-decoration: none; color: #e0e0e0; transition: background 0.2s;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">${escapeHtml(p.website)}</div>
+                    ${p.username ? `<div style="font-size: 0.85rem; color: #b0b0b0;">${escapeHtml(p.username)}</div>` : ''}
+                    <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Added ${p.createdAt.toLocaleDateString()}</div>
+                  </div>
+                  <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: #888;">
+                    <span>👁️ ${p.searchCount || 0}</span>
+                    <span>📋 ${p.copyCount || 0}</span>
+                  </div>
                 </div>
-                <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: #888;">
-                  <span>👁️ ${p.searchCount || 0}</span>
-                  <span>📋 ${p.copyCount || 0}</span>
-                </div>
-              </div>
-            </a>
-          `).join('')}
-        </div>
-        ${passwordCount > 3 ? `
-          <div style="margin-top: 1rem; text-align: center;">
-            <a href="/passwords" style="color: #9db4d4; text-decoration: none; font-size: 0.9rem;">View All Passwords →</a>
+              </a>
+            `).join('')}
           </div>
-        ` : ''}
-      </div>
-    ` : ''}
+          ${passwordCount > 3 ? `
+            <div style="margin-top: 1rem; text-align: center;">
+              <a href="/passwords" style="color: #9db4d4; text-decoration: none; font-size: 0.9rem;">View All →</a>
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+      ${totpEntries.length > 0 ? `
+        <div style="background: #2d2d2d; padding: 1.5rem; border-radius: 8px; border: 1px solid #3d3d3d;">
+          <h2 style="color: #9db4d4; margin-bottom: 1rem; font-size: 1.1rem;">TOTP Codes</h2>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            ${(await Promise.all(totpEntries.map(async (e) => {
+              try {
+                const code = await getCurrentTotpCode(e);
+                return `
+                  <div style="background: #1d1d1d; padding: 1rem; border-radius: 4px; border: 1px solid #3d3d3d;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <div>
+                        <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">${escapeHtml(e.label)}</div>
+                        ${e.account ? `<div style="font-size: 0.85rem; color: #b0b0b0;">${escapeHtml(e.account)}</div>` : ''}
+                        <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">${e.type === 'TOTP' ? 'Time-based' : 'Counter-based'}</div>
+                      </div>
+                      <div style="text-align: right;">
+                        <div style="font-family: monospace; font-size: 1.2rem; font-weight: bold; color: #7fb069; margin-bottom: 0.25rem;" id="dashboard-totp-${e._id}">${code || '---'}</div>
+                        ${e.type === 'TOTP' ? `<div style="font-size: 0.7rem; color: #888;" id="dashboard-totp-timer-${e._id}">Refreshing...</div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              } catch (error) {
+                return `
+                  <div style="background: #1d1d1d; padding: 1rem; border-radius: 4px; border: 1px solid #3d3d3d;">
+                    <div style="color: #9db4d4; font-weight: bold;">${escapeHtml(e.label)}</div>
+                    <div style="color: #888; font-size: 0.8rem; margin-top: 0.25rem;">Error loading code</div>
+                  </div>
+                `;
+              }
+            }))).join('')}
+          </div>
+          ${totpCount > 3 ? `
+            <div style="margin-top: 1rem; text-align: center;">
+              <a href="/totp" style="color: #9db4d4; text-decoration: none; font-size: 0.9rem;">View All →</a>
+            </div>
+          ` : ''}
+        </div>
+      ` : totpCount === 0 ? `
+        <div style="background: #2d2d2d; padding: 1.5rem; border-radius: 8px; border: 1px solid #3d3d3d;">
+          <h2 style="color: #9db4d4; margin-bottom: 1rem; font-size: 1.1rem;">TOTP Codes</h2>
+          <p style="color: #b0b0b0; margin-bottom: 1rem; font-size: 0.9rem;">No TOTP codes saved yet.</p>
+          <a href="/totp/add" style="display: inline-block; background: #3d3d3d; color: #e0e0e0; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; border: 1px solid #4d4d4d;">Add TOTP Code</a>
+        </div>
+      ` : ''}
+    </div>
+
+    <script src="/chart.js"></script>
     <script>
       // Format uptime
       function formatUptime(seconds) {
@@ -1235,6 +1403,27 @@ router.get("/", async (request, params, query) => {
           if (analyticsRes.ok) {
             const analytics = await analyticsRes.json();
 
+            // Update last update time
+            const lastUpdateEl = document.getElementById('chartLastUpdate');
+            if (lastUpdateEl) {
+              lastUpdateEl.textContent = 'Updated: ' + new Date().toLocaleTimeString();
+            }
+
+            // Check if we have any data
+            const hasAnyData = (analytics.adds || 0) + (analytics.deletes || 0) + (analytics.views || 0) +
+                              (analytics.copies || 0) + (analytics.edits || 0) + (analytics.errors || 0) > 0;
+
+            const noDataEl = document.getElementById('chartNoData');
+            const noDataDistEl = document.getElementById('chartNoDataDist');
+
+            if (!hasAnyData) {
+              if (noDataEl) noDataEl.style.display = 'block';
+              if (noDataDistEl) noDataDistEl.style.display = 'block';
+            } else {
+              if (noDataEl) noDataEl.style.display = 'none';
+              if (noDataDistEl) noDataDistEl.style.display = 'none';
+            }
+
             // Update totals
             document.getElementById('totalAdds').textContent = analytics.adds || 0;
             document.getElementById('totalDeletes').textContent = analytics.deletes || 0;
@@ -1244,16 +1433,32 @@ router.get("/", async (request, params, query) => {
 
             // Activity chart
             const activityCtx = document.getElementById('activityChart');
-            if (activityCtx && analytics.dailyData && analytics.dailyData.length > 0) {
-              const labels = analytics.dailyData.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            if (activityCtx) {
+              // Ensure we have data (fill with zeros if empty)
+              const hasData = analytics.dailyData && analytics.dailyData.length > 0;
+              const labels = hasData
+                ? analytics.dailyData.map(d => {
+                    const date = new Date(d.date);
+                    // Show fewer labels if many days (every 3-5 days)
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  })
+                : [];
+
+              const viewsData = hasData ? analytics.dailyData.map(d => d.views) : [];
+              const copiesData = hasData ? analytics.dailyData.map(d => d.copies) : [];
+              const addsData = hasData ? analytics.dailyData.map(d => d.adds) : [];
+              const editsData = hasData ? analytics.dailyData.map(d => d.edits) : [];
+              const deletesData = hasData ? analytics.dailyData.map(d => d.deletes) : [];
 
               // Update existing chart or create new one
               if (window.activityChart && window.activityChart.data) {
                 window.activityChart.data.labels = labels;
-                window.activityChart.data.datasets[0].data = analytics.dailyData.map(d => d.views);
-                window.activityChart.data.datasets[1].data = analytics.dailyData.map(d => d.copies);
-                window.activityChart.data.datasets[2].data = analytics.dailyData.map(d => d.adds);
-                window.activityChart.update();
+                window.activityChart.data.datasets[0].data = viewsData;
+                window.activityChart.data.datasets[1].data = copiesData;
+                window.activityChart.data.datasets[2].data = addsData;
+                window.activityChart.data.datasets[3].data = editsData;
+                window.activityChart.data.datasets[4].data = deletesData;
+                window.activityChart.update('active');
               } else {
                 // Destroy existing chart if it exists but is invalid
                 if (window.activityChart && typeof window.activityChart.destroy === 'function') {
@@ -1268,18 +1473,94 @@ router.get("/", async (request, params, query) => {
                   data: {
                     labels: labels,
                     datasets: [
-                      { label: 'Views', data: analytics.dailyData.map(d => d.views), borderColor: '#9db4d4', backgroundColor: 'rgba(157, 180, 212, 0.1)', tension: 0.4 },
-                      { label: 'Copies', data: analytics.dailyData.map(d => d.copies), borderColor: '#7fb069', backgroundColor: 'rgba(127, 176, 105, 0.1)', tension: 0.4 },
-                      { label: 'Adds', data: analytics.dailyData.map(d => d.adds), borderColor: '#9db4d4', backgroundColor: 'rgba(157, 180, 212, 0.1)', tension: 0.4, borderDash: [5, 5] }
+                      {
+                        label: 'Views',
+                        data: viewsData,
+                        borderColor: '#9db4d4',
+                        backgroundColor: 'rgba(157, 180, 212, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                      },
+                      {
+                        label: 'Copies',
+                        data: copiesData,
+                        borderColor: '#7fb069',
+                        backgroundColor: 'rgba(127, 176, 105, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                      },
+                      {
+                        label: 'Adds',
+                        data: addsData,
+                        borderColor: '#9db4d4',
+                        backgroundColor: 'rgba(157, 180, 212, 0.1)',
+                        tension: 0.4,
+                        borderDash: [5, 5],
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                      },
+                      {
+                        label: 'Edits',
+                        data: editsData,
+                        borderColor: '#d4a5a5',
+                        backgroundColor: 'rgba(212, 165, 165, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                      },
+                      {
+                        label: 'Deletes',
+                        data: deletesData,
+                        borderColor: '#d4a5a5',
+                        backgroundColor: 'rgba(212, 165, 165, 0.1)',
+                        tension: 0.4,
+                        borderDash: [3, 3],
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                      }
                     ]
                   },
                   options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#b0b0b0', font: { size: 11 } } } },
+                    interaction: {
+                      mode: 'index',
+                      intersect: false
+                    },
+                    plugins: {
+                      legend: {
+                        labels: { color: '#b0b0b0', font: { size: 11 } },
+                        position: 'top'
+                      },
+                      tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#e0e0e0',
+                        bodyColor: '#b0b0b0',
+                        borderColor: '#3d3d3d',
+                        borderWidth: 1
+                      }
+                    },
                     scales: {
-                      x: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#3d3d3d' } },
-                      y: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#3d3d3d' }, beginAtZero: true }
+                      x: {
+                        ticks: {
+                          color: '#888',
+                          font: { size: 10 },
+                          maxRotation: 45,
+                          minRotation: 0
+                        },
+                        grid: { color: '#3d3d3d' }
+                      },
+                      y: {
+                        ticks: {
+                          color: '#888',
+                          font: { size: 10 },
+                          stepSize: 1
+                        },
+                        grid: { color: '#3d3d3d' },
+                        beginAtZero: true
+                      }
                     }
                   }
                 });
@@ -1289,13 +1570,33 @@ router.get("/", async (request, params, query) => {
             // Distribution chart
             const distCtx = document.getElementById('distributionChart');
             if (distCtx) {
+              const chartData = [
+                analytics.views || 0,
+                analytics.copies || 0,
+                analytics.adds || 0,
+                analytics.edits || 0,
+                analytics.deletes || 0,
+                analytics.errors || 0
+              ];
+
+              // Only show non-zero values in legend and data
+              const labels = ['Views', 'Copies', 'Adds', 'Edits', 'Deletes', 'Errors'];
+              const colors = ['#9db4d4', '#7fb069', '#9db4d4', '#9db4d4', '#d4a5a5', '#d4a5a5'];
+
+              // Filter out zero values for better visualization
+              const filteredData = chartData.map((val, idx) => ({ val, label: labels[idx], color: colors[idx] }))
+                .filter(item => item.val > 0);
+
+              const finalData = filteredData.map(item => item.val);
+              const finalLabels = filteredData.map(item => item.label);
+              const finalColors = filteredData.map(item => item.color);
+
               // Update existing chart or create new one
               if (window.distributionChart && window.distributionChart.data) {
-                window.distributionChart.data.datasets[0].data = [
-                  analytics.views, analytics.copies, analytics.adds,
-                  analytics.edits, analytics.deletes, analytics.errors
-                ];
-                window.distributionChart.update();
+                window.distributionChart.data.labels = finalLabels.length > 0 ? finalLabels : labels;
+                window.distributionChart.data.datasets[0].data = finalData.length > 0 ? finalData : chartData;
+                window.distributionChart.data.datasets[0].backgroundColor = finalColors.length > 0 ? finalColors : colors;
+                window.distributionChart.update('active');
               } else {
                 // Destroy existing chart if it exists but is invalid
                 if (window.distributionChart && typeof window.distributionChart.destroy === 'function') {
@@ -1308,16 +1609,43 @@ router.get("/", async (request, params, query) => {
                 window.distributionChart = new Chart(distCtx, {
                   type: 'doughnut',
                   data: {
-                    labels: ['Views', 'Copies', 'Adds', 'Edits', 'Deletes', 'Errors'],
+                    labels: finalLabels.length > 0 ? finalLabels : labels,
                     datasets: [{
-                      data: [analytics.views, analytics.copies, analytics.adds, analytics.edits, analytics.deletes, analytics.errors],
-                      backgroundColor: ['#9db4d4', '#7fb069', '#9db4d4', '#9db4d4', '#d4a5a5', '#d4a5a5']
+                      data: finalData.length > 0 ? finalData : chartData,
+                      backgroundColor: finalColors.length > 0 ? finalColors : colors,
+                      borderWidth: 2,
+                      borderColor: '#1d1d1d'
                     }]
                   },
                   options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#b0b0b0', font: { size: 11 } }, position: 'bottom' } }
+                    plugins: {
+                      legend: {
+                        labels: {
+                          color: '#b0b0b0',
+                          font: { size: 11 },
+                          padding: 10
+                        },
+                        position: 'bottom'
+                      },
+                      tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#e0e0e0',
+                        bodyColor: '#b0b0b0',
+                        borderColor: '#3d3d3d',
+                        borderWidth: 1,
+                        callbacks: {
+                          label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return label + ': ' + value + ' (' + percentage + '%)';
+                          }
+                        }
+                      }
+                    }
                   }
                 });
               }
@@ -1337,6 +1665,35 @@ router.get("/", async (request, params, query) => {
 
       loadAnalytics();
       setInterval(loadAnalytics, 30000); // Refresh every 30 seconds
+
+      // Refresh TOTP codes on dashboard
+      async function refreshTotpCodes() {
+        const totpElements = document.querySelectorAll('[id^="dashboard-totp-"]');
+        for (const element of totpElements) {
+          const entryId = element.id.replace('dashboard-totp-', '');
+          if (entryId && !element.id.includes('timer')) {
+            try {
+              const response = await fetch('/totp/code?id=' + entryId);
+              if (response.ok) {
+                const data = await response.json();
+                element.textContent = data.code || '---';
+
+                // Update timer if exists
+                const timerElement = document.getElementById('dashboard-totp-timer-' + entryId);
+                if (timerElement && data.remainingSeconds !== undefined) {
+                  timerElement.textContent = data.remainingSeconds + 's remaining';
+                }
+              }
+            } catch (error) {
+              console.error('Error refreshing TOTP code:', error);
+            }
+          }
+        }
+      }
+
+      // Refresh TOTP codes every 5 seconds
+      refreshTotpCodes();
+      setInterval(refreshTotpCodes, 5000);
     </script>
   `;
 
@@ -1717,7 +2074,13 @@ router.get("/totp/code", async (request, params, query) => {
   }
   try {
     const code = await getCurrentTotpCode(entry);
-    const body = JSON.stringify({ code, period: entry.period || 30, now: Date.now() });
+    const period = entry.period || 30;
+    const now = Date.now();
+    const currentPeriod = Math.floor(now / 1000 / period);
+    const periodStart = currentPeriod * period * 1000;
+    const periodEnd = periodStart + (period * 1000);
+    const remainingSeconds = Math.floor((periodEnd - now) / 1000);
+    const body = JSON.stringify({ code, period, now, remainingSeconds });
     return new Response(body, { headers: { ...SECURITY_HEADERS, "Content-Type": "application/json" } });
   } catch (e) {
     return createErrorResponse(500, "Failed to generate code");
@@ -2551,6 +2914,7 @@ try {
   // Set connection time only after successful connection
   dbConnectTime = Date.now();
   (globalThis as any).dbConnectTime = dbConnectTime;
+  logger.info('Database indexes initialized for optimal performance');
 } catch (error) {
   logger.error('MongoDB connection failed. Server will continue without database.');
   logger.warn('Set MONGODB_URI environment variable to connect to MongoDB.');

@@ -109,14 +109,37 @@ export async function getAnalyticsData(
     dayData[event.eventType]++;
   });
 
-  // Convert to array and sort by date
-  const dailyData = Array.from(dailyMap.entries())
-    .map(([date, data]) => ({ date, ...data }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // Fill in missing days with zero values to ensure continuous graph
+  const filledDailyData: Array<{
+    date: string;
+    adds: number;
+    deletes: number;
+    edits: number;
+    copies: number;
+    views: number;
+    errors: number;
+  }> = [];
+
+  const currentDate = new Date(startDate);
+  const endDateObj = new Date(endDate);
+
+  // Generate all days in the range
+  while (currentDate <= endDateObj) {
+    const dateKey = currentDate.toISOString().split('T')[0];
+    const dayData = dailyMap.get(dateKey) || { ...totals };
+    filledDailyData.push({
+      date: dateKey,
+      ...dayData
+    });
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // Sort by date
+  filledDailyData.sort((a, b) => a.date.localeCompare(b.date));
 
   return {
     ...totals,
-    dailyData,
+    dailyData: filledDailyData,
   };
 }
 

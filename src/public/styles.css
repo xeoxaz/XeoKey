@@ -37,6 +37,8 @@ header {
   flex-shrink: 0;
   margin: 0;
   padding: 0;
+  position: relative;
+  z-index: 1001; /* Above bottom nav */
 }
 
 .session-timer-fill {
@@ -428,9 +430,40 @@ button:active {
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
+    z-index: 1000 !important; /* Below session timer */
+    height: auto !important;
   }
 
-  /* Add padding to main content so it doesn't get hidden behind nav */
+  /* Move session timer to bottom on mobile, right on top of nav bar */
+  /* The timer is in the header DOM, but we reposition it visually on mobile */
+  #sessionTimer.session-timer {
+    position: fixed !important;
+    /* Bottom nav items: min-height 60px + top padding 0.5rem + bottom padding 0.5rem */
+    /* Position timer exactly on top of nav bar (no gap) */
+    bottom: calc(60px + 1rem + max(0px, env(safe-area-inset-bottom, 0px))) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 1002 !important; /* In front of bottom nav (nav is 1000, timer is 1002) */
+    height: 3px !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    top: auto !important; /* Override any top positioning */
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.6) !important; /* Strong shadow to make timer clearly visible in front */
+  }
+
+  /* Remove timer from header's normal flow on mobile */
+  header {
+    position: relative;
+  }
+
+  header #sessionTimer.session-timer {
+    /* Remove from header's layout flow - it's now fixed at bottom */
+    position: fixed !important;
+  }
+
+  /* Add padding to main content so it doesn't get hidden behind nav and timer */
   main {
     padding-bottom: 80px !important;
   }
