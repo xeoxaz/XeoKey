@@ -62,15 +62,9 @@ if ([string]::IsNullOrWhiteSpace($gitName)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($gitEmail)) {
-    # Try to get from parent repo
-    $parentEmail = git -C .. config user.email 2>$null
-    if ($parentEmail) {
-        git config user.email $parentEmail
-        $gitEmail = $parentEmail
-    } else {
-        git config user.email "xeokey@example.com"
-        $gitEmail = "xeokey@example.com"
-    }
+    # Use GitHub no-reply email to avoid privacy restrictions
+    $gitEmail = "xeoxaz@users.noreply.github.com"
+    git config user.email $gitEmail
 }
 
 Write-Host "  Using git identity: $gitName <$gitEmail>" -ForegroundColor Gray
