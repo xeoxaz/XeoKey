@@ -423,27 +423,16 @@ function initVaultSessionTimer() {
   if (!timer || !fill) return; // only present when logged in
 
   const DURATION_MS = 5 * 60 * 1000; // 5 minutes
-  let lastActivity = Date.now();
+  const startTime = Date.now(); // Fixed start time - never resets
   let expired = false;
 
   // Keep CSS in sync even if header layout changes
   timer.style.display = 'block';
 
-  function reset() {
-    lastActivity = Date.now();
-  }
-
-  // Activity signals (lightweight set)
-  const activityHandler = () => reset();
-  document.addEventListener('pointerdown', activityHandler, { passive: true, capture: true });
-  document.addEventListener('keydown', activityHandler, { passive: true, capture: true });
-  document.addEventListener('touchstart', activityHandler, { passive: true, capture: true });
-  // Intentionally NOT resetting on scroll (scrolling shouldn't extend vault time)
-
   function tick() {
     if (expired) return;
     const now = Date.now();
-    const elapsed = now - lastActivity;
+    const elapsed = now - startTime;
     const remaining = Math.max(0, DURATION_MS - elapsed);
     const pct = Math.max(0, Math.min(100, (remaining / DURATION_MS) * 100));
     fill.style.width = pct + '%';
