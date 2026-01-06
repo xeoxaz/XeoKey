@@ -1,16 +1,25 @@
-import { Monitor } from '@frostal/monitor';
+import { mkdir, writeFile, appendFile } from 'fs/promises';
+import { dirname } from 'path';
+
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+interface LoggerOptions {
+  enableFileLogging?: boolean;
+  logFilePath?: string;
+  logLevel?: LogLevel;
+}
 
 // Get log level from environment or default to 'info'
-function getLogLevel(): 'debug' | 'info' | 'warn' | 'error' {
+function getLogLevel(): LogLevel {
   const logLevelEnv = process.env.LOG_LEVEL || process.env.LOGLEVEL || '';
-  const validLogLevels: ('debug' | 'info' | 'warn' | 'error')[] = ['debug', 'info', 'warn', 'error'];
+  const validLogLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
   const nodeEnv = process.env.NODE_ENV || 'development';
 
-  if (logLevelEnv && validLogLevels.includes(logLevelEnv.toLowerCase() as any)) {
-    return logLevelEnv.toLowerCase() as 'debug' | 'info' | 'warn' | 'error';
+  if (logLevelEnv && validLogLevels.includes(logLevelEnv.toLowerCase() as LogLevel)) {
+    return logLevelEnv.toLowerCase() as LogLevel;
   }
 
-  // Default: debug in development, info in production
+  // Default: info in production, info in development
   return nodeEnv === 'production' ? 'info' : 'info';
 }
 
@@ -24,31 +33,136 @@ export function isDebugMode(): boolean {
          logLevel === 'debug';
 }
 
+// Log level priority
+const LOG_LEVELS: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3
+};
+
+class SimpleLogger {
+  private name: string;
+  private options: LoggerOptions;
+  private logLevel: LogLevel;
+
+  constructor(name: string, options: LoggerOptions = {}) {
+    this.name = name;
+    this.options = {
+      enableFileLogging: true,
+      logFilePath: './logs/server.log',
+      logLevel: getLogLevel(),
+      ...options
+    };
+    this.logLevel = this.options.logLevel || getLogLevel();
+
+    // Ensure log directory exists
+    if (this.options.enableFileLogging && this.options.logFilePath) {
+      this.ensureLogDirectory(this.options.logFilePath).catch(err => {
+        console.error(`Failed to create log directory: ${err}`);
+      });
+    }
+  }
+
+  private async ensureLogDirectory(filePath: string): Promise<void> {
+    try {
+      const dir = dirname(filePath);
+      await mkdir(dir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist, ignore error
+    }
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    return LOG_LEVELS[level] >= LOG_LEVELS[this.logLevel];
+  }
+
+  private formatMessage(level: LogLevel, message: string, ...args: any[]): string {
+    const timestamp = new Date().toISOString();
+    const formattedArgs = args.length > 0 ? ' ' + args.map(arg =>
+      typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+    ).join(' ') : '';
+    return `[${timestamp}] [${level.toUpperCase()}] [${this.name}] ${message}${formattedArgs}`;
+  }
+
+  private async writeToFile(message: string): Promise<void> {
+    if (!this.options.enableFileLogging || !this.options.logFilePath) {
+      return;
+    }
+
+    try {
+      await appendFile(this.options.logFilePath, message + '\n', 'utf8');
+    } catch (error) {
+      // Silently fail file logging to avoid breaking the application
+      console.error(`Failed to write to log file: ${error}`);
+    }
+  }
+
+  private log(level: LogLevel, message: string, ...args: any[]): void {
+    if (!this.shouldLog(level)) {
+      return;
+    }
+
+    const formattedMessage = this.formatMessage(level, message, ...args);
+
+    // Console output with colors
+    const colors: Record<LogLevel, string> = {
+      debug: '\x1b[36m', // Cyan
+      info: '\x1b[32m',  // Green
+      warn: '\x1b[33m', // Yellow
+      error: '\x1b[31m' // Red
+    };
+    const reset = '\x1b[0m';
+
+    console.log(`${colors[level]}${formattedMessage}${reset}`);
+
+    // File logging (async, don't wait)
+    this.writeToFile(formattedMessage).catch(() => {
+      // Ignore file write errors
+    });
+  }
+
+  debug(message: string, ...args: any[]): void {
+    this.log('debug', message, ...args);
+  }
+
+  info(message: string, ...args: any[]): void {
+    this.log('info', message, ...args);
+  }
+
+  warn(message: string, ...args: any[]): void {
+    this.log('warn', message, ...args);
+  }
+
+  error(message: string, ...args: any[]): void {
+    this.log('error', message, ...args);
+  }
+}
+
 const logLevel = getLogLevel();
 
 // Shared logger instance for the application
-export const logger = new Monitor('XeoKey', {
+export const logger = new SimpleLogger('XeoKey', {
   enableFileLogging: true,
   logFilePath: './logs/server.log',
   logLevel
 });
 
 // Specialized loggers for different modules
-export const dbLogger = new Monitor('Database', {
+export const dbLogger = new SimpleLogger('Database', {
   enableFileLogging: true,
   logFilePath: './logs/server.log',
   logLevel
 });
 
-export const passwordLogger = new Monitor('Password', {
+export const passwordLogger = new SimpleLogger('Password', {
   enableFileLogging: true,
   logFilePath: './logs/server.log',
   logLevel
 });
 
-export const analyticsLogger = new Monitor('Analytics', {
+export const analyticsLogger = new SimpleLogger('Analytics', {
   enableFileLogging: true,
   logFilePath: './logs/server.log',
   logLevel
 });
-

@@ -11,7 +11,7 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
 - 🔍 **Password Strength Analysis** - Automatic detection of weak and duplicate passwords
 - 📱 **Modern UI** - Clean, responsive interface with dark theme
 - 🛡️ **Security Features** - CSRF protection, rate limiting, input sanitization
-- 📝 **File Logging** - Comprehensive logging with the Monitor logger
+- 📝 **File Logging** - Comprehensive built-in logging system
 - ⚡ **Fast Performance** - Built with Bun runtime for optimal speed
 
 ## Prerequisites
@@ -213,7 +213,7 @@ The dashboard provides comprehensive analytics:
 
 ## Logging
 
-The application uses the [Monitor](https://github.com/xeoxaz/Monitor) logger for structured logging:
+The application uses a built-in logger for structured logging:
 
 - **Console Output**: Color-coded logs with timestamps
 - **File Logging**: All logs written to `./logs/server.log`

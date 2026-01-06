@@ -4,7 +4,6 @@
     "": {
       "name": "xeokey-server",
       "dependencies": {
-        "@frostal/monitor": "github:xeoxaz/Monitor",
         "bcryptjs": "^3.0.3",
         "chart.js": "^4.5.1",
         "mongodb": "^7.0.0",
@@ -16,8 +15,6 @@
     },
   },
   "packages": {
-    "@frostal/monitor": ["@frostal/monitor@github:xeoxaz/Monitor#9e8af23", {}, "xeoxaz-Monitor-9e8af23"],
-
     "@kurkle/color": ["@kurkle/color@0.3.4", "", {}, "sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w=="],
 
     "@mongodb-js/saslprep": ["@mongodb-js/saslprep@1.4.0", "", { "dependencies": { "sparse-bitfield": "^3.0.3" } }, "sha512-ZHzx7Z3rdlWL1mECydvpryWN/ETXJiCxdgQKTAH+djzIPe77HdnSizKBDi1TVDXZjXyOj2IqEG/vPw71ULF06w=="],
