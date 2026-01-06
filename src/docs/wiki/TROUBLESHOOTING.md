@@ -2,6 +2,8 @@
 
 Common issues and solutions for XeoKey.
 
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Deployment](Deployment)
+
 ## Server Issues
 
 ### Server won't start
@@ -405,10 +407,10 @@ If you're still experiencing issues:
    Restart server and reproduce the issue, then check logs.
 
 3. **Check documentation:**
-   - [Installation Guide](./INSTALLATION.md)
-   - [Configuration Guide](./CONFIGURATION.md)
-   - [Security Guide](./SECURITY.md)
-   - [Deployment Guide](./DEPLOYMENT.md)
+   - [Installation Guide](Installation)
+   - [Configuration Guide](Configuration)
+   - [Security Guide](Security)
+   - [Deployment Guide](Deployment)
 
 4. **Open an issue:**
    - Include error messages from logs
@@ -434,4 +436,8 @@ If you're still experiencing issues:
 
 ### "Encryption key not set"
 - **Solution:** Set `ENCRYPTION_KEY` in `.env` (required for production)
+
+---
+
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Deployment](Deployment)
 

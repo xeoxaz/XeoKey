@@ -2,6 +2,8 @@
 
 This guide will walk you through installing and setting up XeoKey on your system.
 
+**Navigation**: [Home](Home) | [Configuration](Configuration) | [Deployment](Deployment) | [Troubleshooting](Troubleshooting)
+
 ## Prerequisites
 
 - **[Bun](https://bun.sh)** - JavaScript runtime (v1.3.4 or later)
@@ -118,8 +120,12 @@ The server will start on `http://localhost:3000` by default (or the port specifi
 
 ## Next Steps
 
-- Read the [Configuration Guide](./CONFIGURATION.md) for detailed environment variable setup
-- Check the [Security Guide](./SECURITY.md) for security best practices
-- Review the [API Documentation](./API.md) for integration details
-- See [Troubleshooting](./TROUBLESHOOTING.md) if you encounter any issues
+- Read the [Configuration Guide](Configuration) for detailed environment variable setup
+- Check the [Security Guide](Security) for security best practices
+- Review the [API Documentation](API) for integration details
+- See [Troubleshooting](Troubleshooting) if you encounter any issues
+
+---
+
+**Navigation**: [Home](Home) | [Configuration](Configuration) | [Deployment](Deployment) | [Troubleshooting](Troubleshooting)
 

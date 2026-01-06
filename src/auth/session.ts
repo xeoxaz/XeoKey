@@ -1,6 +1,7 @@
 import { getDatabase } from '../db/mongodb';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { logger } from '../utils/logger';
 
 export interface Session {
   sessionId: string;
@@ -41,67 +42,122 @@ function generateSessionId(): string {
 
 // Create a session
 export async function createSession(userId: string, username: string): Promise<string> {
-  const db = getDatabase();
-  const sessionsCollection = db.collection<Session>('sessions');
+  // Input validation
+  if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+    throw new Error('Invalid userId: must be a non-empty string');
+  }
+  if (!username || typeof username !== 'string' || username.trim().length === 0) {
+    throw new Error('Invalid username: must be a non-empty string');
+  }
 
-  const sessionId = generateSessionId();
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + SESSION_DURATION);
+  try {
+    const db = getDatabase();
+    const sessionsCollection = db.collection<Session>('sessions');
 
-  const session: Session = {
-    sessionId,
-    userId,
-    username,
-    createdAt: now,
-    expiresAt,
-    lastAccessed: now,
-  };
+    const sessionId = generateSessionId();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_DURATION);
 
-  await sessionsCollection.insertOne(session);
+    const session: Session = {
+      sessionId,
+      userId: userId.trim(),
+      username: username.trim(),
+      createdAt: now,
+      expiresAt,
+      lastAccessed: now,
+    };
 
-  // Clean up expired sessions
-  await cleanupExpiredSessions();
+    await sessionsCollection.insertOne(session);
 
-  return sessionId;
+    // Clean up expired sessions (don't fail if cleanup fails)
+    try {
+      await cleanupExpiredSessions();
+    } catch (cleanupError) {
+      logger.warn(`Failed to cleanup expired sessions: ${cleanupError}`);
+      // Continue - session creation was successful
+    }
+
+    return sessionId;
+  } catch (error) {
+    logger.error(`Failed to create session for user ${userId}: ${error}`);
+    throw new Error('Failed to create session');
+  }
 }
 
 // Get session by session ID
 export async function getSession(sessionId: string): Promise<Session | null> {
-  const db = getDatabase();
-  const sessionsCollection = db.collection<Session>('sessions');
-
-  const session = await sessionsCollection.findOne({
-    sessionId,
-    expiresAt: { $gt: new Date() },
-  });
-
-  if (session) {
-    // Update last accessed time
-    await sessionsCollection.updateOne(
-      { sessionId },
-      { $set: { lastAccessed: new Date() } }
-    );
+  // Input validation
+  if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
+    return null;
   }
 
-  return session;
+  try {
+    const db = getDatabase();
+    const sessionsCollection = db.collection<Session>('sessions');
+
+    const session = await sessionsCollection.findOne({
+      sessionId: sessionId.trim(),
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (session) {
+      // Update last accessed time (don't fail if update fails)
+      try {
+        await sessionsCollection.updateOne(
+          { sessionId: sessionId.trim() },
+          { $set: { lastAccessed: new Date() } }
+        );
+      } catch (updateError) {
+        logger.warn(`Failed to update last accessed time for session ${sessionId}: ${updateError}`);
+        // Continue - session retrieval was successful
+      }
+    }
+
+    return session;
+  } catch (error) {
+    logger.error(`Failed to get session ${sessionId}: ${error}`);
+    return null; // Return null on error to prevent authentication bypass
+  }
 }
 
 // Delete a session (logout)
 export async function deleteSession(sessionId: string): Promise<void> {
-  const db = getDatabase();
-  const sessionsCollection = db.collection('sessions');
+  // Input validation
+  if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
+    logger.warn('Attempted to delete session with invalid sessionId');
+    return; // Silently return - invalid session ID means nothing to delete
+  }
 
-  await sessionsCollection.deleteOne({ sessionId });
+  try {
+    const db = getDatabase();
+    const sessionsCollection = db.collection('sessions');
+
+    await sessionsCollection.deleteOne({ sessionId: sessionId.trim() });
+  } catch (error) {
+    logger.error(`Failed to delete session ${sessionId}: ${error}`);
+    // Don't throw - logout should succeed even if cleanup fails
+    // The session will expire naturally anyway
+  }
 }
 
 // Clean up expired sessions
 export async function cleanupExpiredSessions(): Promise<void> {
-  const db = getDatabase();
-  const sessionsCollection = db.collection('sessions');
+  try {
+    const db = getDatabase();
+    const sessionsCollection = db.collection('sessions');
 
-  await sessionsCollection.deleteMany({
-    expiresAt: { $lt: new Date() },
-  });
+    const result = await sessionsCollection.deleteMany({
+      expiresAt: { $lt: new Date() },
+    });
+
+    if (result.deletedCount > 0) {
+      logger.debug(`Cleaned up ${result.deletedCount} expired session(s)`);
+    }
+  } catch (error) {
+    logger.error(`Failed to cleanup expired sessions: ${error}`);
+    // Don't throw - cleanup is a background operation
+    // Failed cleanup doesn't break the application
+  }
 }
 
 // Get session from request cookies

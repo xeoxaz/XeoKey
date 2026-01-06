@@ -1,33 +1,22 @@
 {
-  "name": "xeokey-server",
+  "name": "xeokey",
   "version": "1.0.0",
-  "description": "A secure, self-hosted password manager built with Bun and MongoDB. Features password encryption, analytics tracking, and a modern web interface.",
+  "description": "A secure, self-hosted password manager built with Bun and MongoDB",
   "type": "module",
-  "main": "server.ts",
+  "private": true,
   "scripts": {
-    "dev": "bun run --watch server.ts",
-    "start": "bun run server.ts",
-    "typecheck": "bun --bun tsc --noEmit",
-    "test": "bun test",
-    "test:unit": "bun test tests/unit",
-    "test:integration": "bun test tests/integration",
-    "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage"
+    "dev": "cd src && bun run dev",
+    "start": "cd src && bun run start",
+    "typecheck": "cd src && bun run typecheck",
+    "test": "cd src && bun test",
+    "test:unit": "cd src && bun test tests/unit",
+    "test:integration": "cd src && bun test tests/integration",
+    "test:watch": "cd src && bun test --watch",
+    "test:coverage": "cd src && bun test --coverage"
   },
-  "keywords": [
-    "password-manager",
-    "security",
-    "bun",
-    "mongodb",
-    "self-hosted",
-    "typescript",
-    "encryption",
-    "authentication",
-    "web-application",
-    "analytics"
-  ],
-  "author": "xeoxaz",
-  "license": "ISC",
+  "engines": {
+    "bun": ">=1.3.4"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/xeoxaz/XeoKey.git"
@@ -36,16 +25,7 @@
     "url": "https://github.com/xeoxaz/XeoKey/issues"
   },
   "homepage": "https://github.com/xeoxaz/XeoKey#readme",
-  "engines": {
-    "bun": ">=1.3.4"
-  },
-  "dependencies": {
-    "@frostal/monitor": "github:xeoxaz/Monitor",
-    "bcryptjs": "^3.0.3",
-    "mongodb": "^7.0.0"
-  },
-  "devDependencies": {
-    "@types/bcryptjs": "^3.0.0",
-    "@types/node": "^25.0.2"
-  }
+  "license": "ISC",
+  "author": "xeoxaz"
 }
+

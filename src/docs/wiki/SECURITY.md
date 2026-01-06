@@ -2,6 +2,8 @@
 
 Comprehensive security documentation for XeoKey.
 
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Deployment](Deployment)
+
 ## Security Features
 
 XeoKey implements multiple layers of security to protect your passwords and data:
@@ -208,5 +210,9 @@ If you discover a security vulnerability:
 - [MongoDB Security Checklist](https://docs.mongodb.com/manual/administration/security-checklist/)
 - [Bun Security](https://bun.sh/docs/security)
 
-For deployment security, see the [Deployment Guide](./DEPLOYMENT.md).
+For deployment security, see the [Deployment Guide](Deployment).
+
+---
+
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Deployment](Deployment)
 

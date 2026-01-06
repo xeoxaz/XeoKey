@@ -2,6 +2,8 @@
 
 This guide covers all configuration options available in XeoKey.
 
+**Navigation**: [Home](Home) | [Installation](Installation) | [Deployment](Deployment) | [Security](Security)
+
 ## Environment Variables
 
 XeoKey uses environment variables for configuration. You can set these in a `.env` file in the project root, or as system environment variables.
@@ -128,5 +130,9 @@ The server will:
 5. **Restrict database access** to trusted networks
 6. **Use MongoDB authentication** in production
 
-For more security information, see the [Security Guide](./SECURITY.md).
+For more security information, see the [Security Guide](Security).
+
+---
+
+**Navigation**: [Home](Home) | [Installation](Installation) | [Deployment](Deployment) | [Security](Security)
 

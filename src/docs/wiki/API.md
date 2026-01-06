@@ -2,6 +2,8 @@
 
 Complete reference for all API endpoints in XeoKey.
 
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Security](Security)
+
 ## Base URL
 
 All endpoints are relative to the server base URL (default: `http://localhost:3000`).
@@ -216,5 +218,9 @@ All responses include security headers:
 - `Strict-Transport-Security` (HTTPS only)
 - `X-XSS-Protection: 1; mode=block`
 
-For more security information, see the [Security Guide](./SECURITY.md).
+For more security information, see the [Security Guide](Security).
+
+---
+
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Security](Security)
 

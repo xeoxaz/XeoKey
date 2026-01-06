@@ -2,6 +2,8 @@
 
 Complete guide for deploying XeoKey to production.
 
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Security](Security)
+
 ## Pre-Deployment Checklist
 
 - [ ] All environment variables configured
@@ -29,7 +31,7 @@ ENCRYPTION_KEY=<strong-random-key>
 MONGODB_URI=<your-mongodb-connection-string>
 ```
 
-**Important**: Generate strong random keys for production. See [Configuration Guide](./CONFIGURATION.md) for key generation.
+**Important**: Generate strong random keys for production. See [Configuration Guide](Configuration) for key generation.
 
 ### 2. Use HTTPS
 
@@ -391,7 +393,11 @@ See the [Troubleshooting Guide](./TROUBLESHOOTING.md) for common deployment issu
 
 ## Additional Resources
 
-- [Configuration Guide](./CONFIGURATION.md)
-- [Security Guide](./SECURITY.md)
-- [Troubleshooting Guide](./TROUBLESHOOTING.md)
+- [Configuration Guide](Configuration)
+- [Security Guide](Security)
+- [Troubleshooting Guide](Troubleshooting)
+
+---
+
+**Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Security](Security)
 

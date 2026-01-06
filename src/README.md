@@ -22,7 +22,6 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
 
 1. **Clone or download the repository:**
    ```bash
-   git clone https://github.com/xeoxaz/XeoKey.git
    cd XeoKey
    ```
 
@@ -31,11 +30,11 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
    bun install
    ```
 
-   Dependencies will be automatically installed by Bun in the `src` directory.
+   Dependencies will be automatically installed by Bun.
 
 3. **Set up environment variables:**
 
-   Create a `.env` file in the `src` directory (optional, but recommended for production):
+   Create a `.env` file in the root directory (optional, but recommended for production):
    ```env
    # Server Configuration
    PORT=3000
@@ -75,7 +74,10 @@ bun run dev
 bun run start
 ```
 
-**Note:** All commands can be run from the root directory. The scripts automatically work with the `src` directory.
+Or use the provided batch file on Windows:
+```bash
+Start.bat
+```
 
 The server will start on `http://localhost:3000` by default (or the port specified in `PORT` environment variable).
 
@@ -116,38 +118,31 @@ The server will start on `http://localhost:3000` by default (or the port specifi
 
 ```
 XeoKey/
-├── src/               # Source code directory
-│   ├── auth/          # Authentication & session management
-│   │   ├── session.ts # Session handling
-│   │   └── users.ts   # User management
-│   ├── db/            # Database connection
-│   │   └── mongodb.ts # MongoDB client
-│   ├── models/        # Data models
-│   │   ├── analytics.ts # Analytics tracking
-│   │   └── password.ts  # Password management
-│   ├── public/        # Static files
-│   │   ├── script.js  # Client-side JavaScript
-│   │   ├── styles.css # Stylesheet
-│   │   └── favicon.ico # Favicon
-│   ├── security/      # Security features
-│   │   ├── csrf.ts    # CSRF protection
-│   │   └── rateLimit.ts # Rate limiting
-│   ├── templates/     # HTML templates
-│   │   ├── header.html # Page header
-│   │   └── footer.html # Page footer
-│   ├── utils/         # Utilities
-│   │   ├── logger.ts  # Logging system
-│   │   └── sanitize.ts # Input sanitization
-│   ├── logs/          # Log files (auto-created)
-│   │   └── server.log # Application logs
-│   ├── server.ts      # Main server file
-│   ├── package.json   # Dependencies
-│   └── tsconfig.json  # TypeScript configuration
-├── wiki/              # Wiki documentation files
-│   ├── Home.md        # Wiki homepage
-│   ├── API.md         # API documentation
-│   └── ...            # Other wiki pages
-├── package.json       # Root package.json (delegates to src/)
+├── auth/              # Authentication & session management
+│   ├── session.ts     # Session handling
+│   └── users.ts       # User management
+├── db/                # Database connection
+│   └── mongodb.ts     # MongoDB client
+├── models/            # Data models
+│   ├── analytics.ts   # Analytics tracking
+│   └── password.ts    # Password management
+├── public/            # Static files
+│   ├── script.js      # Client-side JavaScript
+│   ├── styles.css     # Stylesheet
+│   └── favicon.ico    # Favicon
+├── security/          # Security features
+│   ├── csrf.ts        # CSRF protection
+│   └── rateLimit.ts   # Rate limiting
+├── templates/         # HTML templates
+│   ├── header.html    # Page header
+│   └── footer.html    # Page footer
+├── utils/             # Utilities
+│   ├── logger.ts      # Logging system
+│   └── sanitize.ts    # Input sanitization
+├── logs/              # Log files (auto-created)
+│   └── server.log     # Application logs
+├── server.ts          # Main server file
+├── package.json       # Dependencies
 └── README.md          # This file
 ```
 
