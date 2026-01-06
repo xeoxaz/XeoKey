@@ -314,12 +314,45 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
   return header;
 }
 
-function getFooter(): string {
+async function getFooter(session: { username: string; userId: string } | null = null, issueCount: number = 0): Promise<string> {
   if (!footerTemplate) {
     throw new Error("Footer template not loaded");
   }
   const year = new Date().getFullYear();
-  return footerTemplate.replace("{{YEAR}}", year.toString());
+  let footer = footerTemplate.replace("{{YEAR}}", year.toString());
+
+  // Populate bottom navigation for mobile if logged in
+  if (session) {
+    const dashboardBadge = issueCount > 0
+      ? `<span class="nav-badge">${issueCount}</span>`
+      : `<span class="nav-badge nav-badge-success">✓</span>`;
+
+    const bottomNavContent = `
+      <a href="/" class="bottom-nav-item">
+        <span class="bottom-nav-icon">📊</span>
+        <span class="bottom-nav-label">Dashboard</span>
+        ${dashboardBadge}
+      </a>
+      <a href="/passwords" class="bottom-nav-item">
+        <span class="bottom-nav-icon">🔑</span>
+        <span class="bottom-nav-label">Passwords</span>
+      </a>
+      <a href="/passwords/add" class="bottom-nav-item">
+        <span class="bottom-nav-icon">➕</span>
+        <span class="bottom-nav-label">Add</span>
+      </a>
+      <a href="/logout" class="bottom-nav-item">
+        <span class="bottom-nav-icon">🚪</span>
+        <span class="bottom-nav-label">Logout</span>
+      </a>
+    `;
+    footer = footer.replace('<!-- Navigation items will be populated by server -->', bottomNavContent);
+  } else {
+    // Hide bottom nav if not logged in
+    footer = footer.replace(/<nav class="bottom-nav"[^>]*>[\s\S]*?<\/nav>/s, '');
+  }
+
+  return footer;
 }
 
 // Render page with header and footer
@@ -336,7 +369,7 @@ async function renderPage(body: string, title: string = "XeoKey", request?: Requ
       issueCount = analysis.duplicateCount + analysis.weakPasswordCount;
     }
   }
-  const html = await getHeader(title, session, issueCount) + body + getFooter();
+  const html = await getHeader(title, session, issueCount) + body + await getFooter(session, issueCount);
   return createResponse(html, "text/html");
 }
 
@@ -1402,7 +1435,7 @@ router.get("/passwords/add", async (request, params, query) => {
       </div>
       <div style="margin-bottom: 1rem;">
         <label for="password" style="display: block; margin-bottom: 0.5rem;">Password *</label>
-        <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+        <div class="password-input-container" style="display: flex; gap: 0.5rem; align-items: flex-start;">
           <div style="flex: 1;">
             <input type="text" id="password" name="password" required style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
             <div id="passwordStrength" style="margin-top: 0.5rem; height: 4px; background: #2d2d2d; border-radius: 2px; overflow: hidden;">

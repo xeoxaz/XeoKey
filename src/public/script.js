@@ -1,5 +1,5 @@
 // Dropdown menu functionality
-document.addEventListener('DOMContentLoaded', function() {
+function initAll() {
   // Attach event listeners to all dropdown buttons
   const dropdownButtons = document.querySelectorAll('.dropdown button');
 
@@ -21,7 +21,28 @@ document.addEventListener('DOMContentLoaded', function() {
   initPasswordStrengthChecker();
   initPasswordMatchChecker();
   initRegisterFormValidation();
-});
+}
+
+// Initialize when DOM is ready - use multiple strategies
+function tryInit() {
+  // Check if elements exist
+  const menuToggle = document.querySelector('.menu-toggle');
+  if (menuToggle || document.body) {
+    initAll();
+  } else {
+    // Retry after a short delay
+    setTimeout(tryInit, 50);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', tryInit);
+} else {
+  // DOM is already loaded, but wait a tick to ensure everything is ready
+  setTimeout(tryInit, 0);
+}
+
+// Side drawer code removed - using bottom navigation instead
 
 function toggleDropdown(button) {
   const dropdown = button.closest('.dropdown');
@@ -842,4 +863,5 @@ function updateEditPasswordStrength(password) {
   strengthText.textContent = text;
   strengthText.style.color = color;
 }
+
 

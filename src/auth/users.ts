@@ -99,7 +99,16 @@ export async function authenticateUser(username: string, password: string): Prom
       // Continue - authentication was successful
     }
 
-    return user;
+    // Convert ObjectId to string for consistency with User interface
+    const userWithStringId: User = {
+      username: user.username,
+      passwordHash: user.passwordHash,
+      createdAt: user.createdAt,
+      lastLogin: user.lastLogin,
+      _id: user._id ? (typeof user._id === 'string' ? user._id : user._id.toString()) : undefined
+    };
+
+    return userWithStringId;
   } catch (error) {
     logger.error(`Failed to authenticate user ${trimmedUsername}: ${error}`);
     return null; // Return null on error to prevent authentication bypass

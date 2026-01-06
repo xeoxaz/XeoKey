@@ -296,7 +296,20 @@ This will:
 
 ## License
 
-ISC License
+### Source Code
+
+The source code of XeoKey is licensed under the **ISC License** - a permissive open source license that allows you to use, modify, and distribute the code freely. See the [LICENSE](../LICENSE) file for full details.
+
+### Design Assets
+
+**The visual design, user interface, styling, and design elements are Copyright (c) 2026, xeoxaz. All rights reserved.**
+
+This means:
+- ✅ **You can**: Use, modify, and distribute the source code
+- ✅ **You can**: Create your own designs and styling
+- ❌ **You cannot**: Copy or reproduce the visual design, UI, CSS, or design elements without permission
+
+The code is open source, but the design is protected by copyright. If you want to use the design, please contact the project maintainer.
 
 ## Support
 
