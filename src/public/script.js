@@ -438,7 +438,7 @@ function initVaultSessionTimer() {
   document.addEventListener('pointerdown', activityHandler, { passive: true, capture: true });
   document.addEventListener('keydown', activityHandler, { passive: true, capture: true });
   document.addEventListener('touchstart', activityHandler, { passive: true, capture: true });
-  document.addEventListener('scroll', activityHandler, { passive: true, capture: true });
+  // Intentionally NOT resetting on scroll (scrolling shouldn't extend vault time)
 
   function tick() {
     if (expired) return;
