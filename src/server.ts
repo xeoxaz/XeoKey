@@ -1540,44 +1540,31 @@ router.get("/totp/add", async (request, params, query) => {
         <input type="text" name="secret" required>
       </div>
       <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
-        <div style="flex:1;">
-          <label style="display:block;margin-bottom:0.35rem;">Digits</label>
-          <input type="number" name="digits" value="6" min="6" max="8">
-        </div>
-        <div style="flex:1;" id="periodField">
-          <label style="display:block;margin-bottom:0.35rem;">Period (seconds)</label>
-          <input type="number" name="period" value="30" min="15" max="90">
-        </div>
         <div style="flex:1; display:none;" id="counterField">
           <label style="display:block;margin-bottom:0.35rem;">Counter (HOTP)</label>
           <input type="number" name="counter" value="0" min="0">
         </div>
-        <div style="flex:1;">
-          <label style="display:block;margin-bottom:0.35rem;">Algorithm</label>
-          <select name="algorithm">
-            <option value="SHA1" selected>SHA1</option>
-            <option value="SHA256">SHA256</option>
-            <option value="SHA512">SHA512</option>
-          </select>
-        </div>
       </div>
-      <div style="margin-bottom:0.75rem;">
-        <label><input type="checkbox" name="withBackup" checked> Generate backup codes</label>
+      <div style="margin-bottom:0.75rem;color:#888;">
+        Using recommended standards:
+        <ul style="margin:0.35rem 0 0 1rem;">
+          <li>TOTP/HOTP digits: 6</li>
+          <li>TOTP period: 30 seconds</li>
+          <li>Algorithm: SHA1 (widely compatible)</li>
+          <li>Backup codes: generated automatically</li>
+        </ul>
       </div>
       <button type="submit">Save</button>
     </form>
     <script>
       (function(){
         const typeEl = document.getElementById('otpType');
-        const periodField = document.getElementById('periodField');
         const counterField = document.getElementById('counterField');
         function updateVisibility(){
           const val = typeEl.value;
           if(val === 'HOTP'){
-            periodField.style.display = 'none';
             counterField.style.display = 'block';
           }else{
-            periodField.style.display = 'block';
             counterField.style.display = 'none';
           }
         }
@@ -1599,10 +1586,6 @@ router.post("/totp/add", async (request, params, query) => {
     const label = (form.get('label')?.toString() || '').trim();
     const account = (form.get('account')?.toString() || '').trim();
     const secret = (form.get('secret')?.toString() || '').replace(/\s+/g, '');
-    const digits = parseInt(form.get('digits')?.toString() || '6', 10);
-    const period = parseInt(form.get('period')?.toString() || '30', 10);
-    const algorithm = (form.get('algorithm')?.toString() || 'SHA1') as any;
-    const withBackup = !!form.get('withBackup');
     const type = ((form.get('type')?.toString() || 'TOTP').toUpperCase() as 'TOTP'|'HOTP');
     const counter = parseInt(form.get('counter')?.toString() || '0', 10);
 
@@ -1611,10 +1594,11 @@ router.post("/totp/add", async (request, params, query) => {
     }
     const { entry, plaintextBackupCodes } = await createTotpEntry(session.userId, label, secret, {
       account: account || undefined,
-      digits,
-      period,
-      algorithm,
-      withBackupCodes: withBackup,
+      // Recommended standards (automatic)
+      digits: 6,
+      period: 30,
+      algorithm: 'SHA1',
+      withBackupCodes: true,
       type,
       counter: isNaN(counter) ? 0 : counter
     });
