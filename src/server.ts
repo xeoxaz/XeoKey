@@ -7,6 +7,7 @@ import { connectMongoDB, closeMongoDB, getDatabase, isConnected } from './db/mon
 
 // Authentication
 import { createSession, getSession, deleteSession, getSessionIdFromRequest, createSessionCookie, createLogoutCookie } from './auth/session';
+import { listTotpEntries, createTotpEntry, getCurrentTotpCode } from './models/totp';
 import { authenticateUser, createUser } from './auth/users';
 
 // Password management
@@ -307,8 +308,11 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
         </div>
       </div>`;
 
-    // Insert auth menu before closing nav tag
-    header = header.replace('</nav>', authMenu + '</nav>');
+    // Insert TOTP and auth menu before closing nav tag
+    const totpMenu = `<div class="nav-item">
+        <a href="/totp">TOTP</a>
+      </div>`;
+    header = header.replace('</nav>', totpMenu + authMenu + '</nav>');
   }
 
   return header;
@@ -336,6 +340,10 @@ async function getFooter(session: { username: string; userId: string } | null = 
       <a href="/passwords" class="bottom-nav-item">
         <span class="bottom-nav-icon">🔑</span>
         <span class="bottom-nav-label">Passwords</span>
+      </a>
+      <a href="/totp" class="bottom-nav-item">
+        <span class="bottom-nav-icon">⏱️</span>
+        <span class="bottom-nav-label">TOTP</span>
       </a>
       <a href="/passwords/add" class="bottom-nav-item">
         <span class="bottom-nav-icon">➕</span>
@@ -1458,6 +1466,146 @@ router.get("/passwords/add", async (request, params, query) => {
       <a href="/passwords" style="color: #9db4d4;">← Back to Passwords</a>
     </p>
   `, "Add Password - XeoKey", request);
+});
+
+// TOTP routes
+router.get("/totp", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/login' } });
+  }
+  const entries = await listTotpEntries(session.userId);
+  // Generate current codes server-side for quick view
+  const items = await Promise.all(entries.map(async (e) => {
+    let code = '';
+    try {
+      code = await getCurrentTotpCode(e);
+    } catch {}
+    const account = e.account ? ` <span style="color:#888;font-size:0.85rem;">(${escapeHtml(e.account)})</span>` : '';
+    return `<div style="background:#2d2d2d;padding:0.75rem;border-radius:6px;border:1px solid #3d3d3d;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-weight:600;color:#e0e0e0;">${escapeHtml(e.label)}${account}</div>
+        <div style="color:#9db4d4;font-family:monospace;margin-top:0.25rem;">${code}</div>
+      </div>
+      <a href="/totp/delete?id=${e._id}" style="color:#d4a5a5;text-decoration:none;border:1px solid #4d4d4d;padding:0.35rem 0.75rem;border-radius:4px;">Delete</a>
+    </div>`;
+  }));
+  const body = `
+    <h1>TOTP</h1>
+    <div style="margin-bottom:0.75rem;"><a href="/totp/add" style="color:#9db4d4;text-decoration:none;border:1px solid #4d4d4d;padding:0.5rem 1rem;border-radius:4px;display:inline-block;">+ Add TOTP</a></div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      ${items.join('') || '<div style="color:#888;">No TOTP entries yet.</div>'}
+    </div>
+  `;
+  return renderPage(body, "TOTP - XeoKey", request);
+});
+
+router.get("/totp/add", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/login' } });
+  }
+  const csrf = createCsrfToken(session.sessionId);
+  const body = `
+    <h1>Add TOTP</h1>
+    <form method="POST" action="/totp/add" style="max-width:600px;margin:0 auto;">
+      <input type="hidden" name="csrfToken" value="${escapeHtml(csrf)}">
+      <div style="margin-bottom:0.75rem;">
+        <label style="display:block;margin-bottom:0.35rem;">Label *</label>
+        <input type="text" name="label" required>
+      </div>
+      <div style="margin-bottom:0.75rem;">
+        <label style="display:block;margin-bottom:0.35rem;">Account (optional)</label>
+        <input type="text" name="account">
+      </div>
+      <div style="margin-bottom:0.75rem;">
+        <label style="display:block;margin-bottom:0.35rem;">Secret (Base32) *</label>
+        <input type="text" name="secret" required>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+        <div style="flex:1;">
+          <label style="display:block;margin-bottom:0.35rem;">Digits</label>
+          <input type="number" name="digits" value="6" min="6" max="8">
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;margin-bottom:0.35rem;">Period (seconds)</label>
+          <input type="number" name="period" value="30" min="15" max="90">
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;margin-bottom:0.35rem;">Algorithm</label>
+          <select name="algorithm">
+            <option value="SHA1" selected>SHA1</option>
+            <option value="SHA256">SHA256</option>
+            <option value="SHA512">SHA512</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:0.75rem;">
+        <label><input type="checkbox" name="withBackup" checked> Generate backup codes</label>
+      </div>
+      <button type="submit">Save</button>
+    </form>
+  `;
+  return renderPage(body, "Add TOTP - XeoKey", request);
+});
+
+router.post("/totp/add", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/login' } });
+  }
+  try {
+    const form = await request.formData();
+    const label = (form.get('label')?.toString() || '').trim();
+    const account = (form.get('account')?.toString() || '').trim();
+    const secret = (form.get('secret')?.toString() || '').replace(/\s+/g, '');
+    const digits = parseInt(form.get('digits')?.toString() || '6', 10);
+    const period = parseInt(form.get('period')?.toString() || '30', 10);
+    const algorithm = (form.get('algorithm')?.toString() || 'SHA1') as any;
+    const withBackup = !!form.get('withBackup');
+
+    if (!label || !secret) {
+      return createErrorResponse(400, 'Label and secret are required');
+    }
+    const { entry, plaintextBackupCodes } = await createTotpEntry(session.userId, label, secret, {
+      account: account || undefined,
+      digits,
+      period,
+      algorithm,
+      withBackupCodes: withBackup
+    });
+    const codesHtml = plaintextBackupCodes && plaintextBackupCodes.length
+      ? `<div style="background:#2d2d2d;border:1px solid #3d3d3d;border-radius:6px;padding:0.75rem;margin-top:0.75rem;">
+           <div style="color:#d4a5a5;margin-bottom:0.25rem;">Save these backup codes in a safe place. They are shown only once.</div>
+           <pre style="background:#1a1a1a;padding:0.5rem;border-radius:4px;border:1px solid #3d3d3d;">${plaintextBackupCodes.join('\n')}</pre>
+         </div>` : '';
+    const body = `
+      <h1>TOTP Added</h1>
+      <p>Entry "${escapeHtml(entry.label)}" created.</p>
+      ${codesHtml}
+      <p style="margin-top:0.75rem;"><a href="/totp" style="color:#9db4d4;">← Back to TOTP list</a></p>
+    `;
+    return renderPage(body, "TOTP Added - XeoKey", request);
+  } catch (e) {
+    logger.error(`Failed to add TOTP: ${e}`);
+    return createErrorResponse(400, 'Invalid TOTP data');
+  }
+});
+
+router.get("/totp/delete", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/login' } });
+  }
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id') || '';
+  if (id) {
+    const { deleteTotpEntry } = await import('./models/totp');
+    try {
+      await deleteTotpEntry(id, session.userId);
+    } catch {}
+  }
+  return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/totp' } });
 });
 
 router.post("/passwords/add", async (request, params, query) => {
