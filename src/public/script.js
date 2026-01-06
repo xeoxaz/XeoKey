@@ -380,6 +380,39 @@ document.addEventListener('click', async function(event) {
   setTimeout(() => (btn.textContent = orig), 1200);
 });
 
+// Confirm destructive actions (delete links + delete forms)
+document.addEventListener('click', function(event) {
+  const link = event.target.closest('a');
+  if (!link) return;
+
+  const href = link.getAttribute('href') || '';
+  // Only intercept obvious delete links; never block logout
+  const isDelete = href.includes('/delete');
+  const isLogout = href.includes('/logout');
+  if (!isDelete || isLogout) return;
+
+  const msg = link.getAttribute('data-confirm') || 'Are you sure you want to delete this? This cannot be undone.';
+  if (!window.confirm(msg)) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+});
+
+document.addEventListener('submit', function(event) {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement)) return;
+
+  const action = form.getAttribute('action') || '';
+  const isDelete = action.includes('/delete');
+  if (!isDelete) return;
+
+  const msg = form.getAttribute('data-confirm') || 'Are you sure you want to delete this? This cannot be undone.';
+  if (!window.confirm(msg)) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}, true);
+
 // Generate a strong password that works on any site
 function generateStrongPassword() {
   // Use safe characters that work on most sites
