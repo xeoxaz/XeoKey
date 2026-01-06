@@ -342,9 +342,8 @@ function initTotpLive() {
     const nextBoundary = (step + 1) * period * 1000;
     const remainingMs = Math.max(0, nextBoundary - now);
     const remainingSec = Math.ceil(remainingMs / 1000);
-    const elapsed = period - remainingMs / 1000;
-    const pct = Math.max(0, Math.min(100, (elapsed / period) * 100));
-    barEl.style.width = pct + '%';
+    const remainingPct = Math.max(0, Math.min(100, (remainingMs / 1000) / period * 100));
+    barEl.style.width = remainingPct + '%';
     if (textEl) textEl.textContent = remainingSec + 's';
 
     // When hit boundary, fetch new code

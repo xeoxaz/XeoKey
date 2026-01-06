@@ -375,7 +375,7 @@ button:active {
 .totp-timer-bar {
   background: #9db4d4;
   height: 100%;
-  width: 0%;
+  width: 100%;
   transition: width 0.2s linear;
 }
 .totp-timer-text {
