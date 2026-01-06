@@ -2,6 +2,8 @@
 
 Common issues and solutions for XeoKey.
 
+> **🐛 Found a bug, error, or graphical problem?** [Report it on GitHub Issues](https://github.com/xeoxaz/XeoKey/issues)
+
 **Navigation**: [Home](Home) | [Installation](Installation) | [Configuration](Configuration) | [Deployment](Deployment)
 
 ## Server Issues

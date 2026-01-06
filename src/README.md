@@ -241,6 +241,8 @@ This will:
 
 ## Troubleshooting
 
+> **🐛 Found a bug or issue?** [Report it on GitHub](https://github.com/xeoxaz/XeoKey/issues)
+
 ### Server won't start
 - Check if port 3000 is already in use
 - Verify Bun is installed: `bun --version`
@@ -314,7 +316,11 @@ The code is open source, but the design is protected by copyright. If you want t
 
 ## Support
 
-For issues, questions, or contributions, please refer to the project repository.
+For any problems, bugs, errors, or graphical issues, please report them on GitHub:
+
+**🐛 [Report Issues](https://github.com/xeoxaz/XeoKey/issues)**
+
+For questions or contributions, please refer to the project repository.
 
 ---
 
