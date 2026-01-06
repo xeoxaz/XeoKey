@@ -12,7 +12,9 @@ export interface TotpEntry {
   secret: string; // Encrypted (base32 before encrypt)
   algorithm: TotpAlgorithm; // SHA1 default
   digits: number; // 6 default
-  period: number; // 30 default
+  period: number; // 30 default for TOTP
+  type: 'TOTP' | 'HOTP';
+  counter?: number; // for HOTP
   createdAt: Date;
   lastUsedAt?: Date;
   backupCodeHashes?: string[]; // hashed with bcrypt
@@ -70,14 +72,15 @@ export async function createTotpEntry(
   userId: string,
   label: string,
   secretBase32: string,
-  options?: { account?: string; algorithm?: TotpAlgorithm; digits?: number; period?: number; withBackupCodes?: boolean }
+  options?: { account?: string; algorithm?: TotpAlgorithm; digits?: number; period?: number; withBackupCodes?: boolean; type?: 'TOTP'|'HOTP'; counter?: number }
 ): Promise<{ entry: TotpEntry; plaintextBackupCodes?: string[] }> {
   const db = getDatabase();
   const col = db.collection<TotpEntry>('totp');
 
   const algorithm = options?.algorithm ?? 'SHA1';
   const digits = options?.digits ?? 6;
-  const period = options?.period ?? 30;
+  const period = options?.type === 'HOTP' ? 30 : (options?.period ?? 30);
+  const type = options?.type ?? 'TOTP';
 
   // Validate base32 by decoding to buffer
   base32ToBuffer(secretBase32);
@@ -91,6 +94,8 @@ export async function createTotpEntry(
     algorithm,
     digits,
     period,
+    type,
+    counter: type === 'HOTP' ? (options?.counter ?? 0) : undefined,
     createdAt: new Date(),
   };
 
@@ -129,12 +134,29 @@ export async function deleteTotpEntry(entryId: string, userId: string): Promise<
 
 export async function getCurrentTotpCode(entry: TotpEntry): Promise<string> {
   const secretBase32 = decrypt(entry.secret);
+  if (entry.type === 'HOTP') {
+    return generateTotpCode(secretBase32, Date.now(), entry.period, entry.digits, entry.algorithm);
+  }
   return generateTotpCode(secretBase32, Date.now(), entry.period, entry.digits, entry.algorithm);
 }
 
 export async function verifyTotpOrBackup(entry: TotpEntry, code: string): Promise<{ ok: boolean; usedBackup?: boolean }> {
   const secretBase32 = decrypt(entry.secret);
-  const ok = verifyTotpCode(secretBase32, code, 1, entry.period, entry.digits, entry.algorithm);
+  let ok = false;
+  if (entry.type === 'HOTP') {
+    // For HOTP use lookahead window of 5
+    const res = verifyHotpCode(secretBase32, code, entry.counter ?? 0, 5, entry.digits, entry.algorithm);
+    if (res.ok && typeof res.matchedCounter === 'number') {
+      // Advance counter to the next value after the matched one
+      const db = getDatabase();
+      const col = db.collection<TotpEntry>('totp');
+      entry.counter = (res.matchedCounter ?? (entry.counter ?? 0)) + 1;
+      await col.updateOne({ _id: new ObjectId(entry._id!), userId: entry.userId } as any, { $set: { counter: entry.counter, lastUsedAt: new Date() } });
+      ok = true;
+    }
+  } else {
+    ok = verifyTotpCode(secretBase32, code, 1, entry.period, entry.digits, entry.algorithm);
+  }
   if (ok) return { ok: true };
   if (entry.backupCodeHashes && entry.backupCodeHashes.length > 0) {
     const idx = entry.backupCodeHashes.findIndex(h => bcrypt.compareSync(code, h));

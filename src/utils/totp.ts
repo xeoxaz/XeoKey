@@ -31,6 +31,44 @@ export function base32ToBuffer(base32: string): Buffer {
   return Buffer.from(bytes);
 }
 
+// RFC 4226 - HOTP (counter-based)
+export function generateHotpCode(
+  secretBase32: string,
+  counter: number,
+  digits: number = 6,
+  algorithm: TotpAlgorithm = 'SHA1'
+): string {
+  const key = base32ToBuffer(secretBase32);
+  const counterBuf = Buffer.alloc(8);
+  counterBuf.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
+  counterBuf.writeUInt32BE(counter % 0x100000000, 4);
+  const hmac = crypto.createHmac(getHmacAlgo(algorithm), key).update(counterBuf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code =
+    ((hmac[offset] & 0x7f) << 24) |
+    ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) |
+    (hmac[offset + 3] & 0xff);
+  return (code % 10 ** digits).toString().padStart(digits, '0');
+}
+
+export function verifyHotpCode(
+  secretBase32: string,
+  code: string,
+  counter: number,
+  lookaheadWindow: number = 5,
+  digits: number = 6,
+  algorithm: TotpAlgorithm = 'SHA1'
+): { ok: boolean; matchedCounter?: number } {
+  for (let i = 0; i <= lookaheadWindow; i++) {
+    const expected = generateHotpCode(secretBase32, counter + i, digits, algorithm);
+    if (expected === code) {
+      return { ok: true, matchedCounter: counter + i };
+    }
+  }
+  return { ok: false };
+}
+
 export function generateTotpCode(
   secretBase32: string,
   timestampMs: number = Date.now(),
