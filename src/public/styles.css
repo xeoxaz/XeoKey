@@ -360,6 +360,30 @@ button:active {
   background: #2d2d2d;
 }
 
+/* TOTP timer */
+.totp-timer {
+  margin-top: 0.25rem;
+  background: #252525;
+  border: 1px solid #3d3d3d;
+  height: 6px;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.totp-timer-bar {
+  background: #9db4d4;
+  height: 100%;
+  width: 0%;
+  transition: width 0.2s linear;
+}
+.totp-timer-text {
+  position: absolute;
+  right: 6px;
+  top: -18px;
+}
+
 /* Responsive Design */
 
 /* Mobile devices (phones, up to 767px) */

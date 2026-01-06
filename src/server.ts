@@ -1486,12 +1486,18 @@ router.get("/totp", async (request, params, query) => {
       ? `<a href="/totp/next?id=${e._id}" style="color:#9db4d4;text-decoration:none;border:1px solid #4d4d4d;padding:0.35rem 0.75rem;border-radius:4px;margin-right:0.5rem;">Next</a>
          <a href="/totp/delete?id=${e._id}" style="color:#d4a5a5;text-decoration:none;border:1px solid #4d4d4d;padding:0.35rem 0.75rem;border-radius:4px;">Delete</a>`
       : `<a href="/totp/delete?id=${e._id}" style="color:#d4a5a5;text-decoration:none;border:1px solid #4d4d4d;padding:0.35rem 0.75rem;border-radius:4px;">Delete</a>`;
-    return `<div style="background:#2d2d2d;padding:0.75rem;border-radius:6px;border:1px solid #3d3d3d;display:flex;align-items:center;justify-content:space-between;">
+    const copyBtn = `<button type="button" class="copy-totp" data-entry-id="${e._id}" data-code="${code}" style="background:#3d3d3d;color:#e0e0e0;padding:0.35rem 0.75rem;border:1px solid #4d4d4d;border-radius:4px;margin-right:0.5rem;">Copy</button>`;
+    const timer = e.type === 'TOTP' ? `<div class="totp-timer" data-period="${e.period || 30}" data-entry-id="${e._id}"><div class="totp-timer-bar" style="width:0%;"></div><span class="totp-timer-text" style="margin-left:0.5rem;color:#888;font-size:0.8rem;"></span></div>` : '';
+    return `<div class="totp-item" data-type="${e.type}" data-entry-id="${e._id}" data-period="${e.period || 30}" style="background:#2d2d2d;padding:0.75rem;border-radius:6px;border:1px solid #3d3d3d;display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="font-weight:600;color:#e0e0e0;">${escapeHtml(e.label)}${account} <span style="color:#888;font-size:0.8rem;">[${e.type}]</span></div>
-        <div style="color:#9db4d4;font-family:monospace;margin-top:0.25rem;">${code || (e.type==='HOTP' ? '(tap Next to generate)' : '')}</div>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
+          <div id="totpCode-${e._id}" style="color:#9db4d4;font-family:monospace;min-width:5ch;">${code || (e.type==='HOTP' ? '(tap Next to generate)' : '')}</div>
+          ${e.type === 'TOTP' ? copyBtn : ''}
+        </div>
+        ${timer}
       </div>
-      <div>${rightControls}</div>
+      <div>${e.type === 'TOTP' ? '' : copyBtn}${rightControls}</div>
     </div>`;
   }));
   const body = `
@@ -1678,6 +1684,29 @@ router.get("/totp/next", async (request, params, query) => {
     await db.collection('totp').updateOne({ _id: new ObjectId(id), userId: session.userId } as any, { $inc: { counter: 1 }, $set: { lastUsedAt: new Date() } });
   } catch {}
   return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/totp' } });
+});
+
+// Endpoint to fetch current TOTP code (no secrets disclosed)
+router.get("/totp/code", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return createErrorResponse(401, "Unauthorized");
+  }
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id') || '';
+  if (!id) return createErrorResponse(400, "Missing id");
+  const { getTotpEntry } = await import('./models/totp');
+  const entry = await getTotpEntry(id, session.userId);
+  if (!entry || entry.type !== 'TOTP') {
+    return createErrorResponse(404, "Not found");
+  }
+  try {
+    const code = await getCurrentTotpCode(entry);
+    const body = JSON.stringify({ code, period: entry.period || 30, now: Date.now() });
+    return new Response(body, { headers: { ...SECURITY_HEADERS, "Content-Type": "application/json" } });
+  } catch (e) {
+    return createErrorResponse(500, "Failed to generate code");
+  }
 });
 
 router.post("/passwords/add", async (request, params, query) => {

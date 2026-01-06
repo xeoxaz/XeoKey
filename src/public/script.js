@@ -21,6 +21,9 @@ function initAll() {
   initPasswordStrengthChecker();
   initPasswordMatchChecker();
   initRegisterFormValidation();
+
+  // Live TOTP updater and copy buttons
+  initTotpLive();
 }
 
 // Initialize when DOM is ready - use multiple strategies
@@ -316,6 +319,66 @@ document.addEventListener('click', async function(event) {
       }, 3000);
     }
   }
+});
+
+// TOTP live update (auto-refresh codes and countdown bar)
+function initTotpLive() {
+  const items = document.querySelectorAll('.totp-item[data-type="TOTP"]');
+  if (items.length === 0) return;
+
+  function updateOne(item) {
+    const entryId = item.getAttribute('data-entry-id');
+    const period = parseInt(item.getAttribute('data-period') || '30', 10);
+    const codeEl = document.getElementById('totpCode-' + entryId);
+    const timerEl = item.querySelector('.totp-timer');
+    const barEl = item.querySelector('.totp-timer-bar');
+    const textEl = item.querySelector('.totp-timer-text');
+    const copyBtn = item.querySelector('.copy-totp');
+
+    if (!codeEl || !timerEl || !barEl) return;
+
+    const now = Date.now();
+    const step = Math.floor(now / 1000 / period);
+    const nextBoundary = (step + 1) * period * 1000;
+    const remainingMs = Math.max(0, nextBoundary - now);
+    const remainingSec = Math.ceil(remainingMs / 1000);
+    const elapsed = period - remainingMs / 1000;
+    const pct = Math.max(0, Math.min(100, (elapsed / period) * 100));
+    barEl.style.width = pct + '%';
+    if (textEl) textEl.textContent = remainingSec + 's';
+
+    // When hit boundary, fetch new code
+    if (remainingMs < 250) {
+      fetch('/totp/code?id=' + encodeURIComponent(entryId))
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          if (data && data.code) {
+            codeEl.textContent = data.code;
+            if (copyBtn) copyBtn.setAttribute('data-code', data.code);
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
+  function tick() {
+    items.forEach(item => updateOne(item));
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// Copy TOTP codes
+document.addEventListener('click', async function(event) {
+  const btn = event.target.closest('.copy-totp');
+  if (!btn) return;
+  event.preventDefault();
+  const code = btn.getAttribute('data-code') || '';
+  if (!code) return;
+  const ok = await copyToClipboard(code);
+  const orig = btn.textContent;
+  btn.textContent = ok ? 'Copied!' : 'Copy';
+  setTimeout(() => (btn.textContent = orig), 1200);
 });
 
 // Generate a strong password that works on any site

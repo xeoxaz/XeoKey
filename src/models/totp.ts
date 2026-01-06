@@ -2,7 +2,7 @@ import { getDatabase } from '../db/mongodb';
 import { ObjectId } from 'mongodb';
 import * as crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { base32ToBuffer, generateTotpCode, verifyTotpCode, TotpAlgorithm } from '../utils/totp';
+import { base32ToBuffer, generateTotpCode, verifyTotpCode, TotpAlgorithm, generateHotpCode, verifyHotpCode } from '../utils/totp';
 
 export interface TotpEntry {
   _id?: string;
@@ -135,7 +135,7 @@ export async function deleteTotpEntry(entryId: string, userId: string): Promise<
 export async function getCurrentTotpCode(entry: TotpEntry): Promise<string> {
   const secretBase32 = decrypt(entry.secret);
   if (entry.type === 'HOTP') {
-    return generateTotpCode(secretBase32, Date.now(), entry.period, entry.digits, entry.algorithm);
+    return generateHotpCode(secretBase32, entry.counter ?? 0, entry.digits, entry.algorithm);
   }
   return generateTotpCode(secretBase32, Date.now(), entry.period, entry.digits, entry.algorithm);
 }
