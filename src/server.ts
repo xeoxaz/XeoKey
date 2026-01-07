@@ -2876,10 +2876,25 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
         `, "Recovery Partial - XeoKey", request);
       }
     } else {
+      const errorMsg = result.error || 'Unknown error';
+      const isBadDecrypt = errorMsg.includes('BAD_DECRYPT') || errorMsg.includes('bad decrypt') || errorMsg.includes('does not match');
+      
       return renderPage(`
         <h1>Recovery Failed</h1>
-        <p style="color: #d4a5a5;">Failed to decrypt password: ${escapeHtml(result.error || 'Unknown error')}</p>
-        <p style="color: #888;">The master password or encryption key may be incorrect.</p>
+        <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+          <p style="color: #d4a5a5; margin: 0; font-weight: bold;">Decryption Failed</p>
+          <p style="color: #888; margin: 0.5rem 0 0 0; font-size: 0.9rem;">${escapeHtml(errorMsg)}</p>
+        </div>
+        ${isBadDecrypt ? `
+          <div style="background: #4a3d2d; border: 1px solid #5d4d3d; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+            <p style="color: #d4a585; margin: 0; font-weight: bold;">💡 What this means:</p>
+            <ul style="color: #888; margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.9rem;">
+              <li>The master password you provided does not match the encryption key used to encrypt this password.</li>
+              <li>The master password must be the <strong>exact same value</strong> as the <code>ENCRYPTION_KEY</code> environment variable that was used when the password was first created.</li>
+              <li>If the <code>ENCRYPTION_KEY</code> has changed, you need to provide the <strong>old/original</strong> key value.</li>
+            </ul>
+          </div>
+        ` : ''}
         <p style="color: #888; font-size: 0.9rem;">No backup was created because no database changes were made.</p>
         <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
       `, "Recovery Failed - XeoKey", request);

@@ -43,19 +43,48 @@ function attemptDecrypt(encrypted: string, masterKey?: string): { success: boole
 
     const parts = encrypted.split(':');
     if (parts.length !== 2) {
-      return { success: false, error: 'Invalid encrypted password format' };
+      return { success: false, error: 'Invalid encrypted password format (expected iv:data)' };
     }
 
     const iv = Buffer.from(parts[0], 'hex');
     const encryptedData = parts[1];
 
+    // Validate IV is 16 bytes (32 hex characters)
+    if (iv.length !== 16) {
+      return { success: false, error: `Invalid IV length: ${iv.length} bytes (expected 16)` };
+    }
+
+    // Validate encrypted data is hex
+    if (!/^[0-9a-f]+$/i.test(encryptedData)) {
+      return { success: false, error: 'Invalid encrypted data format (not hex)' };
+    }
+
     const decipher = crypto.createDecipheriv(algorithm, key, iv);
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
 
+    // Validate decrypted result is not empty
+    if (!decrypted || decrypted.trim() === '') {
+      return { success: false, error: 'Decryption succeeded but result is empty' };
+    }
+
     return { success: true, password: decrypted };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    const errorMessage = error.message || String(error);
+    // Provide more specific error messages
+    if (errorMessage.includes('BAD_DECRYPT') || errorMessage.includes('bad decrypt')) {
+      return { 
+        success: false, 
+        error: 'Decryption failed: The master password/encryption key does not match the key used to encrypt this password. Make sure you\'re using the exact same key that was used when the password was first encrypted.' 
+      };
+    }
+    if (errorMessage.includes('Invalid key length')) {
+      return { success: false, error: `Invalid key: ${errorMessage}` };
+    }
+    if (errorMessage.includes('Invalid iv length')) {
+      return { success: false, error: `Invalid IV: ${errorMessage}` };
+    }
+    return { success: false, error: `Decryption error: ${errorMessage}` };
   }
 }
 
@@ -235,7 +264,10 @@ export async function batchRecoverPasswords(
         }
       } else {
         result.failed++;
-        entry.decryptionError = decryptResult.error || 'Decryption failed';
+        // Provide more detailed error message
+        const errorMsg = decryptResult.error || 'Decryption failed';
+        entry.decryptionError = errorMsg;
+        dbLogger.warn(`Failed to decrypt password ${entry.entryId} with master key: ${errorMsg}`);
       }
     }
 
