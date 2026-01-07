@@ -410,15 +410,15 @@ async function renderLoginPage(body: string, title: string = "Login - XeoKey", r
       session = { username: sessionData.username, userId: sessionData.userId };
     }
   }
-  
+
   // Get header and footer
   let header = await getHeader(title, session, issueCount);
   let footer = await getFooter(session, issueCount);
-  
+
   // Remove page-content wrapper from header (it's opened in header template)
   // Replace with empty string to remove the opening div
   header = header.replace('<div class="page-content">', '');
-  
+
   // Close main tag before footer (footer expects main to be closed)
   // Our body content goes directly in main, then we close it
   const html = header + body + '</main>' + footer;
@@ -964,7 +964,7 @@ router.get("/login", async (request, params, query) => {
   const tempSessionId = 'temp_' + Date.now();
   const csrfToken = createCsrfToken(tempSessionId);
     const formHtml = await renderLoginForm(request, '', '', csrfToken);
-  
+
     // Check if we just updated
     const updated = query.get('updated') === 'true';
     const updateMessage = updated ? `
@@ -972,7 +972,7 @@ router.get("/login", async (request, params, query) => {
         <p style="color: #7fb069; margin: 0; font-size: 0.9rem;">✅ Server updated successfully! Please log in again.</p>
       </div>
     ` : '';
-  
+
     return renderLoginPage(updateMessage + formHtml, "Login - XeoKey", request);
 });
 
@@ -1264,6 +1264,68 @@ router.get("/api/update/status", async (request, params, query) => {
   }
 });
 
+// Server status API endpoint for loading page
+router.get("/api/server/status", async (request, params, query) => {
+  try {
+    const serverStartTime = (globalThis as any).serverStartTime || Date.now();
+    const dbConnectTime = (globalThis as any).dbConnectTime;
+    const now = Date.now();
+    const uptime = Math.floor((now - serverStartTime) / 1000);
+    
+    // Determine server phase/status
+    let phase = 'running';
+    let phaseMessage = 'Server is running';
+    
+    // Check database connection
+    const dbConnected = isConnected();
+    
+    // If server just started (within 5 seconds), it might still be initializing
+    if (uptime < 5) {
+      phase = 'starting';
+      phaseMessage = 'Server is starting up...';
+    } else if (!dbConnected) {
+      phase = 'connecting';
+      phaseMessage = 'Connecting to database...';
+    } else {
+      phase = 'ready';
+      phaseMessage = 'Server is ready';
+    }
+
+    const status = {
+      status: phase,
+      message: phaseMessage,
+      uptime: uptime,
+      uptimeFormatted: `${Math.floor(uptime / 60)}m ${uptime % 60}s`,
+      database: {
+        connected: dbConnected,
+        connectedAt: dbConnectTime ? Math.floor((now - dbConnectTime) / 1000) : null,
+      },
+      timestamp: now,
+    };
+
+    return new Response(JSON.stringify(status), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    // If we can't determine status, server is likely not ready
+    return new Response(JSON.stringify({
+      status: 'unknown',
+      message: 'Server status unknown',
+      error: error.message || 'Unknown error',
+      timestamp: Date.now(),
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+      status: 503,
+    });
+  }
+});
+
 // Loading screen while server restarts
 router.get("/update/loading", async (request, params, query) => {
   return renderPage(`
@@ -1308,43 +1370,90 @@ router.get("/update/loading", async (request, params, query) => {
 
       function checkServer() {
         checkCount++;
-
+        
         // Update elapsed time
         updateElapsed();
-
-        // Try to ping the server
-        fetch('/api/health', { method: 'GET', cache: 'no-cache' })
+        
+        // Check server status API for detailed information
+        fetch('/api/server/status', { method: 'GET', cache: 'no-cache' })
           .then(response => {
-            if (response.ok || response.status === 503) {
-              // Server is responding (even if DB is down, server is up)
-              document.getElementById('status').textContent = '✅ Server is ready!';
-              document.getElementById('progressBar').style.width = '100%';
-              document.getElementById('progressBar').style.background = '#7fb069';
-
-              // Redirect to login after a brief delay
-              setTimeout(() => {
-                window.location.href = '/login?updated=true';
-              }, 1000);
-              return;
+            if (!response.ok) {
+              throw new Error('Server not responding');
             }
-            throw new Error('Server not ready');
+            return response.json();
+          })
+          .then(data => {
+            // Update status message based on server phase
+            const statusEl = document.getElementById('status');
+            const progressBar = document.getElementById('progressBar');
+            
+            switch(data.status) {
+              case 'starting':
+                statusEl.textContent = '🔄 ' + data.message;
+                statusEl.style.color = '#9db4d4';
+                break;
+              case 'connecting':
+                statusEl.textContent = '🔌 ' + data.message;
+                statusEl.style.color = '#9db4d4';
+                break;
+              case 'ready':
+                statusEl.textContent = '✅ Server is ready!';
+                statusEl.style.color = '#7fb069';
+                progressBar.style.width = '100%';
+                progressBar.style.background = '#7fb069';
+                
+                // Redirect to login after a brief delay
+                setTimeout(() => {
+                  window.location.href = '/login?updated=true';
+                }, 1000);
+                return; // Stop checking
+              default:
+                statusEl.textContent = '⏳ ' + (data.message || 'Waiting for server...');
+                statusEl.style.color = '#9db4d4';
+            }
+            
+            // Show additional info if available
+            if (data.uptimeFormatted) {
+              const elapsedEl = document.getElementById('elapsedTime');
+              elapsedEl.textContent = `Elapsed: ${Math.floor((Date.now() - startTime) / 1000)}s | Server uptime: ${data.uptimeFormatted}`;
+            }
+            
+            // Continue checking if not ready
+            if (data.status !== 'ready' && checkCount < maxChecks) {
+              setTimeout(checkServer, 1000);
+            }
           })
           .catch(() => {
+            // Server is not responding yet
+            const statusEl = document.getElementById('status');
+            
+            if (checkCount < 5) {
+              statusEl.textContent = '🔄 Server is restarting...';
+              statusEl.style.color = '#9db4d4';
+            } else if (checkCount < 15) {
+              statusEl.textContent = '⏳ Pulling updates and starting server...';
+              statusEl.style.color = '#9db4d4';
+            } else {
+              statusEl.textContent = '⏳ Waiting for server to come online...';
+              statusEl.style.color = '#9db4d4';
+            }
+            
             if (checkCount >= maxChecks) {
-              document.getElementById('status').textContent = '⚠️ Server taking longer than expected. Please refresh manually.';
+              statusEl.textContent = '⚠️ Server taking longer than expected. Please refresh manually.';
+              statusEl.style.color = '#d4a585';
               document.getElementById('progressBar').style.background = '#d4a585';
-
+              
               // Show manual refresh option
               setTimeout(() => {
                 const refreshBtn = document.createElement('button');
                 refreshBtn.textContent = 'Refresh Page';
                 refreshBtn.style.cssText = 'margin-top: 1rem; padding: 0.5rem 1rem; background: #3d3d3d; color: #e0e0e0; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer;';
                 refreshBtn.onclick = () => window.location.reload();
-                document.getElementById('status').parentElement.appendChild(refreshBtn);
+                statusEl.parentElement.appendChild(refreshBtn);
               }, 1000);
               return;
             }
-
+            
             // Continue checking
             setTimeout(checkServer, 1000);
           });
