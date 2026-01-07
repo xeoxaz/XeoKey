@@ -738,7 +738,59 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   const usernameValue = username ? ` value="${escapeHtml(username)}"` : '';
   const csrfField = csrfToken ? `<input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">` : '';
 
+  // Check for GitHub updates
+  let updateNotification = '';
+  try {
+    const { checkForUpdates } = await import('./utils/git-update');
+    const updateStatus = await checkForUpdates();
+    
+    if (updateStatus.hasUpdates && updateStatus.isGitRepo) {
+      const currentShort = updateStatus.currentCommit?.substring(0, 7) || 'unknown';
+      const remoteShort = updateStatus.remoteCommit?.substring(0, 7) || 'unknown';
+      
+      updateNotification = `
+        <div id="updateNotification" style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="font-size: 1.5rem;">🔄</div>
+            <div>
+              <h3 style="margin: 0; color: #7fb069; font-size: 1rem;">Update Available</h3>
+              <p style="margin: 0.25rem 0 0 0; color: #888; font-size: 0.85rem;">
+                Current: <code style="background: #1d1d1d; padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(currentShort)}</code> → 
+                Remote: <code style="background: #1d1d1d; padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(remoteShort)}</code>
+              </p>
+            </div>
+          </div>
+          <form method="POST" action="/update/pull-and-restart" id="updateForm" style="margin: 0;">
+            ${csrfField}
+            <button type="submit" style="width: 100%; background: #4d6d4d; color: #9db4d4; padding: 0.75rem; border: 1px solid #5d7d5d; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">
+              Pull & Restart Server
+            </button>
+          </form>
+        </div>
+        <script>
+          document.getElementById('updateForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            // Show loading screen
+            window.location.href = '/update/loading';
+            // Submit form in background
+            fetch('/update/pull-and-restart', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams(new FormData(this))
+            }).catch(() => {
+              // Expected - server is restarting
+            });
+          });
+        </script>
+      `;
+    }
+  } catch (error) {
+    // Silently fail - update check is optional
+    logger.debug(`Update check failed: ${error}`);
+  }
+
   return `
+    ${updateNotification}
     <h1>Login</h1>
     <form method="POST" action="/login" style="max-width: 400px; margin: 0 auto;">
       ${csrfField}
@@ -811,8 +863,17 @@ router.get("/login", async (request, params, query) => {
   // Generate CSRF token for new session (temporary)
   const tempSessionId = 'temp_' + Date.now();
   const csrfToken = createCsrfToken(tempSessionId);
-  const formHtml = await renderLoginForm(request, '', '', csrfToken);
-  return renderPage(formHtml, "Login - XeoKey", request);
+    const formHtml = await renderLoginForm(request, '', '', csrfToken);
+  
+    // Check if we just updated
+    const updated = query.get('updated') === 'true';
+    const updateMessage = updated ? `
+      <div style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+        <p style="color: #7fb069; margin: 0; font-size: 0.9rem;">✅ Server updated successfully! Please log in again.</p>
+      </div>
+    ` : '';
+  
+    return renderPage(updateMessage + formHtml, "Login - XeoKey", request);
 });
 
 router.post("/login", async (request, params, query) => {
@@ -1075,6 +1136,188 @@ router.get("/styles.css", async (request, params, query) => {
   } catch (error) {
     logger.error(`Error serving CSS: ${error}`);
     return createErrorResponse(500, "Error loading CSS file");
+  }
+});
+
+// Update Management Routes
+// API endpoint to check for updates
+router.get("/api/update/status", async (request, params, query) => {
+  try {
+    const { checkForUpdates } = await import('./utils/git-update');
+    const status = await checkForUpdates(query.get('force') === 'true');
+    
+    return new Response(JSON.stringify(status), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error checking update status: ${error}`);
+    return new Response(JSON.stringify({ hasUpdates: false, error: error.message || 'Unknown error' }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+      status: 500,
+    });
+  }
+});
+
+// Loading screen while server restarts
+router.get("/update/loading", async (request, params, query) => {
+  return renderPage(`
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
+      <div style="font-size: 4rem; margin-bottom: 1rem; animation: spin 2s linear infinite;">🔄</div>
+      <h1 style="color: #9db4d4; margin-bottom: 0.5rem;">Updating Server...</h1>
+      <p style="color: #888; margin-bottom: 2rem; max-width: 500px;">
+        The server is pulling the latest updates from GitHub and restarting. 
+        This page will automatically redirect when the server is ready.
+      </p>
+      <div style="background: #2d2d2d; padding: 1rem; border-radius: 8px; border: 1px solid #3d3d3d; max-width: 400px; width: 100%;">
+        <div id="status" style="color: #7fb069; margin-bottom: 0.5rem;">⏳ Waiting for server to restart...</div>
+        <div style="height: 4px; background: #1d1d1d; border-radius: 2px; overflow: hidden; margin-top: 1rem;">
+          <div id="progressBar" style="height: 100%; width: 0%; background: #7fb069; transition: width 0.3s; animation: pulse 1.5s ease-in-out infinite;"></div>
+        </div>
+        <div style="color: #666; font-size: 0.85rem; margin-top: 0.5rem;" id="elapsedTime">Elapsed: 0s</div>
+      </div>
+    </div>
+    <style>
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+    </style>
+    <script>
+      let startTime = Date.now();
+      let checkCount = 0;
+      const maxChecks = 60; // Check for up to 60 seconds
+      
+      function updateElapsed() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('elapsedTime').textContent = 'Elapsed: ' + elapsed + 's';
+        
+        // Update progress bar (up to 90% while checking)
+        const progress = Math.min(90, (elapsed / 60) * 90);
+        document.getElementById('progressBar').style.width = progress + '%';
+      }
+      
+      function checkServer() {
+        checkCount++;
+        
+        // Update elapsed time
+        updateElapsed();
+        
+        // Try to ping the server
+        fetch('/api/health', { method: 'GET', cache: 'no-cache' })
+          .then(response => {
+            if (response.ok || response.status === 503) {
+              // Server is responding (even if DB is down, server is up)
+              document.getElementById('status').textContent = '✅ Server is ready!';
+              document.getElementById('progressBar').style.width = '100%';
+              document.getElementById('progressBar').style.background = '#7fb069';
+              
+              // Redirect to login after a brief delay
+              setTimeout(() => {
+                window.location.href = '/login?updated=true';
+              }, 1000);
+              return;
+            }
+            throw new Error('Server not ready');
+          })
+          .catch(() => {
+            if (checkCount >= maxChecks) {
+              document.getElementById('status').textContent = '⚠️ Server taking longer than expected. Please refresh manually.';
+              document.getElementById('progressBar').style.background = '#d4a585';
+              
+              // Show manual refresh option
+              setTimeout(() => {
+                const refreshBtn = document.createElement('button');
+                refreshBtn.textContent = 'Refresh Page';
+                refreshBtn.style.cssText = 'margin-top: 1rem; padding: 0.5rem 1rem; background: #3d3d3d; color: #e0e0e0; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer;';
+                refreshBtn.onclick = () => window.location.reload();
+                document.getElementById('status').parentElement.appendChild(refreshBtn);
+              }, 1000);
+              return;
+            }
+            
+            // Continue checking
+            setTimeout(checkServer, 1000);
+          });
+      }
+      
+      // Start checking after a brief delay
+      setTimeout(checkServer, 2000);
+      
+      // Update elapsed time every second
+      setInterval(updateElapsed, 1000);
+    </script>
+  `, "Updating Server - XeoKey", request);
+});
+
+// Pull updates and restart server
+router.post("/update/pull-and-restart", async (request, params, query) => {
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+    
+    // Verify CSRF token (basic check, session may not exist for login page)
+    const session = await attachSession(request);
+    if (session && !verifyCsrfToken(session.sessionId, csrfToken)) {
+      return renderPage(`
+        <h1>Update Failed</h1>
+        <p style="color: #d4a5a5;">Invalid CSRF token.</p>
+        <p><a href="/login" style="color: #9db4d4;">← Back to Login</a></p>
+      `, "Update Failed - XeoKey", request);
+    }
+
+    const { pullUpdates, triggerRestart } = await import('./utils/git-update');
+    const result = await pullUpdates();
+
+    if (!result.success) {
+      logger.error(`Failed to pull updates: ${result.error}`);
+      return renderPage(`
+        <h1>Update Failed</h1>
+        <p style="color: #d4a5a5;">Failed to pull updates: ${escapeHtml(result.error || 'Unknown error')}</p>
+        <p style="color: #888; font-size: 0.9rem; margin-top: 0.5rem;">
+          Make sure you have git installed and the repository is configured correctly.
+        </p>
+        <p><a href="/login" style="color: #9db4d4;">← Back to Login</a></p>
+      `, "Update Failed - XeoKey", request);
+    }
+
+    logger.info(`Updates pulled successfully. Commit: ${result.commit?.substring(0, 7) || 'unknown'}`);
+    
+    // Send response first, then trigger restart
+    const response = renderPage(`
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
+        <h1 style="color: #7fb069;">✅ Updates Pulled Successfully!</h1>
+        <p style="color: #888; margin: 1rem 0;">Restarting server...</p>
+        <p style="color: #666; font-size: 0.9rem;">Redirecting to loading screen...</p>
+      </div>
+      <script>
+        // Immediately redirect to loading screen
+        window.location.href = '/update/loading';
+      </script>
+    `, "Updates Pulled - XeoKey", request);
+    
+    // Trigger restart after response is sent (non-blocking)
+    setTimeout(() => {
+      triggerRestart();
+    }, 1000);
+    
+    return response;
+  } catch (error: any) {
+    logger.error(`Error in pull-and-restart: ${error}`);
+    return renderPage(`
+      <h1>Update Error</h1>
+      <p style="color: #d4a5a5;">An error occurred: ${escapeHtml(error.message || 'Unknown error')}</p>
+      <p><a href="/login" style="color: #9db4d4;">← Back to Login</a></p>
+    `, "Update Error - XeoKey", request);
   }
 });
 
