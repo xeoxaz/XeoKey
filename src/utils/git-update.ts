@@ -323,24 +323,24 @@ export async function prepareRestart(): Promise<{ success: boolean; error?: stri
  */
 export async function triggerRestart(): Promise<void> {
   logger.info('🔄 Triggering server restart after update...');
-  
+
   try {
     const { spawn } = await import('bun');
     const path = await import('path');
     const os = await import('os');
-    
+
     // Determine script path based on OS
     // Server runs from src/ directory, so script should be in current directory
     const isWindows = os.platform() === 'win32';
     const scriptName = isWindows ? 'restart-server.bat' : 'restart-server.sh';
-    
+
     // Try multiple possible paths
     const possiblePaths = [
       path.join(process.cwd(), scriptName), // Same directory as server.ts
       path.join(process.cwd(), 'src', scriptName), // src subdirectory
       path.resolve(scriptName), // Relative to current working directory
     ];
-    
+
     let scriptPath: string | null = null;
     for (const possiblePath of possiblePaths) {
       const { existsSync } = await import('fs');
@@ -349,13 +349,13 @@ export async function triggerRestart(): Promise<void> {
         break;
       }
     }
-    
+
     if (!scriptPath) {
       throw new Error(`Restart script not found. Tried: ${possiblePaths.join(', ')}`);
     }
-    
+
     logger.info(`Executing restart script: ${scriptPath}`);
-    
+
     // Execute the restart script
     // On Windows, use cmd.exe to run the .bat file
     // On Unix, ensure script is executable and run it
@@ -363,7 +363,7 @@ export async function triggerRestart(): Promise<void> {
       const proc = spawn(['cmd.exe', '/c', scriptPath], {
         cwd: path.dirname(scriptPath),
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', 'ignore', 'ignore'],
       });
       proc.unref(); // Allow parent process to exit independently
     } else {
@@ -373,11 +373,11 @@ export async function triggerRestart(): Promise<void> {
       const proc = spawn([scriptPath], {
         cwd: path.dirname(scriptPath),
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', 'ignore', 'ignore'],
       });
       proc.unref(); // Allow parent process to exit independently
     }
-    
+
     // Give script a moment to start, then exit
     setTimeout(() => {
       logger.info('Restart script launched. Exiting current process...');
