@@ -8,6 +8,7 @@ export interface UpdateStatus {
   remoteCommit?: string;
   error?: string;
   isGitRepo?: boolean;
+  commitMessages?: string[]; // Commit messages between current and remote
 }
 
 let cachedUpdateStatus: UpdateStatus | null = null;
@@ -113,6 +114,122 @@ async function getRemoteCommit(): Promise<string | null> {
 }
 
 /**
+ * Get commit messages between two commits
+ */
+async function getCommitMessages(fromCommit: string, toCommit: string): Promise<string[]> {
+  try {
+    const proc = spawn(['git', 'log', '--pretty=format:%s', `${fromCommit}..${toCommit}`], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const output = await new Response(proc.stdout).text();
+    const error = await new Response(proc.stderr).text();
+
+    if (error.trim() && !error.includes('not a git repository')) {
+      logger.debug(`Git log error: ${error}`);
+      return [];
+    }
+
+    // Split by newlines and filter empty strings
+    const messages = output.trim().split('\n').filter(msg => msg.trim() !== '');
+    return messages;
+  } catch (error: any) {
+    logger.debug(`Error getting commit messages: ${error.message || error}`);
+    return [];
+  }
+}
+
+/**
+ * Get recent commit messages (patch notes) from the repository
+ */
+export async function getPatchNotes(limit: number = 10): Promise<string[]> {
+  try {
+    if (!isGitRepository()) {
+      return [];
+    }
+
+    const proc = spawn(['git', 'log', '--pretty=format:%s', `-${limit}`], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const output = await new Response(proc.stdout).text();
+    const error = await new Response(proc.stderr).text();
+
+    if (error.trim()) {
+      logger.debug(`Git log error for patch notes: ${error}`);
+      return [];
+    }
+
+    // Split by newlines and filter empty strings
+    const messages = output.trim().split('\n').filter(msg => msg.trim() !== '');
+    return messages;
+  } catch (error: any) {
+    logger.debug(`Error getting patch notes: ${error.message || error}`);
+    return [];
+  }
+}
+
+/**
+ * Get commit messages between two commits
+ */
+async function getCommitMessages(fromCommit: string, toCommit: string): Promise<string[]> {
+  try {
+    const proc = spawn(['git', 'log', '--pretty=format:%s', `${fromCommit}..${toCommit}`], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const output = await new Response(proc.stdout).text();
+    const error = await new Response(proc.stderr).text();
+
+    if (error.trim() && !error.includes('not a git repository')) {
+      logger.debug(`Git log error: ${error}`);
+      return [];
+    }
+
+    // Split by newlines and filter empty strings
+    const messages = output.trim().split('\n').filter(msg => msg.trim() !== '');
+    return messages;
+  } catch (error: any) {
+    logger.debug(`Error getting commit messages: ${error.message || error}`);
+    return [];
+  }
+}
+
+/**
+ * Get recent commit messages (patch notes) from the repository
+ */
+export async function getPatchNotes(limit: number = 10): Promise<string[]> {
+  try {
+    if (!isGitRepository()) {
+      return [];
+    }
+
+    const proc = spawn(['git', 'log', '--pretty=format:%s', `-${limit}`], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const output = await new Response(proc.stdout).text();
+    const error = await new Response(proc.stderr).text();
+
+    if (error.trim()) {
+      logger.debug(`Git log error for patch notes: ${error}`);
+      return [];
+    }
+
+    // Split by newlines and filter empty strings
+    const messages = output.trim().split('\n').filter(msg => msg.trim() !== '');
+    return messages;
+  } catch (error: any) {
+    logger.debug(`Error getting patch notes: ${error.message || error}`);
+    return [];
+  }
+}
+
+/**
  * Check if updates are available from GitHub
  */
 export async function checkForUpdates(forceRefresh: boolean = false): Promise<UpdateStatus> {
@@ -125,6 +242,7 @@ export async function checkForUpdates(forceRefresh: boolean = false): Promise<Up
   const result: UpdateStatus = {
     hasUpdates: false,
     isGitRepo: false,
+    commitMessages: [],
   };
 
   try {
@@ -165,12 +283,14 @@ export async function checkForUpdates(forceRefresh: boolean = false): Promise<Up
     result.remoteCommit = remoteCommit;
     result.hasUpdates = currentCommit !== remoteCommit;
 
+    // If updates are available, get commit messages
+    if (result.hasUpdates) {
+      result.commitMessages = await getCommitMessages(currentCommit, remoteCommit);
+      logger.info(`Update available: current=${currentCommit.substring(0, 7)}, remote=${remoteCommit.substring(0, 7)}, ${result.commitMessages.length} commits`);
+    }
+
     cachedUpdateStatus = result;
     lastCheckTime = now;
-
-    if (result.hasUpdates) {
-      logger.info(`Update available: current=${currentCommit.substring(0, 7)}, remote=${remoteCommit.substring(0, 7)}`);
-    }
   } catch (error: any) {
     logger.error(`Error checking for updates: ${error.message || error}`);
     result.error = error.message || 'Unknown error';
@@ -180,68 +300,76 @@ export async function checkForUpdates(forceRefresh: boolean = false): Promise<Up
 }
 
 /**
- * Pull latest changes from GitHub and return success status
+ * Prepare for restart - the restart script will handle git pull
+ * This just validates we're ready to restart
  */
-export async function pullUpdates(): Promise<{ success: boolean; error?: string; commit?: string }> {
+export async function prepareRestart(): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isGitRepository()) {
       return { success: false, error: 'Not a git repository' };
     }
 
-    logger.info('Pulling updates from GitHub...');
-
-    // Fetch first to ensure we have latest refs
-    const fetchSuccess = await fetchRemote();
-    if (!fetchSuccess) {
-      return { success: false, error: 'Failed to fetch from remote' };
-    }
-
-    // Pull changes
-    const proc = spawn(['git', 'pull', 'origin'], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-
-    const output = await new Response(proc.stdout).text();
-    const error = await new Response(proc.stderr).text();
-
-    const exitCode = await proc.exited;
-
-    if (exitCode !== 0) {
-      logger.error(`Git pull failed: ${error || output}`);
-      return { success: false, error: error || 'Git pull failed' };
-    }
-
-    // Get the new commit hash
-    const newCommit = await getCurrentCommit();
-
-    logger.info(`Successfully pulled updates. New commit: ${newCommit?.substring(0, 7) || 'unknown'}`);
-
-    // Clear cache so next check is fresh
-    cachedUpdateStatus = null;
-    lastCheckTime = 0;
-
-    return { success: true, commit: newCommit || undefined };
+    logger.info('Preparing for server restart (script will handle git pull)...');
+    return { success: true };
   } catch (error: any) {
-    logger.error(`Error pulling updates: ${error.message || error}`);
+    logger.error(`Error preparing restart: ${error.message || error}`);
     return { success: false, error: error.message || 'Unknown error' };
   }
 }
 
 /**
- * Trigger server restart
- * This will exit the process, expecting a process manager (PM2, systemd, etc.) to restart it
- * For manual runs, the user should use a restart script or process manager
+ * Trigger server restart using restart script
+ * This launches the restart script which will pull, wait, start new instance, then exit
  */
-export function triggerRestart(): void {
+export async function triggerRestart(): Promise<void> {
   logger.info('🔄 Triggering server restart after update...');
-  logger.info('Note: If running manually, restart the server using your start script or process manager.');
   
-  // Give a brief moment for the response to be sent
-  setTimeout(() => {
-    // Exit with code 0 to indicate normal restart
-    // Process managers will automatically restart if configured (PM2, systemd with Restart=always, etc.)
-    process.exit(0);
-  }, 1000);
+  try {
+    const { spawn } = await import('bun');
+    const path = await import('path');
+    const os = await import('os');
+    
+    // Determine script path based on OS
+    const isWindows = os.platform() === 'win32';
+    const scriptName = isWindows ? 'restart-server.bat' : 'restart-server.sh';
+    const scriptPath = path.join(process.cwd(), 'src', scriptName);
+    
+    logger.info(`Executing restart script: ${scriptPath}`);
+    
+    // Execute the restart script
+    // On Windows, use cmd.exe to run the .bat file
+    // On Unix, ensure script is executable and run it
+    if (isWindows) {
+      const proc = spawn(['cmd.exe', '/c', scriptPath], {
+        cwd: path.join(process.cwd(), 'src'),
+        detached: true,
+        stdio: 'ignore',
+      });
+      proc.unref(); // Allow parent process to exit independently
+    } else {
+      // Make script executable
+      await Bun.spawn(['chmod', '+x', scriptPath]).exited;
+      
+      const proc = spawn([scriptPath], {
+        cwd: path.join(process.cwd(), 'src'),
+        detached: true,
+        stdio: 'ignore',
+      });
+      proc.unref(); // Allow parent process to exit independently
+    }
+    
+    // Give script a moment to start, then exit
+    setTimeout(() => {
+      logger.info('Restart script launched. Exiting current process...');
+      process.exit(0);
+    }, 500);
+  } catch (error: any) {
+    logger.error(`Error launching restart script: ${error.message || error}`);
+    logger.info('Falling back to simple exit - please restart manually');
+    // Fallback: just exit and let user restart manually
+    setTimeout(() => {
+      process.exit(0);
+    }, 1000);
+  }
 }
 
