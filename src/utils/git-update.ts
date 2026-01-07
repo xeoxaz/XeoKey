@@ -330,9 +330,29 @@ export async function triggerRestart(): Promise<void> {
     const os = await import('os');
     
     // Determine script path based on OS
+    // Server runs from src/ directory, so script should be in current directory
     const isWindows = os.platform() === 'win32';
     const scriptName = isWindows ? 'restart-server.bat' : 'restart-server.sh';
-    const scriptPath = path.join(process.cwd(), 'src', scriptName);
+    
+    // Try multiple possible paths
+    const possiblePaths = [
+      path.join(process.cwd(), scriptName), // Same directory as server.ts
+      path.join(process.cwd(), 'src', scriptName), // src subdirectory
+      path.resolve(scriptName), // Relative to current working directory
+    ];
+    
+    let scriptPath: string | null = null;
+    for (const possiblePath of possiblePaths) {
+      const { existsSync } = await import('fs');
+      if (existsSync(possiblePath)) {
+        scriptPath = possiblePath;
+        break;
+      }
+    }
+    
+    if (!scriptPath) {
+      throw new Error(`Restart script not found. Tried: ${possiblePaths.join(', ')}`);
+    }
     
     logger.info(`Executing restart script: ${scriptPath}`);
     
@@ -341,7 +361,7 @@ export async function triggerRestart(): Promise<void> {
     // On Unix, ensure script is executable and run it
     if (isWindows) {
       const proc = spawn(['cmd.exe', '/c', scriptPath], {
-        cwd: path.join(process.cwd(), 'src'),
+        cwd: path.dirname(scriptPath),
         detached: true,
         stdio: 'ignore',
       });
@@ -351,7 +371,7 @@ export async function triggerRestart(): Promise<void> {
       await Bun.spawn(['chmod', '+x', scriptPath]).exited;
       
       const proc = spawn([scriptPath], {
-        cwd: path.join(process.cwd(), 'src'),
+        cwd: path.dirname(scriptPath),
         detached: true,
         stdio: 'ignore',
       });

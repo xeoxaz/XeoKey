@@ -1331,7 +1331,8 @@ router.post("/update/pull-and-restart", async (request, params, query) => {
     // Send response first, then trigger restart
     const response = renderPage(`
       <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
-        <h1 style="color: #7fb069;">✅ Updates Pulled Successfully!</h1>
+        <h1 style="color: #7fb069;">✅ Restarting Server...</h1>
+        <p style="color: #888; margin: 0.5rem 0;">The restart script will pull updates and start the new server.</p>
         <p style="color: #888; margin: 1rem 0;">Restarting server...</p>
         <p style="color: #666; font-size: 0.9rem;">Redirecting to loading screen...</p>
       </div>
