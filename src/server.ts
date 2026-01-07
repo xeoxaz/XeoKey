@@ -23,6 +23,9 @@ import { listBackups, createBackup, restoreBackup, deleteBackup, getBackupStats,
 import { runIntegrityChecks, quickHealthCheck } from './db/integrity';
 import { forceHealthCheck, getLastHealthCheck } from './db/health';
 
+// Password recovery
+import { getUnrecoverablePasswords, recoverPasswordWithMasterKey, repairPasswordEntry, batchRecoverPasswords } from './db/password-recovery';
+
 // Input sanitization
 import { sanitizeUsername, sanitizeString, sanitizeWebsite, validateUsername, validatePassword } from './utils/sanitize';
 
@@ -707,7 +710,10 @@ async function analyzePasswords(userId: string): Promise<SecurityAnalysis> {
   return result;
 }
 
-function escapeHtml(text: string): string {
+function escapeHtml(text: string | undefined | null): string {
+  if (text === undefined || text === null) {
+    return '';
+  }
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -1085,27 +1091,105 @@ router.get("/favicon.ico", async (request, params, query) => {
 // Serve Chart.js locally to avoid tracking prevention issues
 router.get("/chart.js", async (request, params, query) => {
   try {
-    // Try to load from node_modules
-    const chartJsPath = "node_modules/chart.js/dist/chart.umd.min.js";
-    const chartJsFile = Bun.file(chartJsPath);
-    const exists = await chartJsFile.exists();
+    // Try to load from node_modules (check multiple possible locations)
+    // Server runs from src/ directory, so check relative paths
+    const chartJsPaths = [
+      "../node_modules/chart.js/dist/chart.umd.min.js", // From src/ directory
+      "node_modules/chart.js/dist/chart.umd.min.js",    // If in root
+      "src/node_modules/chart.js/dist/chart.umd.min.js" // Alternative
+    ];
 
-    if (!exists) {
-      logger.warn(`Chart.js file not found at ${chartJsPath}`);
-      return createErrorResponse(404, "Chart.js not found");
+    let chartJs: string | null = null;
+    let foundPath: string | null = null;
+
+    for (const chartJsPath of chartJsPaths) {
+      try {
+        const chartJsFile = Bun.file(chartJsPath);
+        const exists = await chartJsFile.exists();
+        if (exists) {
+          chartJs = await chartJsFile.text();
+          foundPath = chartJsPath;
+          break;
+        }
+      } catch (e) {
+        // Continue to next path
+        continue;
+      }
     }
 
-    const chartJs = await chartJsFile.text();
-    return new Response(chartJs, {
+    if (chartJs) {
+      logger.debug(`Serving Chart.js from ${foundPath}`);
+      return new Response(chartJs, {
+        headers: {
+          ...SECURITY_HEADERS,
+          "Content-Type": "application/javascript; charset=utf-8",
+          "Cache-Control": "public, max-age=31536000", // Cache for 1 year
+        },
+      });
+    }
+
+    // If not found locally, redirect to CDN (with proper MIME type handling)
+    logger.warn(`Chart.js not found locally, using CDN fallback`);
+    const cdnUrl = "https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js";
+
+    // Fetch from CDN and proxy it
+    try {
+      const cdnResponse = await fetch(cdnUrl);
+      if (cdnResponse.ok) {
+        const cdnContent = await cdnResponse.text();
+        return new Response(cdnContent, {
+          headers: {
+            ...SECURITY_HEADERS,
+            "Content-Type": "application/javascript; charset=utf-8",
+            "Cache-Control": "public, max-age=3600", // Cache CDN content for 1 hour
+          },
+        });
+      }
+    } catch (cdnError) {
+      logger.warn(`Failed to fetch Chart.js from CDN: ${cdnError}`);
+    }
+
+    // Last resort: return a minimal stub that prevents errors
+    logger.warn(`Chart.js unavailable, returning stub`);
+    const stub = `
+      // Chart.js stub - library not available
+      window.Chart = class Chart {
+        constructor() {
+          console.warn('Chart.js is not available. Charts will not be displayed.');
+        }
+        update() {}
+        destroy() {}
+      };
+      console.warn('Chart.js not loaded. Please install chart.js package or check your connection.');
+    `;
+
+    return new Response(stub, {
       headers: {
         ...SECURITY_HEADERS,
-        "Content-Type": "application/javascript",
-        "Cache-Control": "public, max-age=31536000", // Cache for 1 year
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "no-cache",
       },
     });
   } catch (error) {
     logger.error(`Error serving Chart.js: ${error}`);
-    return createErrorResponse(500, "Error loading Chart.js");
+    // Return stub instead of error response to prevent MIME type issues
+    const stub = `
+      // Chart.js error stub
+      window.Chart = class Chart {
+        constructor() {
+          console.error('Chart.js failed to load');
+        }
+        update() {}
+        destroy() {}
+      };
+    `;
+    return new Response(stub, {
+      headers: {
+        ...SECURITY_HEADERS,
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
+    });
   }
 });
 
@@ -2527,12 +2611,17 @@ router.get("/health", async (request, params, query) => {
       </div>
       ` : ''}
 
-      <div style="margin-top: 1.5rem;">
+      <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
         <form method="GET" action="/health" style="display: inline;">
           <button type="submit" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
             🔄 Run Health Check Now
           </button>
         </form>
+        ${integrityResult.checks.encryptionIntegrity.issues.length > 0 ? `
+          <a href="/passwords/recover" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.75rem 1.5rem; border-radius: 4px; text-decoration: none; display: inline-block; font-size: 1rem;">
+            🔑 Recover Passwords
+          </a>
+        ` : ''}
       </div>
     `, "Health Check - XeoKey", request);
   } catch (error) {
@@ -2541,6 +2630,290 @@ router.get("/health", async (request, params, query) => {
       <h1>System Health</h1>
       <p style="color: #d4a5a5;">Error running health check.</p>
     `, "Health Check - XeoKey", request);
+  }
+});
+
+// Password Recovery Routes
+router.get("/passwords/recover", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return renderPage(`
+      <h1>Password Recovery</h1>
+      <p style="color: #d4a5a5;">Database not available.</p>
+    `, "Password Recovery - XeoKey", request);
+  }
+
+  try {
+    const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+    const unrecoverable = await getUnrecoverablePasswords(userIdString);
+
+    const unrecoverableList = unrecoverable
+      .filter(e => !e.canDecrypt)
+      .map(entry => {
+        return `
+          <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+              <div>
+                <h3 style="margin: 0; color: #9db4d4;">${escapeHtml(entry.website)}</h3>
+                ${entry.username ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;">Username: ${escapeHtml(entry.username)}</p>` : ''}
+                ${entry.email ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;">Email: ${escapeHtml(entry.email)}</p>` : ''}
+              </div>
+              <span style="background: #6d2d2d; color: #d4a5a5; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #7d3d3d;">Cannot Decrypt</span>
+            </div>
+            <div style="color: #888; font-size: 0.85rem; margin-bottom: 0.5rem;">
+              <p style="margin: 0.25rem 0;">Entry ID: <code style="background: #1d1d1d; padding: 0.25rem 0.5rem; border-radius: 4px;">${escapeHtml(entry.entryId)}</code></p>
+              ${entry.decryptionError ? `<p style="margin: 0.25rem 0; color: #d4a5a5;">Error: ${escapeHtml(entry.decryptionError)}</p>` : ''}
+            </div>
+            <form method="POST" action="/passwords/recover/${entry.entryId}" style="margin-top: 0.5rem;">
+              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+              <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                <div style="flex: 1;">
+                  <label style="display: block; color: #888; font-size: 0.9rem; margin-bottom: 0.25rem;">Master Password / Encryption Key:</label>
+                  <input type="password" name="masterKey" placeholder="Enter master password or encryption key"
+                         style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
+                </div>
+                <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                  Try Recovery
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+      }).join('');
+
+    const recoverableList = unrecoverable
+      .filter(e => e.canDecrypt)
+      .map(entry => {
+        return `
+          <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <h3 style="margin: 0; color: #9db4d4;">${escapeHtml(entry.website)}</h3>
+                ${entry.username ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;">Username: ${escapeHtml(entry.username)}</p>` : ''}
+              </div>
+              <span style="background: #2d4a2d; color: #7fb069; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #3d5d3d;">✅ Recoverable</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+    return renderPage(`
+      <h1>Password Recovery</h1>
+      <p style="color: #888; margin-bottom: 1.5rem;">
+        If passwords cannot be decrypted, you can attempt to recover them using a master password or encryption key.
+        This is useful if the encryption key has changed or passwords were encrypted with a different key.
+      </p>
+
+      ${unrecoverable.filter(e => !e.canDecrypt).length > 0 ? `
+        <div style="margin-bottom: 2rem;">
+          <h2 style="color: #d4a5a5;">Unrecoverable Passwords (${unrecoverable.filter(e => !e.canDecrypt).length})</h2>
+          <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
+            These passwords cannot be decrypted with the current encryption key.
+            If you have the original master password or encryption key, you can attempt to recover them.
+          </p>
+          ${unrecoverableList}
+        </div>
+      ` : ''}
+
+      ${unrecoverable.filter(e => e.canDecrypt).length > 0 ? `
+        <div style="margin-bottom: 2rem;">
+          <h2 style="color: #7fb069;">Recoverable Passwords (${unrecoverable.filter(e => e.canDecrypt).length})</h2>
+          <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
+            These passwords can be decrypted successfully.
+          </p>
+          ${recoverableList}
+        </div>
+      ` : ''}
+
+      ${unrecoverable.length === 0 ? `
+        <div style="padding: 2rem; text-align: center; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+          <p style="color: #7fb069; font-size: 1.2rem;">✅ All passwords are recoverable!</p>
+          <p style="color: #888; margin-top: 0.5rem;">No password recovery needed.</p>
+        </div>
+      ` : ''}
+
+      <div style="margin-top: 2rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+        <h3 style="color: #9db4d4; margin-top: 0;">Batch Recovery</h3>
+        <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
+          Attempt to recover all unrecoverable passwords at once using a master password.
+        </p>
+        <form method="POST" action="/passwords/recover/batch">
+          <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+          <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+            <div style="flex: 1;">
+              <label style="display: block; color: #888; font-size: 0.9rem; margin-bottom: 0.25rem;">Master Password / Encryption Key:</label>
+              <input type="password" name="masterKey" placeholder="Enter master password or encryption key"
+                     style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
+            </div>
+            <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+              Recover All
+            </button>
+          </div>
+        </form>
+      </div>
+    `, "Password Recovery - XeoKey", request);
+  } catch (error) {
+    logger.error(`Error loading password recovery: ${error}`);
+    return renderPage(`
+      <h1>Password Recovery</h1>
+      <p style="color: #d4a5a5;">Error loading password recovery.</p>
+    `, "Password Recovery - XeoKey", request);
+  }
+});
+
+router.post("/passwords/recover/:id", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  try {
+    const entryId = params.id || '';
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+    const masterKey = formData.get('masterKey')?.toString() || '';
+
+    if (!verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    if (!masterKey) {
+      return renderPage(`
+        <h1>Recovery Failed</h1>
+        <p style="color: #d4a5a5;">Master password is required.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Recovery Failed - XeoKey", request);
+    }
+
+    const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+    const result = await recoverPasswordWithMasterKey(entryId, userIdString, masterKey);
+
+    if (result.success && result.decryptedPassword) {
+      // Attempt to repair the password
+      const repairResult = await repairPasswordEntry(entryId, userIdString, result.decryptedPassword);
+
+      if (repairResult.success) {
+        return renderPage(`
+          <h1>Password Recovered</h1>
+          <p style="color: #7fb069;">✅ Password recovered and repaired successfully!</p>
+          <div style="background: #2d2d2d; padding: 1rem; border-radius: 8px; border: 1px solid #3d3d3d; margin: 1rem 0;">
+            <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Recovered Password:</p>
+            <p style="color: #9db4d4; font-family: monospace; font-size: 1.1rem; word-break: break-all;">${escapeHtml(result.decryptedPassword)}</p>
+          </div>
+          <p><a href="/passwords/${entryId}" style="color: #9db4d4;">View Password Entry</a> | <a href="/passwords/recover" style="color: #9db4d4;">Back to Recovery</a></p>
+        `, "Password Recovered - XeoKey", request);
+      } else {
+        return renderPage(`
+          <h1>Recovery Partial</h1>
+          <p style="color: #d4a585;">⚠️ Password decrypted but repair failed: ${escapeHtml(repairResult.error || 'Unknown error')}</p>
+          <div style="background: #2d2d2d; padding: 1rem; border-radius: 8px; border: 1px solid #3d3d3d; margin: 1rem 0;">
+            <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Decrypted Password:</p>
+            <p style="color: #9db4d4; font-family: monospace; font-size: 1.1rem; word-break: break-all;">${escapeHtml(result.decryptedPassword)}</p>
+          </div>
+          <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        `, "Recovery Partial - XeoKey", request);
+      }
+    } else {
+      return renderPage(`
+        <h1>Recovery Failed</h1>
+        <p style="color: #d4a5a5;">Failed to decrypt password: ${escapeHtml(result.error || 'Unknown error')}</p>
+        <p style="color: #888;">The master password or encryption key may be incorrect.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Recovery Failed - XeoKey", request);
+    }
+  } catch (error: any) {
+    logger.error(`Error recovering password: ${error}`);
+    return createErrorResponse(500, "Internal Server Error");
+  }
+});
+
+router.post("/passwords/recover/batch", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+    const masterKey = formData.get('masterKey')?.toString() || '';
+
+    if (!verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    if (!masterKey) {
+      return renderPage(`
+        <h1>Batch Recovery Failed</h1>
+        <p style="color: #d4a5a5;">Master password is required.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Batch Recovery Failed - XeoKey", request);
+    }
+
+    const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+    const result = await batchRecoverPasswords(userIdString, masterKey);
+
+    return renderPage(`
+      <h1>Batch Recovery Results</h1>
+      <div style="margin-bottom: 1.5rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+          <div>
+            <div style="color: #888; font-size: 0.9rem;">Recovered</div>
+            <div style="color: #7fb069; font-size: 1.5rem; font-weight: bold;">${result.recovered}</div>
+          </div>
+          <div>
+            <div style="color: #888; font-size: 0.9rem;">Failed</div>
+            <div style="color: #d4a5a5; font-size: 1.5rem; font-weight: bold;">${result.failed}</div>
+          </div>
+          <div>
+            <div style="color: #888; font-size: 0.9rem;">Total</div>
+            <div style="color: #9db4d4; font-size: 1.5rem; font-weight: bold;">${result.entries.length}</div>
+          </div>
+        </div>
+      </div>
+
+      ${result.success ? `
+        <p style="color: #7fb069; font-size: 1.1rem;">✅ All passwords recovered successfully!</p>
+      ` : `
+        <p style="color: #d4a5a5;">⚠️ Some passwords could not be recovered.</p>
+        ${result.error ? `<p style="color: #888;">Error: ${escapeHtml(result.error)}</p>` : ''}
+      `}
+
+      <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+    `, "Batch Recovery Results - XeoKey", request);
+  } catch (error: any) {
+    logger.error(`Error in batch recovery: ${error}`);
+    return createErrorResponse(500, "Internal Server Error");
   }
 });
 
