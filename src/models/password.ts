@@ -444,7 +444,7 @@ export async function updatePasswordEntry(
   }
 }
 
-// Delete password entry
+// Delete password entry by ID
 export async function deletePasswordEntry(entryId: string, userId: string): Promise<boolean> {
   const db = getDatabase();
   const passwordsCollection = db.collection<PasswordEntry>('passwords');
@@ -453,15 +453,154 @@ export async function deletePasswordEntry(entryId: string, userId: string): Prom
     return false;
   }
 
+  const userIdString = typeof userId === 'string' ? userId : (userId as any).toString();
+
   try {
-    const result = await passwordsCollection.deleteOne({
+    // Try with string userId first
+    let result = await passwordsCollection.deleteOne({
       _id: new ObjectId(entryId),
-      userId,
-    });
+      userId: userIdString,
+    } as any);
+
+    // If not found and userId is a valid ObjectId, try with ObjectId
+    if (result.deletedCount === 0 && ObjectId.isValid(userIdString)) {
+      result = await passwordsCollection.deleteOne({
+        _id: new ObjectId(entryId),
+        userId: new ObjectId(userIdString),
+      } as any);
+    }
 
     return result.deletedCount > 0;
   } catch (error) {
+    passwordLogger.error(`Error deleting password entry: ${error}`);
     return false;
+  }
+}
+
+// Find password entries by website/username/email (for recovery purposes)
+export async function findPasswordEntriesByIdentifier(
+  userId: string,
+  website: string,
+  username?: string,
+  email?: string
+): Promise<PasswordEntry[]> {
+  const db = getDatabase();
+  const passwordsCollection = db.collection<PasswordEntry>('passwords');
+
+  const userIdString = typeof userId === 'string' ? userId : (userId as any).toString();
+
+  try {
+    // Build base query conditions for userId (try both string and ObjectId)
+    const userIdConditions: any[] = [{ userId: userIdString }];
+    if (ObjectId.isValid(userIdString)) {
+      userIdConditions.push({ userId: new ObjectId(userIdString) });
+    }
+
+    // Build query: must match userId AND website
+    let query: any = {
+      $or: userIdConditions.map(uid => ({ ...uid, website })),
+    };
+
+    // If username is provided, include it in the match (match exact or missing/null)
+    if (username !== undefined && username !== null && username !== '') {
+      // Match exact username or entries without username
+      query.$or = query.$or.map((q: any) => ({
+        ...q,
+        $or: [
+          { username: username },
+          { username: { $exists: false } },
+          { username: null },
+          { username: '' },
+        ]
+      }));
+    }
+
+    // If email is provided, include it in the match (match exact or missing/null)
+    if (email !== undefined && email !== null && email !== '') {
+      // Match exact email or entries without email
+      query.$or = query.$or.map((q: any) => {
+        const existing = q.$or || [q];
+        return existing.map((cond: any) => ({
+          ...cond,
+          $or: [
+            { email: email },
+            { email: { $exists: false } },
+            { email: null },
+            { email: '' },
+          ]
+        }));
+      }).flat();
+    }
+
+    // Find all matching entries
+    const results = await passwordsCollection.find(query as any).toArray();
+
+    // Filter more precisely for username/email match
+    let filteredResults = results.filter(entry => {
+      // Must match website
+      if (entry.website !== website) return false;
+      
+      // If username provided, must match exactly or be missing/null
+      if (username !== undefined && username !== null && username !== '') {
+        if (entry.username && entry.username !== username) return false;
+      }
+      
+      // If email provided, must match exactly or be missing/null
+      if (email !== undefined && email !== null && email !== '') {
+        if (entry.email && entry.email !== email) return false;
+      }
+      
+      return true;
+    });
+
+    return filteredResults;
+  } catch (error) {
+    passwordLogger.error(`Error finding password entries by identifier: ${error}`);
+    return [];
+  }
+}
+
+// Delete password entry by website/username/email
+export async function deletePasswordEntryByIdentifier(
+  userId: string,
+  website: string,
+  username?: string,
+  email?: string
+): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  try {
+    const entries = await findPasswordEntriesByIdentifier(userId, website, username, email);
+
+    if (entries.length === 0) {
+      return { success: false, deletedCount: 0, error: 'No matching password entries found' };
+    }
+
+    const db = getDatabase();
+    const passwordsCollection = db.collection<PasswordEntry>('passwords');
+    const userIdString = typeof userId === 'string' ? userId : (userId as any).toString();
+
+    let deletedCount = 0;
+    for (const entry of entries) {
+      if (!entry._id) continue;
+
+      try {
+        // Delete by _id to ensure we're deleting the exact entry
+        const result = await passwordsCollection.deleteOne({
+          _id: new ObjectId(entry._id),
+        } as any);
+
+        if (result.deletedCount > 0) {
+          deletedCount++;
+          passwordLogger.info(`Deleted password entry: ${entry._id} (${website}${username ? ` / ${username}` : ''}${email ? ` / ${email}` : ''})`);
+        }
+      } catch (error: any) {
+        passwordLogger.error(`Error deleting entry ${entry._id}: ${error.message || error}`);
+      }
+    }
+
+    return { success: deletedCount > 0, deletedCount };
+  } catch (error: any) {
+    passwordLogger.error(`Error deleting password entry by identifier: ${error.message || error}`);
+    return { success: false, deletedCount: 0, error: error.message || 'Unknown error' };
   }
 }
 

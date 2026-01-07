@@ -14,6 +14,12 @@ export interface PasswordRecoveryEntry {
   decryptionError?: string;
   canDecrypt: boolean;
   decryptedPassword?: string;
+  // Composite identifier for recovery operations
+  identifier: {
+    website: string;
+    username?: string;
+    email?: string;
+  };
 }
 
 export interface RecoveryResult {
@@ -73,9 +79,9 @@ function attemptDecrypt(encrypted: string, masterKey?: string): { success: boole
     const errorMessage = error.message || String(error);
     // Provide more specific error messages
     if (errorMessage.includes('BAD_DECRYPT') || errorMessage.includes('bad decrypt')) {
-      return { 
-        success: false, 
-        error: 'Decryption failed: The master password/encryption key does not match the key used to encrypt this password. Make sure you\'re using the exact same key that was used when the password was first encrypted.' 
+      return {
+        success: false,
+        error: 'Decryption failed: The master password/encryption key does not match the key used to encrypt this password. Make sure you\'re using the exact same key that was used when the password was first encrypted.'
       };
     }
     if (errorMessage.includes('Invalid key length')) {
@@ -146,6 +152,11 @@ export async function getUnrecoverablePasswords(userId: string): Promise<Passwor
       decryptionError: decryptResult.error,
       canDecrypt: decryptResult.success,
       decryptedPassword: decryptResult.password,
+      identifier: {
+        website: password.website || 'Unknown',
+        username: password.username,
+        email: password.email,
+      },
     });
   }
 
@@ -153,7 +164,7 @@ export async function getUnrecoverablePasswords(userId: string): Promise<Passwor
 }
 
 /**
- * Attempt to recover password using master key
+ * Attempt to recover password using master key (by entryId)
  */
 export async function recoverPasswordWithMasterKey(
   entryId: string,
@@ -174,7 +185,46 @@ export async function recoverPasswordWithMasterKey(
 }
 
 /**
- * Repair password entry by re-encrypting with correct key
+ * Attempt to recover password using master key (by website/username/email)
+ */
+export async function recoverPasswordByIdentifier(
+  userId: string,
+  website: string,
+  masterKey: string,
+  username?: string,
+  email?: string
+): Promise<{ success: boolean; decryptedPassword?: string; entryId?: string; error?: string }> {
+  try {
+    const { findPasswordEntriesByIdentifier } = await import('../models/password');
+    const entries = await findPasswordEntriesByIdentifier(userId, website, username, email);
+
+    if (entries.length === 0) {
+      return { success: false, error: 'No matching password entry found' };
+    }
+
+    // Try to decrypt the first matching entry
+    const entry = entries[0];
+    if (!entry.password) {
+      return { success: false, error: 'Password entry has no encrypted password data' };
+    }
+
+    const result = attemptDecrypt(entry.password, masterKey);
+    if (result.success && result.password) {
+      return {
+        success: true,
+        decryptedPassword: result.password,
+        entryId: entry._id,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Repair password entry by re-encrypting with correct key (by entryId)
  */
 export async function repairPasswordEntry(
   entryId: string,
@@ -220,6 +270,59 @@ export async function repairPasswordEntry(
   } catch (error: any) {
     dbLogger.error(`Error repairing password entry: ${error.message}`);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Repair password entry by identifier (website/username/email)
+ */
+export async function repairPasswordEntryByIdentifier(
+  userId: string,
+  website: string,
+  plaintextPassword: string,
+  username?: string,
+  email?: string
+): Promise<{ success: boolean; repairedCount: number; error?: string }> {
+  try {
+    const { findPasswordEntriesByIdentifier } = await import('../models/password');
+    const entries = await findPasswordEntriesByIdentifier(userId, website, username, email);
+
+    if (entries.length === 0) {
+      return { success: false, repairedCount: 0, error: 'No matching password entries found' };
+    }
+
+    const db = getDatabase();
+    const passwordsCollection = db.collection('passwords');
+    const reEncrypted = reEncryptPassword(plaintextPassword);
+
+    let repairedCount = 0;
+    for (const entry of entries) {
+      if (!entry._id) continue;
+
+      try {
+        const result = await passwordsCollection.updateOne(
+          { _id: new ObjectId(entry._id) },
+          {
+            $set: {
+              password: reEncrypted,
+              updatedAt: new Date(),
+            }
+          }
+        );
+
+        if (result.matchedCount > 0) {
+          repairedCount++;
+          dbLogger.info(`Password entry ${entry._id} (${website}${username ? ` / ${username}` : ''}${email ? ` / ${email}` : ''}) repaired successfully`);
+        }
+      } catch (error: any) {
+        dbLogger.error(`Error repairing entry ${entry._id}: ${error.message || error}`);
+      }
+    }
+
+    return { success: repairedCount > 0, repairedCount };
+  } catch (error: any) {
+    dbLogger.error(`Error repairing password entry by identifier: ${error.message || error}`);
+    return { success: false, repairedCount: 0, error: error.message || 'Unknown error' };
   }
 }
 

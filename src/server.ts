@@ -2678,33 +2678,48 @@ router.get("/passwords/recover", async (request, params, query) => {
     const unrecoverableList = unrecoverable
       .filter(e => !e.canDecrypt)
       .map(entry => {
+        // Encode identifier for URL
+        const identifier = encodeURIComponent(JSON.stringify({
+          website: entry.website,
+          username: entry.username || '',
+          email: entry.email || ''
+        }));
+        
         return `
           <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-              <div>
-                <h3 style="margin: 0; color: #9db4d4;">${escapeHtml(entry.website)}</h3>
-                ${entry.username ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;">Username: ${escapeHtml(entry.username)}</p>` : ''}
-                ${entry.email ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;">Email: ${escapeHtml(entry.email)}</p>` : ''}
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+              <div style="flex: 1;">
+                <h3 style="margin: 0; color: #9db4d4; font-size: 1.1rem;">${escapeHtml(entry.website)}</h3>
+                ${entry.username ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;"><strong>Username:</strong> ${escapeHtml(entry.username)}</p>` : ''}
+                ${entry.email ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;"><strong>Email:</strong> ${escapeHtml(entry.email)}</p>` : ''}
+                ${entry.decryptionError ? `<p style="color: #d4a5a5; margin: 0.5rem 0 0 0; font-size: 0.85rem;">⚠️ ${escapeHtml(entry.decryptionError)}</p>` : ''}
               </div>
-              <span style="background: #6d2d2d; color: #d4a5a5; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #7d3d3d;">Cannot Decrypt</span>
+              <span style="background: #6d2d2d; color: #d4a5a5; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #7d3d3d; white-space: nowrap;">Cannot Decrypt</span>
             </div>
-            <div style="color: #888; font-size: 0.85rem; margin-bottom: 0.5rem;">
-              <p style="margin: 0.25rem 0;">Entry ID: <code style="background: #1d1d1d; padding: 0.25rem 0.5rem; border-radius: 4px;">${escapeHtml(entry.entryId)}</code></p>
-              ${entry.decryptionError ? `<p style="margin: 0.25rem 0; color: #d4a5a5;">Error: ${escapeHtml(entry.decryptionError)}</p>` : ''}
-            </div>
-            <form method="POST" action="/passwords/recover/${entry.entryId}" style="margin-top: 0.5rem;">
-              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
-              <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
-                <div style="flex: 1;">
-                  <label style="display: block; color: #888; font-size: 0.9rem; margin-bottom: 0.25rem;">Master Password / Encryption Key:</label>
-                  <input type="password" name="masterKey" placeholder="Enter master password or encryption key"
-                         style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #3d3d3d;">
+              <form method="POST" action="/passwords/recover/by-identifier" style="flex: 1; min-width: 250px;">
+                <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+                <input type="hidden" name="identifier" value="${identifier}">
+                <div style="display: flex; gap: 0.5rem;">
+                  <input type="password" name="masterKey" placeholder="Master password or key"
+                         style="flex: 1; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
+                  <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                    Try Recovery
+                  </button>
                 </div>
-                <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                  Try Recovery
+              </form>
+              <form method="POST" action="/passwords/delete/by-identifier" style="display: inline-block;">
+                <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+                <input type="hidden" name="identifier" value="${identifier}">
+                <button type="submit" onclick="return confirm('Are you sure you want to delete this password entry? This cannot be undone.');" 
+                        style="background: #6d2d2d; color: #d4a5a5; border: 1px solid #7d3d3d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                  Delete Entry
                 </button>
-              </div>
-            </form>
+              </form>
+            </div>
+            <div style="color: #666; font-size: 0.75rem; margin-top: 0.5rem; font-family: monospace;">
+              ID: ${escapeHtml(entry.entryId)}
+            </div>
           </div>
         `;
       }).join('');
@@ -2878,7 +2893,7 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
     } else {
       const errorMsg = result.error || 'Unknown error';
       const isBadDecrypt = errorMsg.includes('BAD_DECRYPT') || errorMsg.includes('bad decrypt') || errorMsg.includes('does not match');
-      
+
       return renderPage(`
         <h1>Recovery Failed</h1>
         <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
@@ -2901,6 +2916,260 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
     }
   } catch (error: any) {
     logger.error(`Error recovering password: ${error}`);
+    return createErrorResponse(500, "Internal Server Error");
+  }
+});
+
+// Recover password by identifier (website/username/email)
+router.post("/passwords/recover/by-identifier", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+    const masterKey = formData.get('masterKey')?.toString() || '';
+    const identifierJson = formData.get('identifier')?.toString() || '';
+
+    if (!verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    if (!masterKey) {
+      return renderPage(`
+        <h1>Recovery Failed</h1>
+        <p style="color: #d4a5a5;">Master password is required.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Recovery Failed - XeoKey", request);
+    }
+
+    if (!identifierJson) {
+      return renderPage(`
+        <h1>Recovery Failed</h1>
+        <p style="color: #d4a5a5;">Invalid identifier.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Recovery Failed - XeoKey", request);
+    }
+
+    let identifier;
+    try {
+      identifier = JSON.parse(decodeURIComponent(identifierJson));
+    } catch (e) {
+      return renderPage(`
+        <h1>Recovery Failed</h1>
+        <p style="color: #d4a5a5;">Invalid identifier format.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Recovery Failed - XeoKey", request);
+    }
+
+    const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+    const { recoverPasswordByIdentifier, repairPasswordEntryByIdentifier } = await import('./db/password-recovery');
+    
+    // Attempt recovery
+    const result = await recoverPasswordByIdentifier(
+      userIdString,
+      identifier.website,
+      masterKey,
+      identifier.username || undefined,
+      identifier.email || undefined
+    );
+
+    if (result.success && result.decryptedPassword) {
+      // Create automatic backup before repair
+      logger.info('Creating automatic backup before password repair...');
+      const { createBackup } = await import('./db/backup');
+      const backupResult = await createBackup(
+        ['passwords', 'totp', 'users', 'sessions'],
+        'automatic',
+        undefined,
+        `Automatic backup before password repair (${identifier.website}${identifier.username ? ` / ${identifier.username}` : ''}${identifier.email ? ` / ${identifier.email}` : ''})`
+      );
+      if (backupResult.success) {
+        logger.info(`✅ Pre-repair backup created: ${backupResult.backupId}`);
+      } else {
+        logger.warn(`⚠️  Pre-repair backup failed: ${backupResult.error || 'Unknown error'}`);
+      }
+
+      // Attempt to repair
+      const repairResult = await repairPasswordEntryByIdentifier(
+        userIdString,
+        identifier.website,
+        result.decryptedPassword,
+        identifier.username || undefined,
+        identifier.email || undefined
+      );
+
+      if (repairResult.success) {
+        return renderPage(`
+          <h1>Password Recovered</h1>
+          ${backupResult.success ? `
+            <div style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+              <p style="color: #7fb069; margin: 0; font-size: 0.9rem;">✅ Automatic backup created before recovery: ${escapeHtml(backupResult.backupId)}</p>
+            </div>
+          ` : `
+            <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+              <p style="color: #d4a585; margin: 0; font-size: 0.9rem;">⚠️ Automatic backup failed: ${escapeHtml(backupResult.error || 'Unknown error')}</p>
+            </div>
+          `}
+          <p style="color: #7fb069;">✅ Password recovered and repaired successfully!</p>
+          <div style="background: #2d2d2d; padding: 1rem; border-radius: 8px; border: 1px solid #3d3d3d; margin: 1rem 0;">
+            <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Recovered Password:</p>
+            <p style="color: #9db4d4; font-family: monospace; font-size: 1.1rem; word-break: break-all;">${escapeHtml(result.decryptedPassword)}</p>
+          </div>
+          <p><strong>Website:</strong> ${escapeHtml(identifier.website)}${identifier.username ? ` | <strong>Username:</strong> ${escapeHtml(identifier.username)}` : ''}${identifier.email ? ` | <strong>Email:</strong> ${escapeHtml(identifier.email)}` : ''}</p>
+          <p>${repairResult.repairedCount} ${repairResult.repairedCount === 1 ? 'entry' : 'entries'} ${repairResult.repairedCount === 1 ? 'was' : 'were'} repaired.</p>
+          <p><a href="/passwords/recover" style="color: #9db4d4;">Back to Recovery</a></p>
+        `, "Password Recovered - XeoKey", request);
+      } else {
+        return renderPage(`
+          <h1>Recovery Partial</h1>
+          <p style="color: #d4a585;">⚠️ Password decrypted but repair failed: ${escapeHtml(repairResult.error || 'Unknown error')}</p>
+          <div style="background: #2d2d2d; padding: 1rem; border-radius: 8px; border: 1px solid #3d3d3d; margin: 1rem 0;">
+            <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Decrypted Password:</p>
+            <p style="color: #9db4d4; font-family: monospace; font-size: 1.1rem; word-break: break-all;">${escapeHtml(result.decryptedPassword)}</p>
+          </div>
+          <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        `, "Recovery Partial - XeoKey", request);
+      }
+    } else {
+      const errorMsg = result.error || 'Unknown error';
+      const isBadDecrypt = errorMsg.includes('BAD_DECRYPT') || errorMsg.includes('bad decrypt') || errorMsg.includes('does not match');
+      
+      return renderPage(`
+        <h1>Recovery Failed</h1>
+        <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+          <p style="color: #d4a5a5; margin: 0; font-weight: bold;">Decryption Failed</p>
+          <p style="color: #888; margin: 0.5rem 0 0 0; font-size: 0.9rem;">${escapeHtml(errorMsg)}</p>
+        </div>
+        ${isBadDecrypt ? `
+          <div style="background: #4a3d2d; border: 1px solid #5d4d3d; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+            <p style="color: #d4a585; margin: 0; font-weight: bold;">💡 What this means:</p>
+            <ul style="color: #888; margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.9rem;">
+              <li>The master password you provided does not match the encryption key used to encrypt this password.</li>
+              <li>The master password must be the <strong>exact same value</strong> as the <code>ENCRYPTION_KEY</code> environment variable that was used when the password was first created.</li>
+              <li>If the <code>ENCRYPTION_KEY</code> has changed, you need to provide the <strong>old/original</strong> key value.</li>
+            </ul>
+          </div>
+        ` : ''}
+        <p style="color: #888; font-size: 0.9rem;">No backup was created because no database changes were made.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Recovery Failed - XeoKey", request);
+    }
+  } catch (error: any) {
+    logger.error(`Error recovering password by identifier: ${error}`);
+    return createErrorResponse(500, "Internal Server Error");
+  }
+});
+
+// Delete password by identifier
+router.post("/passwords/delete/by-identifier", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+    const identifierJson = formData.get('identifier')?.toString() || '';
+
+    if (!verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    if (!identifierJson) {
+      return renderPage(`
+        <h1>Delete Failed</h1>
+        <p style="color: #d4a5a5;">Invalid identifier.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Delete Failed - XeoKey", request);
+    }
+
+    let identifier;
+    try {
+      identifier = JSON.parse(decodeURIComponent(identifierJson));
+    } catch (e) {
+      return renderPage(`
+        <h1>Delete Failed</h1>
+        <p style="color: #d4a5a5;">Invalid identifier format.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Delete Failed - XeoKey", request);
+    }
+
+    const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+    const { deletePasswordEntryByIdentifier } = await import('./models/password');
+    
+    // Create automatic backup before deletion
+    logger.info('Creating automatic backup before password deletion...');
+    const { createBackup } = await import('./db/backup');
+    const backupResult = await createBackup(
+      ['passwords', 'totp', 'users', 'sessions'],
+      'automatic',
+      undefined,
+      `Automatic backup before password deletion (${identifier.website}${identifier.username ? ` / ${identifier.username}` : ''}${identifier.email ? ` / ${identifier.email}` : ''})`
+    );
+    if (backupResult.success) {
+      logger.info(`✅ Pre-deletion backup created: ${backupResult.backupId}`);
+    } else {
+      logger.warn(`⚠️  Pre-deletion backup failed: ${backupResult.error || 'Unknown error'}`);
+    }
+
+    const result = await deletePasswordEntryByIdentifier(
+      userIdString,
+      identifier.website,
+      identifier.username || undefined,
+      identifier.email || undefined
+    );
+
+    if (result.success && result.deletedCount > 0) {
+      return renderPage(`
+        <h1>Password Entry Deleted</h1>
+        ${backupResult.success ? `
+          <div style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+            <p style="color: #7fb069; margin: 0; font-size: 0.9rem;">✅ Automatic backup created before deletion: ${escapeHtml(backupResult.backupId)}</p>
+            <p style="color: #888; margin: 0.25rem 0 0 0; font-size: 0.85rem;">You can restore this backup from <a href="/backups" style="color: #9db4d4;">Backups</a> if needed.</p>
+          </div>
+        ` : `
+          <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+            <p style="color: #d4a585; margin: 0; font-size: 0.9rem;">⚠️ Automatic backup failed: ${escapeHtml(backupResult.error || 'Unknown error')}</p>
+          </div>
+        `}
+        <p style="color: #7fb069;">✅ Password entry deleted successfully!</p>
+        <p><strong>Website:</strong> ${escapeHtml(identifier.website)}${identifier.username ? ` | <strong>Username:</strong> ${escapeHtml(identifier.username)}` : ''}${identifier.email ? ` | <strong>Email:</strong> ${escapeHtml(identifier.email)}` : ''}</p>
+        <p>${result.deletedCount} ${result.deletedCount === 1 ? 'entry' : 'entries'} ${result.deletedCount === 1 ? 'was' : 'were'} deleted.</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Password Entry Deleted - XeoKey", request);
+    } else {
+      return renderPage(`
+        <h1>Delete Failed</h1>
+        <p style="color: #d4a5a5;">Failed to delete password entry: ${escapeHtml(result.error || 'No matching entries found')}</p>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Delete Failed - XeoKey", request);
+    }
+  } catch (error: any) {
+    logger.error(`Error deleting password by identifier: ${error}`);
     return createErrorResponse(500, "Internal Server Error");
   }
 });
