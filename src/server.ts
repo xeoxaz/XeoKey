@@ -988,7 +988,7 @@ router.post("/login", async (request, params, query) => {
     const tempSessionId = 'temp_' + Date.now();
     const csrfToken = createCsrfToken(tempSessionId);
     const formHtml = await renderLoginForm(request, '', `Too many login attempts. Please try again in ${minutesRemaining} minute(s).`, csrfToken);
-    return renderPage(formHtml, "Login - XeoKey", request);
+    return renderLoginPage(formHtml, "Login - XeoKey", request);
   }
 
   try {
