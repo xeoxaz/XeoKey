@@ -399,6 +399,32 @@ async function renderPage(body: string, title: string = "XeoKey", request?: Requ
   return createResponse(html, "text/html");
 }
 
+// Render login page without page-content wrapper (for custom layout)
+async function renderLoginPage(body: string, title: string = "Login - XeoKey", request?: Request): Promise<Response> {
+  let session = null;
+  let issueCount = 0;
+
+  if (request && isConnected()) {
+    const sessionData = await attachSession(request);
+    if (sessionData) {
+      session = { username: sessionData.username, userId: sessionData.userId };
+    }
+  }
+  
+  // Get header and footer
+  let header = await getHeader(title, session, issueCount);
+  let footer = await getFooter(session, issueCount);
+  
+  // Remove page-content wrapper from header (it's opened in header template)
+  // Replace with empty string to remove the opening div
+  header = header.replace('<div class="page-content">', '');
+  
+  // Close main tag before footer (footer expects main to be closed)
+  // Our body content goes directly in main, then we close it
+  const html = header + body + '</main>' + footer;
+  return createResponse(html, "text/html");
+}
+
 // Initialize router and define routes
 const router = new Router();
 
@@ -745,12 +771,12 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     const { checkForUpdates, getPatchNotes } = await import('./utils/git-update');
     const updateStatus = await checkForUpdates();
     const patchNotes = await getPatchNotes(10);
-    
+
     if (updateStatus.hasUpdates && updateStatus.isGitRepo) {
       const currentShort = updateStatus.currentCommit?.substring(0, 7) || 'unknown';
       const remoteShort = updateStatus.remoteCommit?.substring(0, 7) || 'unknown';
       const commitMessages = updateStatus.commitMessages || [];
-      
+
       const updatesList = commitMessages.length > 0 ? `
         <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #3d5d3d;">
           <p style="color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: bold;">What's new (${commitMessages.length} ${commitMessages.length === 1 ? 'commit' : 'commits'}):</p>
@@ -759,7 +785,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
           </ul>
         </div>
       ` : '';
-      
+
       updateNotification = `
         <div id="updateNotification" style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto;">
           <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
@@ -767,7 +793,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
             <div style="flex: 1;">
               <h3 style="margin: 0; color: #7fb069; font-size: 1rem;">Update Available</h3>
               <p style="margin: 0.25rem 0 0 0; color: #888; font-size: 0.85rem;">
-                Current: <code style="background: #1d1d1d; padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(currentShort)}</code> → 
+                Current: <code style="background: #1d1d1d; padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(currentShort)}</code> →
                 Remote: <code style="background: #1d1d1d; padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(remoteShort)}</code>
               </p>
             </div>
@@ -797,18 +823,18 @@ async function renderLoginForm(request: Request, username: string = '', error: s
         </script>
       `;
     }
-    
-    // Show patch notes/news feed below login form - each update in its own card
+
+    // Show patch notes/news feed - each update in its own card
     if (patchNotes.length > 0) {
       patchNotesSection = `
-        <div style="margin-top: 2rem; max-width: 400px; margin-left: auto; margin-right: auto;">
-          <h3 style="color: #9db4d4; font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <div>
+          <h3 style="margin-top: 0; color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
             <span>📰</span>
             <span>Recent Updates</span>
           </h3>
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             ${patchNotes.map((msg) => `
-              <div style="background: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px; padding: 0.875rem; transition: border-color 0.2s;">
+              <div style="background: #1d1d1d; border: 1px solid #3d3d3d; border-radius: 6px; padding: 0.875rem; transition: border-color 0.2s;">
                 <p style="color: #e0e0e0; font-size: 0.85rem; margin: 0; line-height: 1.4;">${escapeHtml(msg)}</p>
               </div>
             `).join('')}
@@ -821,9 +847,16 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     logger.debug(`Update check failed: ${error}`);
   }
 
-  return `
-    ${updateNotification}
-    <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1.5rem; border-radius: 8px; max-width: 400px; margin: 0 auto 1.5rem auto;">
+  // Build 3-column layout for desktop
+  const updateColumn = updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
+    <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1rem; border-radius: 8px; height: fit-content;">
+      <h3 style="margin-top: 0; color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.5rem;">System Status</h3>
+      <p style="color: #7fb069; font-size: 0.85rem; margin: 0;">✓ Up to date</p>
+    </div>
+  `;
+
+  const loginColumn = `
+    <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1.5rem; border-radius: 8px; height: fit-content;">
       <h1 style="margin-top: 0; margin-bottom: 1.5rem; color: #9db4d4;">Login</h1>
       <form method="POST" action="/login">
         ${csrfField}
@@ -842,7 +875,39 @@ async function renderLoginForm(request: Request, username: string = '', error: s
         <a href="/register" style="color: #9db4d4; text-decoration: none; font-size: 0.9rem;">Don't have an account? Register here</a>
       </p>
     </div>
-    ${patchNotesSection}
+  `;
+
+  const newsColumn = patchNotesSection || `
+    <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1rem; border-radius: 8px; height: fit-content;">
+      <h3 style="margin-top: 0; color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span>📰</span>
+        <span>Recent Updates</span>
+      </h3>
+      <p style="color: #888; font-size: 0.85rem; margin: 0;">No recent updates available.</p>
+    </div>
+  `;
+
+  return `
+    <div style="max-width: 1400px; margin: 0 auto; padding: 2rem 1rem;">
+      <div class="login-grid" style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+        <div>
+          ${updateColumn}
+        </div>
+        <div>
+          ${loginColumn}
+        </div>
+        <div>
+          ${newsColumn}
+        </div>
+      </div>
+    </div>
+    <style>
+      @media (min-width: 1024px) {
+        .login-grid {
+          grid-template-columns: 1fr 1.2fr 1fr !important;
+        }
+      }
+    </style>
   `;
 }
 
@@ -899,16 +964,16 @@ router.get("/login", async (request, params, query) => {
   const tempSessionId = 'temp_' + Date.now();
   const csrfToken = createCsrfToken(tempSessionId);
     const formHtml = await renderLoginForm(request, '', '', csrfToken);
-
+  
     // Check if we just updated
     const updated = query.get('updated') === 'true';
     const updateMessage = updated ? `
-      <div style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+      <div style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
         <p style="color: #7fb069; margin: 0; font-size: 0.9rem;">✅ Server updated successfully! Please log in again.</p>
       </div>
     ` : '';
-
-    return renderPage(updateMessage + formHtml, "Login - XeoKey", request);
+  
+    return renderLoginPage(updateMessage + formHtml, "Login - XeoKey", request);
 });
 
 router.post("/login", async (request, params, query) => {
@@ -938,7 +1003,7 @@ router.post("/login", async (request, params, query) => {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderLoginForm(request, rawUsername, "Invalid security token. Please try again.", newCsrfToken);
-      return renderPage(formHtml, "Login - XeoKey", request);
+      return renderLoginPage(formHtml, "Login - XeoKey", request);
     }
 
     // Sanitize inputs
@@ -949,7 +1014,7 @@ router.post("/login", async (request, params, query) => {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderLoginForm(request, rawUsername, "Username and password are required.", newCsrfToken);
-      return renderPage(formHtml, "Login - XeoKey", request);
+      return renderLoginPage(formHtml, "Login - XeoKey", request);
     }
 
     // Validate inputs
@@ -958,7 +1023,7 @@ router.post("/login", async (request, params, query) => {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderLoginForm(request, rawUsername, usernameValidation.error || "Invalid username format.", newCsrfToken);
-      return renderPage(formHtml, "Login - XeoKey", request);
+      return renderLoginPage(formHtml, "Login - XeoKey", request);
     }
 
     const user = await authenticateUser(username, password);
@@ -966,7 +1031,7 @@ router.post("/login", async (request, params, query) => {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderLoginForm(request, rawUsername, "Invalid username or password.", newCsrfToken);
-      return renderPage(formHtml, "Login - XeoKey", request);
+      return renderLoginPage(formHtml, "Login - XeoKey", request);
     }
 
     // Reset rate limit on successful login
