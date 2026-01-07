@@ -557,8 +557,9 @@ async function checkEncryptionIntegrity(): Promise<CheckResult> {
           if (!password._id) continue;
 
           try {
-            const decrypted = await getDecryptedPassword(password._id, userId);
-            if (!decrypted) {
+            // Verify entry exists and belongs to user
+            // Use the password object we already have from getUserPasswords as verification
+            if (!password.password || password.password.trim() === '') {
               result.passed = false;
               decryptionFailures++;
               result.issues.push({
@@ -566,20 +567,55 @@ async function checkEncryptionIntegrity(): Promise<CheckResult> {
                 collection: 'passwords',
                 entryId: password._id,
                 userId: userId,
-                message: `Password ${password._id} cannot be decrypted`,
-                suggestion: 'Check encryption key and password format',
+                message: `Password entry ${password._id} has no encrypted password data`,
+                suggestion: 'Password may be corrupted or empty',
+              });
+              continue;
+            }
+
+            // Try to decrypt using the password object we already have
+            // This avoids potential userId format mismatches in getPasswordEntry
+            try {
+              const { decryptPassword } = await import('../models/password');
+              const decrypted = decryptPassword(password.password);
+              if (!decrypted || decrypted.trim() === '') {
+                result.passed = false;
+                decryptionFailures++;
+                result.issues.push({
+                  severity: 'critical',
+                  collection: 'passwords',
+                  entryId: password._id,
+                  userId: userId,
+                  message: `Password ${password._id} cannot be decrypted (returned empty)`,
+                  suggestion: 'Password may have been encrypted with a different key. Try password recovery.',
+                });
+              }
+              // If decrypted is truthy and non-empty, password decrypts successfully - no issue
+            } catch (decryptError: any) {
+              // Direct decryption failed - this is a real decryption error
+              result.passed = false;
+              decryptionFailures++;
+              dbLogger.warn(`Password decryption failed for ${password._id}: ${decryptError.message || decryptError}`);
+              result.issues.push({
+                severity: 'critical',
+                collection: 'passwords',
+                entryId: password._id,
+                userId: userId,
+                message: `Password ${password._id} cannot be decrypted: ${decryptError.message || 'Invalid encryption format'}`,
+                suggestion: 'Password may have been encrypted with a different key. Try password recovery with the original master password.',
               });
             }
           } catch (error: any) {
             result.passed = false;
             decryptionFailures++;
+            dbLogger.error(`Error checking password ${password._id}: ${error.message || error}`);
             result.issues.push({
               severity: 'critical',
               collection: 'passwords',
               entryId: password._id,
               userId: userId,
-              message: `Decryption error: ${error.message}`,
-              suggestion: 'Verify encryption key matches',
+              message: `Error checking password: ${error.message || 'Unknown error'}`,
+              suggestion: 'Check server logs for details',
             });
           }
         }

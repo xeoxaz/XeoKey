@@ -43,7 +43,7 @@ function encryptPassword(password: string): string {
 }
 
 // Decrypt password
-function decryptPassword(encrypted: string): string {
+export function decryptPassword(encrypted: string): string {
   const algorithm = 'aes-256-cbc';
   const key = getEncryptionKey();
 
@@ -240,14 +240,32 @@ export async function getPasswordEntry(entryId: string, userId: string): Promise
 
 // Get decrypted password
 export async function getDecryptedPassword(entryId: string, userId: string): Promise<string | null> {
-  const entry = await getPasswordEntry(entryId, userId);
-  if (!entry) {
-    return null;
-  }
-
   try {
-    return decryptPassword(entry.password);
-  } catch (error) {
+    const entry = await getPasswordEntry(entryId, userId);
+    if (!entry) {
+      passwordLogger.debug(`getDecryptedPassword: Entry ${entryId} not found for userId ${userId}`);
+      return null;
+    }
+
+    if (!entry.password || entry.password.trim() === '') {
+      passwordLogger.debug(`getDecryptedPassword: Entry ${entryId} has no password data`);
+      return null;
+    }
+
+    try {
+      const decrypted = decryptPassword(entry.password);
+      return decrypted;
+    } catch (error: any) {
+      // Log the actual decryption error for debugging
+      passwordLogger.warn(`Decryption failed for entry ${entryId}: ${error.message || error}`);
+      // Don't log the full encrypted password, but log format issues
+      if (error.message?.includes('format') || error.message?.includes('Invalid')) {
+        passwordLogger.debug(`Password format issue for entry ${entryId}: ${entry.password.substring(0, 20)}...`);
+      }
+      return null;
+    }
+  } catch (error: any) {
+    passwordLogger.error(`getDecryptedPassword error for entry ${entryId}: ${error.message || error}`);
     return null;
   }
 }
