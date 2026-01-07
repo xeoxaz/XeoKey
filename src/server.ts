@@ -2507,8 +2507,16 @@ router.get("/health", async (request, params, query) => {
   }
 
   try {
+    const url = new URL(request.url);
+    const refreshRequested = url.searchParams.get('refresh') === '1';
     const lastCheck = getLastHealthCheck();
-    const integrityResult = lastCheck.result || await forceHealthCheck();
+    const lastTs = lastCheck.timestamp ? new Date(lastCheck.timestamp).getTime() : 0;
+    const isStale = !lastTs || (Date.now() - lastTs) > 15_000; // 15s
+
+    // Prefer cached results for quick refreshes, but allow forcing a new run.
+    const integrityResult = (refreshRequested || isStale || !lastCheck.result)
+      ? await forceHealthCheck()
+      : lastCheck.result;
 
     const statusColor = integrityResult.success ? '#7fb069' : '#d4a5a5';
     const statusText = integrityResult.success ? '✅ Healthy' : '⚠️ Issues Detected';
@@ -2622,7 +2630,7 @@ router.get("/health", async (request, params, query) => {
       ` : ''}
 
       <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-        <form method="GET" action="/health" style="display: inline;">
+        <form method="GET" action="/health?refresh=1" style="display: inline;">
           <button type="submit" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
             🔄 Run Health Check Now
           </button>
@@ -2816,25 +2824,24 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
     }
 
     const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
-    
-    // Create automatic backup before recovery
-    logger.info('Creating automatic backup before password recovery...');
-    const backupResult = await createBackup(
-      ['passwords', 'totp', 'users', 'sessions'],
-      'automatic',
-      undefined,
-      `Automatic backup before password recovery (entry: ${entryId})`
-    );
-    if (backupResult.success) {
-      logger.info(`✅ Pre-recovery backup created: ${backupResult.backupId}`);
-    } else {
-      logger.warn(`⚠️  Pre-recovery backup failed: ${backupResult.error || 'Unknown error'}`);
-      // Continue with recovery anyway, but warn user
-    }
-    
     const result = await recoverPasswordWithMasterKey(entryId, userIdString, masterKey);
 
     if (result.success && result.decryptedPassword) {
+      // Only create a backup if we're about to modify the DB (repair re-encrypts and updates the entry)
+      logger.info('Creating automatic backup before password repair...');
+      const backupResult = await createBackup(
+        ['passwords', 'totp', 'users', 'sessions'],
+        'automatic',
+        undefined,
+        `Automatic backup before password repair (entry: ${entryId})`
+      );
+      if (backupResult.success) {
+        logger.info(`✅ Pre-repair backup created: ${backupResult.backupId}`);
+      } else {
+        logger.warn(`⚠️  Pre-repair backup failed: ${backupResult.error || 'Unknown error'}`);
+        // Continue with repair anyway, but warn user
+      }
+
       // Attempt to repair the password
       const repairResult = await repairPasswordEntry(entryId, userIdString, result.decryptedPassword);
 
@@ -2873,6 +2880,7 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
         <h1>Recovery Failed</h1>
         <p style="color: #d4a5a5;">Failed to decrypt password: ${escapeHtml(result.error || 'Unknown error')}</p>
         <p style="color: #888;">The master password or encryption key may be incorrect.</p>
+        <p style="color: #888; font-size: 0.9rem;">No backup was created because no database changes were made.</p>
         <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
       `, "Recovery Failed - XeoKey", request);
     }
@@ -2916,22 +2924,37 @@ router.post("/passwords/recover/batch", async (request, params, query) => {
     }
 
     const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
-    
-    // Create automatic backup before batch recovery
-    logger.info('Creating automatic backup before batch password recovery...');
+
+    // Determine if there is anything to repair before taking a backup / running recovery
+    const snapshot = await getUnrecoverablePasswords(userIdString);
+    const needsRecoveryCount = snapshot.filter(e => !e.canDecrypt).length;
+
+    if (needsRecoveryCount === 0) {
+      return renderPage(`
+        <h1>Batch Recovery Results</h1>
+        <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+          <p style="color: #7fb069; margin: 0;">✅ No unrecoverable passwords detected. Nothing was changed.</p>
+          <p style="color: #888; margin: 0.25rem 0 0 0; font-size: 0.9rem;">Recovered: 0 • Failed: 0 • Total needing recovery: 0</p>
+        </div>
+        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      `, "Batch Recovery Results - XeoKey", request);
+    }
+
+    // Create automatic backup before batch repair (since we are about to write)
+    logger.info('Creating automatic backup before batch password repair...');
     const backupResult = await createBackup(
       ['passwords', 'totp', 'users', 'sessions'],
       'automatic',
       undefined,
-      'Automatic backup before batch password recovery'
+      'Automatic backup before batch password repair'
     );
     if (backupResult.success) {
-      logger.info(`✅ Pre-recovery backup created: ${backupResult.backupId}`);
+      logger.info(`✅ Pre-repair backup created: ${backupResult.backupId}`);
     } else {
-      logger.warn(`⚠️  Pre-recovery backup failed: ${backupResult.error || 'Unknown error'}`);
+      logger.warn(`⚠️  Pre-repair backup failed: ${backupResult.error || 'Unknown error'}`);
       // Continue with recovery anyway, but warn user
     }
-    
+
     const result = await batchRecoverPasswords(userIdString, masterKey);
 
     return renderPage(`
@@ -2958,14 +2981,14 @@ router.post("/passwords/recover/batch", async (request, params, query) => {
             <div style="color: #d4a5a5; font-size: 1.5rem; font-weight: bold;">${result.failed}</div>
           </div>
           <div>
-            <div style="color: #888; font-size: 0.9rem;">Total</div>
-            <div style="color: #9db4d4; font-size: 1.5rem; font-weight: bold;">${result.entries.length}</div>
+            <div style="color: #888; font-size: 0.9rem;">Total needing recovery</div>
+            <div style="color: #9db4d4; font-size: 1.5rem; font-weight: bold;">${needsRecoveryCount}</div>
           </div>
         </div>
       </div>
 
-      ${result.success ? `
-        <p style="color: #7fb069; font-size: 1.1rem;">✅ All passwords recovered successfully!</p>
+      ${result.failed === 0 ? `
+        <p style="color: #7fb069; font-size: 1.1rem;">✅ Batch repair complete. Recovered ${result.recovered} password(s).</p>
       ` : `
         <p style="color: #d4a5a5;">⚠️ Some passwords could not be recovered.</p>
         ${result.error ? `<p style="color: #888;">Error: ${escapeHtml(result.error)}</p>` : ''}
