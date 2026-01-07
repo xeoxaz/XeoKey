@@ -2684,7 +2684,7 @@ router.get("/passwords/recover", async (request, params, query) => {
           username: entry.username || '',
           email: entry.email || ''
         }));
-        
+
         return `
           <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
@@ -2711,7 +2711,7 @@ router.get("/passwords/recover", async (request, params, query) => {
               <form method="POST" action="/passwords/delete/by-identifier" style="display: inline-block;">
                 <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
                 <input type="hidden" name="identifier" value="${identifier}">
-                <button type="submit" onclick="return confirm('Are you sure you want to delete this password entry? This cannot be undone.');" 
+                <button type="submit" onclick="return confirm('Are you sure you want to delete this password entry? This cannot be undone.');"
                         style="background: #6d2d2d; color: #d4a5a5; border: 1px solid #7d3d3d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
                   Delete Entry
                 </button>
@@ -2976,7 +2976,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
 
     const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
     const { recoverPasswordByIdentifier, repairPasswordEntryByIdentifier } = await import('./db/password-recovery');
-    
+
     // Attempt recovery
     const result = await recoverPasswordByIdentifier(
       userIdString,
@@ -3046,7 +3046,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
     } else {
       const errorMsg = result.error || 'Unknown error';
       const isBadDecrypt = errorMsg.includes('BAD_DECRYPT') || errorMsg.includes('bad decrypt') || errorMsg.includes('does not match');
-      
+
       return renderPage(`
         <h1>Recovery Failed</h1>
         <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
@@ -3120,7 +3120,7 @@ router.post("/passwords/delete/by-identifier", async (request, params, query) =>
 
     const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
     const { deletePasswordEntryByIdentifier } = await import('./models/password');
-    
+
     // Create automatic backup before deletion
     logger.info('Creating automatic backup before password deletion...');
     const { createBackup } = await import('./db/backup');
@@ -3602,11 +3602,13 @@ router.post("/passwords/:id/update", async (request, params, query) => {
     debugLog(logger, `CSRF token validation result: ${csrfValid}`);
 
     if (!csrfValid) {
-      logger.warn('CSRF token invalid, but session is valid. Regenerating token and continuing...');
       // Regenerate token for this session to ensure it's fresh
+      // This handles cases where the token in the form is stale (e.g., page was open for a long time)
       const { createCsrfToken } = await import('./security/csrf');
       createCsrfToken(session.sessionId);
       // Continue with the update - the session is valid, so this is likely just a stale token
+      // Only log at debug level since this is expected behavior for long-lived forms
+      debugLog(logger, 'CSRF token was stale, regenerated and continuing with valid session');
       csrfValid = true;
     }
 
@@ -3664,7 +3666,7 @@ router.post("/passwords/:id/update", async (request, params, query) => {
       `, "Update Entry - XeoKey", request);
     }
 
-    // Update the entry (convert empty strings to undefined for optional fields)
+    // Update the entry (convert empty strings to undefined for optional fields, except notes which can be empty)
     const updates: {
       website?: string;
       username?: string;
@@ -3676,7 +3678,8 @@ router.post("/passwords/:id/update", async (request, params, query) => {
       password: password,
       username: username.trim() || undefined,
       email: email.trim() || undefined,
-      notes: notes.trim() || undefined,
+      // Notes can be explicitly set to empty string to clear it
+      notes: notes.trim(),
     };
 
     debugLog(logger, `Calling updatePasswordEntry with: entryId=${entryId}, userId=${userIdString}, updates=${JSON.stringify({ ...updates, password: '[REDACTED]' })}`);

@@ -341,7 +341,11 @@ export async function updatePasswordEntry(
   if (updates.username !== undefined) updateData.username = updates.username;
   if (updates.email !== undefined) updateData.email = updates.email;
   if (updates.password !== undefined) updateData.password = encryptPassword(updates.password);
-  if (updates.notes !== undefined) updateData.notes = updates.notes;
+  // Notes can be explicitly set to empty string or null to clear it
+  if (updates.notes !== undefined) {
+    // Allow empty string to clear notes, or set to null if empty
+    updateData.notes = updates.notes === '' ? null : updates.notes;
+  }
 
   // Verify we have at least one field to update (besides updatedAt)
   const fieldsToUpdate = Object.keys(updateData).filter(key => key !== 'updatedAt');
@@ -539,17 +543,17 @@ export async function findPasswordEntriesByIdentifier(
     let filteredResults = results.filter(entry => {
       // Must match website
       if (entry.website !== website) return false;
-      
+
       // If username provided, must match exactly or be missing/null
       if (username !== undefined && username !== null && username !== '') {
         if (entry.username && entry.username !== username) return false;
       }
-      
+
       // If email provided, must match exactly or be missing/null
       if (email !== undefined && email !== null && email !== '') {
         if (entry.email && entry.email !== email) return false;
       }
-      
+
       return true;
     });
 
