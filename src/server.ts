@@ -710,11 +710,21 @@ async function analyzePasswords(userId: string): Promise<SecurityAnalysis> {
   return result;
 }
 
-function escapeHtml(text: string | undefined | null): string {
+function escapeHtml(text: string | undefined | null | any): string {
+  // Handle null, undefined, or non-string types
   if (text === undefined || text === null) {
     return '';
   }
-  return text
+  
+  // Convert to string if not already
+  const str = typeof text === 'string' ? text : String(text);
+  
+  // Handle empty strings
+  if (str === '') {
+    return '';
+  }
+  
+  return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -2523,12 +2533,12 @@ router.get("/health", async (request, params, query) => {
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div style="flex: 1;">
               <div style="color: ${severityColor}; font-weight: bold; margin-bottom: 0.25rem;">
-                ${issue.severity.toUpperCase()}: ${escapeHtml(issue.message)}
+                ${issue.severity.toUpperCase()}: ${escapeHtml(String(issue.message || ''))}
               </div>
-              ${issue.collection ? `<div style="color: #888; font-size: 0.9rem;">Collection: ${escapeHtml(issue.collection)}</div>` : ''}
-              ${issue.entryId ? `<div style="color: #888; font-size: 0.9rem;">Entry ID: ${escapeHtml(issue.entryId)}</div>` : ''}
-              ${issue.userId ? `<div style="color: #888; font-size: 0.9rem;">User ID: ${escapeHtml(issue.userId)}</div>` : ''}
-              ${issue.suggestion ? `<div style="color: #9db4d4; font-size: 0.9rem; margin-top: 0.25rem;">💡 ${escapeHtml(issue.suggestion)}</div>` : ''}
+              ${issue.collection ? `<div style="color: #888; font-size: 0.9rem;">Collection: ${escapeHtml(String(issue.collection || ''))}</div>` : ''}
+              ${issue.entryId ? `<div style="color: #888; font-size: 0.9rem;">Entry ID: ${escapeHtml(String(issue.entryId || ''))}</div>` : ''}
+              ${issue.userId ? `<div style="color: #888; font-size: 0.9rem;">User ID: ${escapeHtml(String(issue.userId || ''))}</div>` : ''}
+              ${issue.suggestion ? `<div style="color: #9db4d4; font-size: 0.9rem; margin-top: 0.25rem;">💡 ${escapeHtml(String(issue.suggestion || ''))}</div>` : ''}
             </div>
           </div>
         </div>
@@ -2571,35 +2581,35 @@ router.get("/health", async (request, params, query) => {
             <div style="color: ${integrityResult.checks.userIdFormat.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
               ${integrityResult.checks.userIdFormat.passed ? '✅ Pass' : '❌ Fail'}
             </div>
-            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.userIdFormat.details)}</div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.userIdFormat.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Password Accessibility</div>
             <div style="color: ${integrityResult.checks.passwordAccessibility.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
               ${integrityResult.checks.passwordAccessibility.passed ? '✅ Pass' : '❌ Fail'}
             </div>
-            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.passwordAccessibility.details)}</div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.passwordAccessibility.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Data Consistency</div>
             <div style="color: ${integrityResult.checks.dataConsistency.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
               ${integrityResult.checks.dataConsistency.passed ? '✅ Pass' : '❌ Fail'}
             </div>
-            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.dataConsistency.details)}</div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.dataConsistency.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Orphaned Entries</div>
             <div style="color: ${integrityResult.checks.orphanedEntries.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
               ${integrityResult.checks.orphanedEntries.passed ? '✅ Pass' : '❌ Fail'}
             </div>
-            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.orphanedEntries.details)}</div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.orphanedEntries.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Encryption Integrity</div>
             <div style="color: ${integrityResult.checks.encryptionIntegrity.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
               ${integrityResult.checks.encryptionIntegrity.passed ? '✅ Pass' : '❌ Fail'}
             </div>
-            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.encryptionIntegrity.details)}</div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.encryptionIntegrity.details || ''))}</div>
           </div>
         </div>
       </div>
