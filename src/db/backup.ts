@@ -60,14 +60,23 @@ function getMetadataFilePath(): string {
 // Load backup metadata
 async function loadBackupMetadata(): Promise<BackupMetadata[]> {
   const metadataPath = getMetadataFilePath();
-
+  
   if (!fs.existsSync(metadataPath)) {
     return [];
   }
-
+  
   try {
     const data = fs.readFileSync(metadataPath, 'utf-8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    
+    // Convert timestamp strings back to Date objects
+    return parsed.map((item: any) => ({
+      ...item,
+      timestamp: item.timestamp instanceof Date 
+        ? item.timestamp 
+        : new Date(item.timestamp || Date.now()),
+      _id: item._id ? (typeof item._id === 'string' ? new ObjectId(item._id) : item._id) : new ObjectId(),
+    }));
   } catch (error) {
     dbLogger.error(`Failed to load backup metadata: ${error}`);
     return [];
@@ -223,9 +232,14 @@ export async function createPreMigrationBackup(migrationVersion: number): Promis
  */
 export async function listBackups(): Promise<BackupMetadata[]> {
   const metadata = await loadBackupMetadata();
-
+  
   // Sort by timestamp (newest first)
-  return metadata.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  // Ensure timestamps are Date objects before calling getTime()
+  return metadata.sort((a, b) => {
+    const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+    const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+    return timeB - timeA;
+  });
 }
 
 /**
@@ -382,13 +396,16 @@ export async function getBackupStats(): Promise<{
   }
 
   const totalSize = metadata.reduce((sum, b) => sum + b.size, 0);
-  const timestamps = metadata.map(b => b.timestamp.getTime());
-
+  const timestamps = metadata.map(b => {
+    const ts = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
+    return ts.getTime();
+  });
+  
   return {
     totalBackups: metadata.length,
     totalSize,
-    oldestBackup: new Date(Math.min(...timestamps)),
-    newestBackup: new Date(Math.max(...timestamps)),
+    oldestBackup: timestamps.length > 0 ? new Date(Math.min(...timestamps)) : null,
+    newestBackup: timestamps.length > 0 ? new Date(Math.max(...timestamps)) : null,
   };
 }
 

@@ -715,15 +715,15 @@ function escapeHtml(text: string | undefined | null | any): string {
   if (text === undefined || text === null) {
     return '';
   }
-  
+
   // Convert to string if not already
   const str = typeof text === 'string' ? text : String(text);
-  
+
   // Handle empty strings
   if (str === '') {
     return '';
   }
-  
+
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -2816,6 +2816,22 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
     }
 
     const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+    
+    // Create automatic backup before recovery
+    logger.info('Creating automatic backup before password recovery...');
+    const backupResult = await createBackup(
+      ['passwords', 'totp', 'users', 'sessions'],
+      'automatic',
+      undefined,
+      `Automatic backup before password recovery (entry: ${entryId})`
+    );
+    if (backupResult.success) {
+      logger.info(`✅ Pre-recovery backup created: ${backupResult.backupId}`);
+    } else {
+      logger.warn(`⚠️  Pre-recovery backup failed: ${backupResult.error || 'Unknown error'}`);
+      // Continue with recovery anyway, but warn user
+    }
+    
     const result = await recoverPasswordWithMasterKey(entryId, userIdString, masterKey);
 
     if (result.success && result.decryptedPassword) {
@@ -2825,6 +2841,15 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
       if (repairResult.success) {
         return renderPage(`
           <h1>Password Recovered</h1>
+          ${backupResult.success ? `
+            <div style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+              <p style="color: #7fb069; margin: 0; font-size: 0.9rem;">✅ Automatic backup created before recovery: ${escapeHtml(backupResult.backupId)}</p>
+            </div>
+          ` : `
+            <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+              <p style="color: #d4a585; margin: 0; font-size: 0.9rem;">⚠️ Automatic backup failed: ${escapeHtml(backupResult.error || 'Unknown error')}</p>
+            </div>
+          `}
           <p style="color: #7fb069;">✅ Password recovered and repaired successfully!</p>
           <div style="background: #2d2d2d; padding: 1rem; border-radius: 8px; border: 1px solid #3d3d3d; margin: 1rem 0;">
             <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Recovered Password:</p>
@@ -2891,10 +2916,37 @@ router.post("/passwords/recover/batch", async (request, params, query) => {
     }
 
     const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+    
+    // Create automatic backup before batch recovery
+    logger.info('Creating automatic backup before batch password recovery...');
+    const backupResult = await createBackup(
+      ['passwords', 'totp', 'users', 'sessions'],
+      'automatic',
+      undefined,
+      'Automatic backup before batch password recovery'
+    );
+    if (backupResult.success) {
+      logger.info(`✅ Pre-recovery backup created: ${backupResult.backupId}`);
+    } else {
+      logger.warn(`⚠️  Pre-recovery backup failed: ${backupResult.error || 'Unknown error'}`);
+      // Continue with recovery anyway, but warn user
+    }
+    
     const result = await batchRecoverPasswords(userIdString, masterKey);
 
     return renderPage(`
       <h1>Batch Recovery Results</h1>
+      ${backupResult.success ? `
+        <div style="background: #2d4a2d; border: 1px solid #3d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1.5rem;">
+          <p style="color: #7fb069; margin: 0; font-size: 0.9rem;">✅ Automatic backup created before recovery: ${escapeHtml(backupResult.backupId)}</p>
+          <p style="color: #888; margin: 0.25rem 0 0 0; font-size: 0.85rem;">You can restore this backup from <a href="/backups" style="color: #9db4d4;">Backups</a> if needed.</p>
+        </div>
+      ` : `
+        <div style="background: #4a2d2d; border: 1px solid #5d3d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 1.5rem;">
+          <p style="color: #d4a585; margin: 0; font-size: 0.9rem;">⚠️ Automatic backup failed: ${escapeHtml(backupResult.error || 'Unknown error')}</p>
+          <p style="color: #888; margin: 0.25rem 0 0 0; font-size: 0.85rem;">Recovery proceeded, but no backup was created. Consider creating a manual backup before recovery.</p>
+        </div>
+      `}
       <div style="margin-bottom: 1.5rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
           <div>
