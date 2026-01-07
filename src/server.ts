@@ -1271,14 +1271,14 @@ router.get("/api/server/status", async (request, params, query) => {
     const dbConnectTime = (globalThis as any).dbConnectTime;
     const now = Date.now();
     const uptime = Math.floor((now - serverStartTime) / 1000);
-    
+
     // Determine server phase/status
     let phase = 'running';
     let phaseMessage = 'Server is running';
-    
+
     // Check database connection
     const dbConnected = isConnected();
-    
+
     // If server just started (within 5 seconds), it might still be initializing
     if (uptime < 5) {
       phase = 'starting';
@@ -1370,10 +1370,10 @@ router.get("/update/loading", async (request, params, query) => {
 
       function checkServer() {
         checkCount++;
-        
+
         // Update elapsed time
         updateElapsed();
-        
+
         // Check server status API for detailed information
         fetch('/api/server/status', { method: 'GET', cache: 'no-cache' })
           .then(response => {
@@ -1386,7 +1386,7 @@ router.get("/update/loading", async (request, params, query) => {
             // Update status message based on server phase
             const statusEl = document.getElementById('status');
             const progressBar = document.getElementById('progressBar');
-            
+
             switch(data.status) {
               case 'starting':
                 statusEl.textContent = '🔄 ' + data.message;
@@ -1401,7 +1401,7 @@ router.get("/update/loading", async (request, params, query) => {
                 statusEl.style.color = '#7fb069';
                 progressBar.style.width = '100%';
                 progressBar.style.background = '#7fb069';
-                
+
                 // Redirect to login after a brief delay
                 setTimeout(() => {
                   window.location.href = '/login?updated=true';
@@ -1411,13 +1411,14 @@ router.get("/update/loading", async (request, params, query) => {
                 statusEl.textContent = '⏳ ' + (data.message || 'Waiting for server...');
                 statusEl.style.color = '#9db4d4';
             }
-            
+
             // Show additional info if available
             if (data.uptimeFormatted) {
               const elapsedEl = document.getElementById('elapsedTime');
-              elapsedEl.textContent = `Elapsed: ${Math.floor((Date.now() - startTime) / 1000)}s | Server uptime: ${data.uptimeFormatted}`;
+              const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+              elapsedEl.textContent = 'Elapsed: ' + elapsedSeconds + 's | Server uptime: ' + data.uptimeFormatted;
             }
-            
+
             // Continue checking if not ready
             if (data.status !== 'ready' && checkCount < maxChecks) {
               setTimeout(checkServer, 1000);
@@ -1426,7 +1427,7 @@ router.get("/update/loading", async (request, params, query) => {
           .catch(() => {
             // Server is not responding yet
             const statusEl = document.getElementById('status');
-            
+
             if (checkCount < 5) {
               statusEl.textContent = '🔄 Server is restarting...';
               statusEl.style.color = '#9db4d4';
@@ -1437,12 +1438,12 @@ router.get("/update/loading", async (request, params, query) => {
               statusEl.textContent = '⏳ Waiting for server to come online...';
               statusEl.style.color = '#9db4d4';
             }
-            
+
             if (checkCount >= maxChecks) {
               statusEl.textContent = '⚠️ Server taking longer than expected. Please refresh manually.';
               statusEl.style.color = '#d4a585';
               document.getElementById('progressBar').style.background = '#d4a585';
-              
+
               // Show manual refresh option
               setTimeout(() => {
                 const refreshBtn = document.createElement('button');
@@ -1453,7 +1454,7 @@ router.get("/update/loading", async (request, params, query) => {
               }, 1000);
               return;
             }
-            
+
             // Continue checking
             setTimeout(checkServer, 1000);
           });
