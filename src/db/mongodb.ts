@@ -1,12 +1,14 @@
 import { MongoClient, Db } from 'mongodb';
 import { dbLogger } from '../utils/logger';
+import { migrateUserIdToString, needsUserIdMigration } from './migrations';
+import { createPreMigrationBackup } from './backup';
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
 
 // Current database schema version
 // Increment this when making schema changes that require migration
-const CURRENT_SCHEMA_VERSION = 2; // Version 2: Added indexes
+const CURRENT_SCHEMA_VERSION = 3; // Version 3: Normalized userId format (ObjectId -> string)
 
 interface DatabaseMetadata {
   _id: 'metadata';
@@ -52,8 +54,15 @@ export async function connectMongoDB(): Promise<Db> {
     // Check database version and detect old databases
     await detectAndHandleDatabaseVersion();
 
+    // Run migrations if needed
+    await runMigrations();
+
     // Initialize indexes for optimal query performance
     await initializeIndexes();
+
+    // Initialize health monitoring
+    const { initializeHealthMonitoring } = await import('./health');
+    await initializeHealthMonitoring();
 
     return db;
   } catch (error) {
@@ -271,6 +280,97 @@ export async function detectAndHandleDatabaseVersion(): Promise<void> {
     dbLogger.error(`Failed to detect database version: ${error}`);
     // Don't throw - version detection is informational, not critical
     dbLogger.warn('Continuing without version metadata. Database may need manual migration.');
+  }
+}
+
+// Run database migrations based on current schema version
+export async function runMigrations(): Promise<void> {
+  if (!db) {
+    throw new Error('Database not connected. Call connectMongoDB() first.');
+  }
+
+  try {
+    const metadataCollection = db.collection<DatabaseMetadata>('_metadata');
+    const metadata = await metadataCollection.findOne({ _id: 'metadata' });
+    const currentVersion = metadata?.schemaVersion || 1;
+
+    if (currentVersion >= CURRENT_SCHEMA_VERSION) {
+      dbLogger.info(`Database is up to date (v${currentVersion})`);
+      return;
+    }
+
+    dbLogger.info(`🔄 Database migration needed: v${currentVersion} -> v${CURRENT_SCHEMA_VERSION}`);
+
+    // Migration 2 -> 3: Normalize userId format
+    if (currentVersion < 3) {
+      dbLogger.info('Running migration 2 -> 3: Normalizing userId format...');
+
+      // Check if migration is actually needed
+      const needsMigration = await needsUserIdMigration();
+
+      if (needsMigration) {
+        // Create automatic backup before migration
+        dbLogger.info('Creating automatic backup before migration...');
+        const backupResult = await createPreMigrationBackup(3);
+        if (backupResult?.success) {
+          dbLogger.info(`✅ Pre-migration backup created: ${backupResult.backupId}`);
+        } else {
+          dbLogger.warn(`⚠️  Pre-migration backup failed: ${backupResult?.error || 'Unknown error'}`);
+          dbLogger.warn('Migration will continue, but no backup is available for rollback');
+        }
+
+        const migrationResult = await migrateUserIdToString();
+
+        if (migrationResult.success) {
+          dbLogger.info(`✅ Migration 2 -> 3 completed successfully`);
+          dbLogger.info(`   Migrated ${migrationResult.migratedCount} password entries`);
+
+          // Update schema version to 3
+          await metadataCollection.updateOne(
+            { _id: 'metadata' },
+            {
+              $set: {
+                schemaVersion: 3,
+                lastUpdated: new Date()
+              }
+            }
+          );
+
+          dbLogger.info('Database schema version updated to 3');
+        } else {
+          dbLogger.error(`❌ Migration 2 -> 3 failed or had errors`);
+          dbLogger.error(`   Migrated: ${migrationResult.migratedCount}`);
+          dbLogger.error(`   Errors: ${migrationResult.errorCount}`);
+          dbLogger.error(`   Error details: ${migrationResult.errors.join('; ')}`);
+
+          // Don't update version if migration failed
+          // This allows the migration to retry on next startup
+          throw new Error('Migration failed - database version not updated. Please check logs and fix issues.');
+        }
+      } else {
+        dbLogger.info('Migration 2 -> 3 not needed (all userIds already normalized)');
+
+        // Update schema version anyway since we've verified it's not needed
+        await metadataCollection.updateOne(
+          { _id: 'metadata' },
+          {
+            $set: {
+              schemaVersion: 3,
+              lastUpdated: new Date()
+            }
+          }
+        );
+
+        dbLogger.info('Database schema version updated to 3');
+      }
+    }
+
+    dbLogger.info(`✅ All migrations completed. Database is now at version ${CURRENT_SCHEMA_VERSION}`);
+  } catch (error) {
+    dbLogger.error(`Failed to run migrations: ${error}`);
+    // Don't throw - allow server to start even if migrations fail
+    // But log the error so it's visible
+    dbLogger.warn('Server will continue, but database may need manual migration');
   }
 }
 

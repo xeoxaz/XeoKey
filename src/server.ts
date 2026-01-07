@@ -16,6 +16,13 @@ import { createPasswordEntry, getUserPasswords, getPasswordEntry, getDecryptedPa
 // Analytics
 import { trackEvent } from './models/analytics';
 
+// Backup management
+import { listBackups, createBackup, restoreBackup, deleteBackup, getBackupStats, getBackupMetadata } from './db/backup';
+
+// Health and integrity checks
+import { runIntegrityChecks, quickHealthCheck } from './db/integrity';
+import { forceHealthCheck, getLastHealthCheck } from './db/health';
+
 // Input sanitization
 import { sanitizeUsername, sanitizeString, sanitizeWebsite, validateUsername, validatePassword } from './utils/sanitize';
 
@@ -310,11 +317,17 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
         </div>
       </div>`;
 
-    // Insert TOTP and auth menu before closing nav tag
+    // Insert TOTP, Backups, Health and auth menu before closing nav tag
     const totpMenu = `<div class="nav-item">
         <a href="/totp">TOTP</a>
       </div>`;
-    header = header.replace('</nav>', totpMenu + authMenu + '</nav>');
+    const backupsMenu = `<div class="nav-item">
+        <a href="/backups">Backups</a>
+      </div>`;
+    const healthMenu = `<div class="nav-item">
+        <a href="/health">Health</a>
+      </div>`;
+    header = header.replace('</nav>', totpMenu + backupsMenu + healthMenu + authMenu + '</nav>');
   }
 
   return header;
@@ -502,11 +515,38 @@ const pages: Record<string, { title: string; body: string }> = {
 // Register routes - OS-like hierarchical structure
 // API routes (must be registered before catch-all routes)
 router.get("/api/status", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return createErrorResponse(401, "Unauthorized");
+  }
+
+  const quickCheck = await quickHealthCheck();
+  const lastCheck = getLastHealthCheck();
+
   return createResponse({
     status: "online",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    database: {
+      connected: isConnected(),
+      healthy: quickCheck.healthy,
+      lastHealthCheck: lastCheck.timestamp?.toISOString() || null,
+    },
   });
+});
+
+router.get("/api/health", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return createErrorResponse(401, "Unauthorized");
+  }
+
+  try {
+    const result = await forceHealthCheck();
+    return createResponse(result);
+  } catch (error: any) {
+    return createErrorResponse(500, error.message);
+  }
 });
 
 router.get("/api/hello", async (request, params, query) => {
@@ -2084,6 +2124,423 @@ router.get("/totp/code", async (request, params, query) => {
     return new Response(body, { headers: { ...SECURITY_HEADERS, "Content-Type": "application/json" } });
   } catch (e) {
     return createErrorResponse(500, "Failed to generate code");
+  }
+});
+
+// Backup Management Routes
+router.get("/backups", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return renderPage(`
+      <h1>Backup Management</h1>
+      <p style="color: #d4a5a5;">Database not available.</p>
+    `, "Backups - XeoKey", request);
+  }
+
+  try {
+    const backups = await listBackups();
+    const stats = await getBackupStats();
+
+    const backupList = backups.map(backup => {
+      const date = new Date(backup.timestamp).toLocaleString();
+      const sizeKB = (backup.size / 1024).toFixed(2);
+      const typeBadge = backup.backupType === 'pre-migration'
+        ? `<span style="background: #2d4a2d; color: #9db4d4; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #4d6d4d;">Pre-Migration</span>`
+        : backup.backupType === 'automatic'
+        ? `<span style="background: #2d3d4d; color: #9db4d4; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #4d5d6d;">Automatic</span>`
+        : `<span style="background: #3d3d3d; color: #9db4d4; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #4d4d4d;">Manual</span>`;
+
+      return `
+        <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+            <div>
+              <h3 style="margin: 0; color: #9db4d4;">${escapeHtml(backup.backupId)}</h3>
+              <p style="color: #888; margin: 0.25rem 0; font-size: 0.9rem;">${date}</p>
+            </div>
+            ${typeBadge}
+          </div>
+          <div style="color: #b0b0b0; font-size: 0.9rem; margin-bottom: 0.5rem;">
+            <p style="margin: 0.25rem 0;">Collections: ${backup.collections.join(', ')}</p>
+            <p style="margin: 0.25rem 0;">Documents: ${backup.totalDocuments}</p>
+            <p style="margin: 0.25rem 0;">Size: ${sizeKB} KB</p>
+            ${backup.description ? `<p style="margin: 0.25rem 0; color: #888;">${escapeHtml(backup.description)}</p>` : ''}
+          </div>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+            <form method="POST" action="/backups/${backup.backupId}/restore" style="display: inline;">
+              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+              <button type="submit" onclick="return confirm('⚠️ WARNING: This will overwrite all data in the restored collections! Are you sure?');"
+                      style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                Restore
+              </button>
+            </form>
+            <form method="POST" action="/backups/${backup.backupId}/delete" style="display: inline;">
+              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+              <button type="submit" onclick="return confirm('Are you sure you want to delete this backup?');"
+                      style="background: #6d2d2d; color: #d4a5a5; border: 1px solid #7d3d3d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                Delete
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return renderPage(`
+      <h1>Backup Management</h1>
+      <div style="margin-bottom: 1.5rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+        <h2 style="margin-top: 0; color: #9db4d4;">Statistics</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+          <div>
+            <p style="color: #888; margin: 0; font-size: 0.9rem;">Total Backups</p>
+            <p style="color: #9db4d4; margin: 0.25rem 0; font-size: 1.5rem; font-weight: bold;">${stats.totalBackups}</p>
+          </div>
+          <div>
+            <p style="color: #888; margin: 0; font-size: 0.9rem;">Total Size</p>
+            <p style="color: #9db4d4; margin: 0.25rem 0; font-size: 1.5rem; font-weight: bold;">${(stats.totalSize / 1024 / 1024).toFixed(2)} MB</p>
+          </div>
+          ${stats.oldestBackup ? `
+          <div>
+            <p style="color: #888; margin: 0; font-size: 0.9rem;">Oldest Backup</p>
+            <p style="color: #9db4d4; margin: 0.25rem 0; font-size: 1rem;">${new Date(stats.oldestBackup).toLocaleDateString()}</p>
+          </div>
+          ` : ''}
+          ${stats.newestBackup ? `
+          <div>
+            <p style="color: #888; margin: 0; font-size: 0.9rem;">Newest Backup</p>
+            <p style="color: #9db4d4; margin: 0.25rem 0; font-size: 1rem;">${new Date(stats.newestBackup).toLocaleDateString()}</p>
+          </div>
+          ` : ''}
+        </div>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <form method="POST" action="/backups/create" style="display: inline;">
+          <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+          <button type="submit" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+            + Create Manual Backup
+          </button>
+        </form>
+      </div>
+      <div>
+        <h2 style="color: #9db4d4;">Available Backups</h2>
+        ${backups.length === 0 ? `
+          <p style="color: #888;">No backups available. Create your first backup to get started.</p>
+        ` : backupList}
+      </div>
+    `, "Backups - XeoKey", request);
+  } catch (error) {
+    logger.error(`Error fetching backups: ${error}`);
+    return renderPage(`
+      <h1>Backup Management</h1>
+      <p style="color: #d4a5a5;">Error loading backups.</p>
+    `, "Backups - XeoKey", request);
+  }
+});
+
+router.post("/backups/create", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+
+    if (!verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    const collections = ['passwords', 'totp', 'users', 'sessions'];
+    const description = formData.get('description')?.toString() || 'Manual backup';
+
+    const result = await createBackup(collections, 'manual', undefined, description);
+
+    if (result.success) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          ...SECURITY_HEADERS,
+          Location: '/backups',
+        },
+      });
+    } else {
+      return renderPage(`
+        <h1>Backup Failed</h1>
+        <p style="color: #d4a5a5;">${escapeHtml(result.error || 'Unknown error')}</p>
+        <p><a href="/backups" style="color: #9db4d4;">← Back to Backups</a></p>
+      `, "Backup Failed - XeoKey", request);
+    }
+  } catch (error) {
+    logger.error(`Error creating backup: ${error}`);
+    return createErrorResponse(500, "Internal Server Error");
+  }
+});
+
+router.post("/backups/:id/restore", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  try {
+    const backupId = params.id || '';
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+
+    if (!verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    const result = await restoreBackup(backupId);
+
+    if (result.success) {
+      return renderPage(`
+        <h1>Backup Restored</h1>
+        <p style="color: #9db4d4;">✅ Backup restored successfully!</p>
+        <p style="color: #b0b0b0;">Collections: ${result.restoredCollections.join(', ')}</p>
+        <p style="color: #b0b0b0;">Documents: ${result.restoredDocuments}</p>
+        <p><a href="/backups" style="color: #9db4d4;">← Back to Backups</a></p>
+      `, "Backup Restored - XeoKey", request);
+    } else {
+      return renderPage(`
+        <h1>Restore Failed</h1>
+        <p style="color: #d4a5a5;">${escapeHtml(result.error || 'Unknown error')}</p>
+        <p><a href="/backups" style="color: #9db4d4;">← Back to Backups</a></p>
+      `, "Restore Failed - XeoKey", request);
+    }
+  } catch (error) {
+    logger.error(`Error restoring backup: ${error}`);
+    return createErrorResponse(500, "Internal Server Error");
+  }
+});
+
+router.post("/backups/:id/delete", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  try {
+    const backupId = params.id || '';
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || '';
+
+    if (!verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    const success = await deleteBackup(backupId);
+
+    if (success) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          ...SECURITY_HEADERS,
+          Location: '/backups',
+        },
+      });
+    } else {
+      return renderPage(`
+        <h1>Delete Failed</h1>
+        <p style="color: #d4a5a5;">Failed to delete backup.</p>
+        <p><a href="/backups" style="color: #9db4d4;">← Back to Backups</a></p>
+      `, "Delete Failed - XeoKey", request);
+    }
+  } catch (error) {
+    logger.error(`Error deleting backup: ${error}`);
+    return createErrorResponse(500, "Internal Server Error");
+  }
+});
+
+// Health Check and Integrity Routes
+router.get("/health", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return renderPage(`
+      <h1>System Health</h1>
+      <p style="color: #d4a5a5;">Database not available.</p>
+    `, "Health Check - XeoKey", request);
+  }
+
+  try {
+    const lastCheck = getLastHealthCheck();
+    const integrityResult = lastCheck.result || await forceHealthCheck();
+
+    const statusColor = integrityResult.success ? '#7fb069' : '#d4a5a5';
+    const statusText = integrityResult.success ? '✅ Healthy' : '⚠️ Issues Detected';
+
+    const issuesList = [
+      ...integrityResult.checks.userIdFormat.issues,
+      ...integrityResult.checks.passwordAccessibility.issues,
+      ...integrityResult.checks.dataConsistency.issues,
+      ...integrityResult.checks.orphanedEntries.issues,
+      ...integrityResult.checks.encryptionIntegrity.issues,
+    ];
+
+    const criticalIssues = issuesList.filter(i => i.severity === 'critical');
+    const warnings = issuesList.filter(i => i.severity === 'warning');
+    const infoIssues = issuesList.filter(i => i.severity === 'info');
+
+    const issuesHtml = issuesList.map(issue => {
+      const severityColor = issue.severity === 'critical' ? '#d4a5a5' :
+                           issue.severity === 'warning' ? '#d4a585' : '#9db4d4';
+      return `
+        <div style="border-left: 4px solid ${severityColor}; padding: 0.75rem; margin-bottom: 0.5rem; background: #2d2d2d; border-radius: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="flex: 1;">
+              <div style="color: ${severityColor}; font-weight: bold; margin-bottom: 0.25rem;">
+                ${issue.severity.toUpperCase()}: ${escapeHtml(issue.message)}
+              </div>
+              ${issue.collection ? `<div style="color: #888; font-size: 0.9rem;">Collection: ${escapeHtml(issue.collection)}</div>` : ''}
+              ${issue.entryId ? `<div style="color: #888; font-size: 0.9rem;">Entry ID: ${escapeHtml(issue.entryId)}</div>` : ''}
+              ${issue.userId ? `<div style="color: #888; font-size: 0.9rem;">User ID: ${escapeHtml(issue.userId)}</div>` : ''}
+              ${issue.suggestion ? `<div style="color: #9db4d4; font-size: 0.9rem; margin-top: 0.25rem;">💡 ${escapeHtml(issue.suggestion)}</div>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return renderPage(`
+      <h1>System Health & Integrity</h1>
+      <div style="margin-bottom: 1.5rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+          <div style="font-size: 2rem; color: ${statusColor};">${integrityResult.success ? '✅' : '⚠️'}</div>
+          <div>
+            <h2 style="margin: 0; color: ${statusColor};">${statusText}</h2>
+            <p style="color: #888; margin: 0.25rem 0; font-size: 0.9rem;">
+              Last checked: ${lastCheck.timestamp ? new Date(lastCheck.timestamp).toLocaleString() : 'Never'}
+            </p>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+          <div>
+            <div style="color: #888; font-size: 0.9rem;">Total Issues</div>
+            <div style="color: #9db4d4; font-size: 1.5rem; font-weight: bold;">${integrityResult.summary.totalIssues}</div>
+          </div>
+          <div>
+            <div style="color: #888; font-size: 0.9rem;">Critical</div>
+            <div style="color: #d4a5a5; font-size: 1.5rem; font-weight: bold;">${integrityResult.summary.criticalIssues}</div>
+          </div>
+          <div>
+            <div style="color: #888; font-size: 0.9rem;">Warnings</div>
+            <div style="color: #d4a585; font-size: 1.5rem; font-weight: bold;">${integrityResult.summary.warnings}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <h2 style="color: #9db4d4;">Check Results</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">UserId Format</div>
+            <div style="color: ${integrityResult.checks.userIdFormat.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
+              ${integrityResult.checks.userIdFormat.passed ? '✅ Pass' : '❌ Fail'}
+            </div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.userIdFormat.details)}</div>
+          </div>
+          <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Password Accessibility</div>
+            <div style="color: ${integrityResult.checks.passwordAccessibility.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
+              ${integrityResult.checks.passwordAccessibility.passed ? '✅ Pass' : '❌ Fail'}
+            </div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.passwordAccessibility.details)}</div>
+          </div>
+          <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Data Consistency</div>
+            <div style="color: ${integrityResult.checks.dataConsistency.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
+              ${integrityResult.checks.dataConsistency.passed ? '✅ Pass' : '❌ Fail'}
+            </div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.dataConsistency.details)}</div>
+          </div>
+          <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Orphaned Entries</div>
+            <div style="color: ${integrityResult.checks.orphanedEntries.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
+              ${integrityResult.checks.orphanedEntries.passed ? '✅ Pass' : '❌ Fail'}
+            </div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.orphanedEntries.details)}</div>
+          </div>
+          <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Encryption Integrity</div>
+            <div style="color: ${integrityResult.checks.encryptionIntegrity.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
+              ${integrityResult.checks.encryptionIntegrity.passed ? '✅ Pass' : '❌ Fail'}
+            </div>
+            <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(integrityResult.checks.encryptionIntegrity.details)}</div>
+          </div>
+        </div>
+      </div>
+
+      ${issuesList.length > 0 ? `
+      <div style="margin-bottom: 1.5rem;">
+        <h2 style="color: #9db4d4;">Detected Issues</h2>
+        ${issuesHtml}
+      </div>
+      ` : ''}
+
+      <div style="margin-top: 1.5rem;">
+        <form method="GET" action="/health" style="display: inline;">
+          <button type="submit" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+            🔄 Run Health Check Now
+          </button>
+        </form>
+      </div>
+    `, "Health Check - XeoKey", request);
+  } catch (error) {
+    logger.error(`Error running health check: ${error}`);
+    return renderPage(`
+      <h1>System Health</h1>
+      <p style="color: #d4a5a5;">Error running health check.</p>
+    `, "Health Check - XeoKey", request);
   }
 });
 

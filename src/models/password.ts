@@ -71,6 +71,19 @@ export async function createPasswordEntry(
   email?: string,
   notes?: string
 ): Promise<PasswordEntry> {
+  // Validate operation before execution
+  try {
+    const { validatePasswordOperation } = await import('../db/health');
+    const validation = await validatePasswordOperation(userId, 'create');
+    if (!validation.valid) {
+      passwordLogger.error(`Password creation validation failed: ${validation.error}`);
+      throw new Error(validation.error || 'Validation failed');
+    }
+  } catch (error) {
+    // If health module not available, continue (for backwards compatibility)
+    passwordLogger.debug('Health validation skipped');
+  }
+
   const db = getDatabase();
   const passwordsCollection = db.collection<PasswordEntry>('passwords');
 
@@ -92,6 +105,19 @@ export async function createPasswordEntry(
   const result = await passwordsCollection.insertOne(entry);
   entry._id = result.insertedId.toString();
 
+  // Validate after creation
+  try {
+    const { validateAfterPasswordOperation } = await import('../db/health');
+    const postValidation = await validateAfterPasswordOperation(userId, entry._id);
+    if (!postValidation.valid) {
+      passwordLogger.warn(`Post-creation validation warning: ${postValidation.error}`);
+      // Don't throw - entry was created, just log warning
+    }
+  } catch (error) {
+    // Non-critical
+    passwordLogger.debug('Post-creation validation skipped');
+  }
+
   return entry;
 }
 
@@ -103,9 +129,19 @@ export async function getUserPasswords(userId: string): Promise<PasswordEntry[]>
   // Convert userId to string if it's an ObjectId
   const userIdString = typeof userId === 'string' ? userId : (userId as any).toString();
 
-  // Try with string first, then ObjectId if that doesn't work
-  // Sort by most searched/copied first, then alphabetically
-  let results = await passwordsCollection.find({ userId: userIdString } as any)
+  // Query for BOTH string and ObjectId formats to handle old and new schemas
+  // This ensures we always show all passwords regardless of how userId is stored
+  const queryConditions: any[] = [{ userId: userIdString }];
+
+  // If userId is a valid ObjectId, also query for ObjectId format (for old schema)
+  if (ObjectId.isValid(userIdString)) {
+    queryConditions.push({ userId: new ObjectId(userIdString) });
+  }
+
+  // Query for all matching passwords using $or to find both formats
+  const allResults = await passwordsCollection.find({
+    $or: queryConditions
+  } as any)
     .sort({
       searchCount: -1,  // Most searched first
       copyCount: -1,    // Then most copied
@@ -113,18 +149,16 @@ export async function getUserPasswords(userId: string): Promise<PasswordEntry[]>
     })
     .toArray();
 
-  // If no results and userId is a valid ObjectId, try with ObjectId
-  if (results.length === 0 && ObjectId.isValid(userIdString)) {
-    results = await passwordsCollection.find({ userId: new ObjectId(userIdString) } as any)
-      .sort({
-        searchCount: -1,
-        copyCount: -1,
-        website: 1
-      })
-      .toArray();
+  // Remove duplicates by _id (in case same password exists in both formats somehow)
+  const uniqueResults = new Map<string, PasswordEntry>();
+  for (const result of allResults) {
+    const id = result._id?.toString() || '';
+    if (id && !uniqueResults.has(id)) {
+      uniqueResults.set(id, result);
+    }
   }
 
-  return results;
+  return Array.from(uniqueResults.values());
 }
 
 // Get most recent passwords for a user (sorted by createdAt descending)
@@ -136,21 +170,33 @@ export async function getRecentPasswords(userId: string, limit: number = 3): Pro
   const userIdString = typeof userId === 'string' ? userId : (userId as any).toString();
 
   try {
-    // Try with string first, then ObjectId if that doesn't work
-    let results = await passwordsCollection.find({ userId: userIdString } as any)
+    // Query for BOTH string and ObjectId formats to handle old and new schemas
+    // This ensures we always show all passwords regardless of how userId is stored
+    const queryConditions: any[] = [{ userId: userIdString }];
+
+    // If userId is a valid ObjectId, also query for ObjectId format (for old schema)
+    if (ObjectId.isValid(userIdString)) {
+      queryConditions.push({ userId: new ObjectId(userIdString) });
+    }
+
+    // Query for all matching passwords using $or to find both formats
+    const allResults = await passwordsCollection.find({
+      $or: queryConditions
+    } as any)
       .sort({ createdAt: -1 }) // Most recent first
       .limit(limit)
       .toArray();
 
-    // If no results and userId is a valid ObjectId, try with ObjectId
-    if (results.length === 0 && ObjectId.isValid(userIdString)) {
-      results = await passwordsCollection.find({ userId: new ObjectId(userIdString) } as any)
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .toArray();
+    // Remove duplicates by _id (in case same password exists in both formats somehow)
+    const uniqueResults = new Map<string, PasswordEntry>();
+    for (const result of allResults) {
+      const id = result._id?.toString() || '';
+      if (id && !uniqueResults.has(id)) {
+        uniqueResults.set(id, result);
+      }
     }
 
-    return results;
+    return Array.from(uniqueResults.values());
   } catch (error) {
     passwordLogger.error(`Error in getRecentPasswords: ${error}`);
     return [];
