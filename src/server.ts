@@ -320,6 +320,25 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
         </div>
       </div>`;
 
+    // Get password count for navigation menu
+    let passwordCount = 0;
+    try {
+      if (isConnected()) {
+        const { getUserPasswords } = await import('./models/password');
+        const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+        const passwords = await getUserPasswords(userIdString);
+        passwordCount = passwords.length;
+      }
+    } catch (error) {
+      // Ignore errors when getting password count for header
+    }
+
+    // Update "All Passwords" link in dropdown to include count
+    header = header.replace(
+      '<a href="/passwords">All Passwords</a>',
+      `<a href="/passwords">All Passwords (${passwordCount})</a>`
+    );
+
     // Insert TOTP, Backups, Health and auth menu before closing nav tag
     const totpMenu = `<div class="nav-item">
         <a href="/totp">TOTP</a>
@@ -2310,10 +2329,11 @@ router.get("/passwords", async (request, params, query) => {
 
   try {
     const passwords = await getUserPasswords(session.userId);
+    const passwordCount = passwords.length;
 
     if (passwords.length === 0) {
       return renderPage(`
-        <h1>All Passwords</h1>
+        <h1>All Passwords (0)</h1>
         <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
           <div style="flex: 1; min-width: 250px;">
             <input type="text" id="passwordSearch" placeholder="Search passwords..." disabled style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #888; font-size: 0.9rem; cursor: not-allowed;">
@@ -2364,7 +2384,7 @@ router.get("/passwords", async (request, params, query) => {
     }).join('');
 
     return renderPage(`
-      <h1>All Passwords</h1>
+      <h1>All Passwords (${passwordCount})</h1>
       <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 250px;">
           <input type="text" id="passwordSearch" placeholder="Search passwords..." style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0; font-size: 0.9rem;">
@@ -2380,8 +2400,16 @@ router.get("/passwords", async (request, params, query) => {
     `, "Passwords - XeoKey", request);
   } catch (error) {
     logger.error(`Error fetching passwords: ${error}`);
+    // Try to get count for error page
+    let passwordCount = 0;
+    try {
+      const passwords = await getUserPasswords(session.userId);
+      passwordCount = passwords.length;
+    } catch {
+      // Ignore errors when getting count for error page
+    }
     return renderPage(`
-      <h1>All Passwords</h1>
+      <h1>All Passwords${passwordCount > 0 ? ' (' + passwordCount + ')' : ''}</h1>
       <p style="color: #d4a5a5;">Error loading passwords.</p>
     `, "Passwords - XeoKey", request);
   }
