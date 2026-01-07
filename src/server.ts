@@ -798,23 +798,20 @@ async function renderLoginForm(request: Request, username: string = '', error: s
       `;
     }
     
-    // Show patch notes/news feed below login form
+    // Show patch notes/news feed below login form - each update in its own card
     if (patchNotes.length > 0) {
       patchNotesSection = `
-        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #3d3d3d; max-width: 400px; margin-left: auto; margin-right: auto;">
-          <h3 style="color: #9db4d4; font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+        <div style="margin-top: 2rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+          <h3 style="color: #9db4d4; font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
             <span>📰</span>
             <span>Recent Updates</span>
           </h3>
-          <div style="background: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto;">
-            <ul style="color: #b0b0b0; font-size: 0.85rem; margin: 0; padding-left: 1.25rem; list-style: none;">
-              ${patchNotes.map((msg, index) => `
-                <li style="margin-bottom: 0.75rem; padding-left: 0; position: relative;">
-                  <span style="position: absolute; left: -1.25rem; color: #666;">•</span>
-                  <span style="color: #e0e0e0;">${escapeHtml(msg)}</span>
-                </li>
-              `).join('')}
-            </ul>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            ${patchNotes.map((msg) => `
+              <div style="background: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px; padding: 0.875rem; transition: border-color 0.2s;">
+                <p style="color: #e0e0e0; font-size: 0.85rem; margin: 0; line-height: 1.4;">${escapeHtml(msg)}</p>
+              </div>
+            `).join('')}
           </div>
         </div>
       `;
@@ -826,23 +823,25 @@ async function renderLoginForm(request: Request, username: string = '', error: s
 
   return `
     ${updateNotification}
-    <h1>Login</h1>
-    <form method="POST" action="/login" style="max-width: 400px; margin: 0 auto;">
-      ${csrfField}
-      ${errorHtml}
-      <div style="margin-bottom: 1rem;">
-        <label for="username" style="display: block; margin-bottom: 0.5rem;">Username:</label>
-        <input type="text" id="username" name="username" required${usernameValue} style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
-      </div>
-      <div style="margin-bottom: 1.5rem;">
-        <label for="password" style="display: block; margin-bottom: 0.5rem;">Password:</label>
-        <input type="password" id="password" name="password" required style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
-      </div>
-      <button type="submit" style="width: 100%; background: #3d3d3d; color: #e0e0e0; padding: 0.75rem; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer; font-size: 1rem;">Login</button>
-    </form>
-    <p style="text-align: center; margin-top: 1rem;">
-      <a href="/register" style="color: #9db4d4;">Don't have an account? Register here</a>
-    </p>
+    <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1.5rem; border-radius: 8px; max-width: 400px; margin: 0 auto 1.5rem auto;">
+      <h1 style="margin-top: 0; margin-bottom: 1.5rem; color: #9db4d4;">Login</h1>
+      <form method="POST" action="/login">
+        ${csrfField}
+        ${errorHtml}
+        <div style="margin-bottom: 1rem;">
+          <label for="username" style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Username:</label>
+          <input type="text" id="username" name="username" required${usernameValue} style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; box-sizing: border-box;">
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label for="password" style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Password:</label>
+          <input type="password" id="password" name="password" required style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; box-sizing: border-box;">
+        </div>
+        <button type="submit" style="width: 100%; background: #3d3d3d; color: #e0e0e0; padding: 0.75rem; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer; font-size: 1rem; transition: background 0.2s;">Login</button>
+      </form>
+      <p style="text-align: center; margin-top: 1rem; margin-bottom: 0;">
+        <a href="/register" style="color: #9db4d4; text-decoration: none; font-size: 0.9rem;">Don't have an account? Register here</a>
+      </p>
+    </div>
     ${patchNotesSection}
   `;
 }
