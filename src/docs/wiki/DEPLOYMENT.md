@@ -399,8 +399,11 @@ See the [Troubleshooting Guide](./TROUBLESHOOTING.md) for common deployment issu
 
 3. **Restart server:**
    ```bash
-   pm2 restart xeokey
-   # or
+   # If using process manager, it will auto-restart on update
+   # Or manually restart:
+   bun run host
+   
+   # If using systemd:
    sudo systemctl restart xeokey
    ```
 
