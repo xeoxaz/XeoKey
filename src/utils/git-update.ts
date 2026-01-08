@@ -331,13 +331,13 @@ export async function triggerRestart(): Promise<void> {
       // Write a restart flag file that the manager watches
       const { writeFile } = await import('fs/promises');
       const { join } = await import('path');
-      
+
       // Determine project root - if we're in src/, go up one level
       let projectRoot = process.cwd();
       if (projectRoot.endsWith('src') || projectRoot.endsWith('src\\') || projectRoot.endsWith('src/')) {
         projectRoot = join(projectRoot, '..');
       }
-      
+
       const restartFlag = join(projectRoot, '.restart-requested');
       await writeFile(restartFlag, Date.now().toString(), 'utf-8');
       logger.info('Restart flag set, manager will handle restart');

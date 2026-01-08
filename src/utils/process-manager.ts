@@ -18,7 +18,7 @@ export class ProcessManager {
 
   constructor(serverPath: string = 'server.ts', projectRoot?: string) {
     this.serverPath = serverPath;
-    
+
     // Detect project root - if we're in src/, go up one level
     const cwd = process.cwd();
     if (cwd.endsWith('src') || cwd.endsWith('src\\') || cwd.endsWith('src/')) {
