@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "bun run --watch server.ts",
     "start": "bun run server.ts",
+    "host": "bun run host.ts",
     "typecheck": "bun --bun tsc --noEmit",
     "test": "bun test",
     "test:unit": "bun test tests/unit",

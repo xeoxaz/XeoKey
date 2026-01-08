@@ -318,13 +318,43 @@ export async function prepareRestart(): Promise<{ success: boolean; error?: stri
 }
 
 /**
- * Trigger server restart - uses PM2 if available, otherwise falls back to script
+ * Trigger server restart - uses internal process manager, PM2 if available, or falls back to script
  */
 export async function triggerRestart(): Promise<void> {
   logger.info('🔄 Triggering server restart after update...');
 
   try {
-    // Try PM2 first
+    // Check if we're running under internal process manager
+    // The manager sets this environment variable
+    if (process.env.XEOKEY_MANAGED === 'true') {
+      logger.info('Running under process manager, signaling restart...');
+      // Write a restart flag file that the manager watches
+      const { writeFile } = await import('fs/promises');
+      const { join } = await import('path');
+      const restartFlag = join(process.cwd(), '.restart-requested');
+      await writeFile(restartFlag, Date.now().toString(), 'utf-8');
+      logger.info('Restart flag set, manager will handle restart');
+      // Exit gracefully - manager will restart us
+      setTimeout(() => {
+        process.exit(0);
+      }, 1000);
+      return;
+    }
+
+    // Try internal process manager first (if available)
+    try {
+      const { restartWithProcessManager } = await import('./process-manager');
+      const result = await restartWithProcessManager();
+      if (result.success) {
+        logger.info('Internal process manager restart successful');
+        return;
+      }
+    } catch (error) {
+      // Process manager not available, continue to other methods
+      logger.debug('Internal process manager not available, trying other methods...');
+    }
+
+    // Try PM2 as fallback
     const { checkPM2Installed, triggerPM2Restart } = await import('./pm2-manager');
     const pm2Installed = await checkPM2Installed();
 
