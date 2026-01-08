@@ -402,7 +402,7 @@ See the [Troubleshooting Guide](./TROUBLESHOOTING.md) for common deployment issu
    # If using process manager, it will auto-restart on update
    # Or manually restart:
    bun run host
-   
+
    # If using systemd:
    sudo systemctl restart xeokey
    ```
