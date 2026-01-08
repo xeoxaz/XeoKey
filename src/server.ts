@@ -403,10 +403,7 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
           <a href="/passwords/recover">Password Recovery${unrecoverableCount > 0 ? ` (${unrecoverableCount})` : ''}</a>
         </div>
       </div>`;
-    const logoutMenu = `<div class="nav-item">
-        <a href="/logout">Logout</a>
-      </div>`;
-    const navActionsContent = totpMenu + backupsMenu + healthMenu + passwordIssuesMenu + authMenu + logoutMenu;
+    const navActionsContent = totpMenu + backupsMenu + healthMenu + passwordIssuesMenu + authMenu;
     // Replace the nav-actions placeholder - use a more flexible regex to handle whitespace variations
     // Try multiple replacement strategies
     const navActionsRegex = /<div class="nav-actions">[\s\S]*?<\/div>/;
