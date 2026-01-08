@@ -851,7 +851,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
             <span>📰</span>
             <span>Recent Updates</span>
           </h3>
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 500px; overflow-y: auto; overflow-x: hidden; padding-right: 0.5rem;">
             ${patchNotes.map((msg) => `
               <div style="background: #1d1d1d; border: 1px solid #3d3d3d; border-radius: 6px; padding: 0.875rem; transition: border-color 0.2s;">
                 <p style="color: #e0e0e0; font-size: 0.85rem; margin: 0; line-height: 1.4;">${escapeHtml(msg)}</p>
