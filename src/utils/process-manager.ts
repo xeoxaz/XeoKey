@@ -14,10 +14,22 @@ let restartRequested = false;
 export class ProcessManager {
   private serverPath: string;
   private projectRoot: string;
+  private serverDir: string;
 
   constructor(serverPath: string = 'server.ts', projectRoot?: string) {
     this.serverPath = serverPath;
-    this.projectRoot = projectRoot || process.cwd();
+    
+    // Detect project root - if we're in src/, go up one level
+    const cwd = process.cwd();
+    if (cwd.endsWith('src') || cwd.endsWith('src\\') || cwd.endsWith('src/')) {
+      // We're already in src directory
+      this.projectRoot = projectRoot || join(cwd, '..');
+      this.serverDir = cwd; // Server is in current directory
+    } else {
+      // We're in project root
+      this.projectRoot = projectRoot || cwd;
+      this.serverDir = join(this.projectRoot, 'src');
+    }
   }
 
   /**
@@ -30,20 +42,22 @@ export class ProcessManager {
     }
 
     try {
-      const serverFullPath = join(this.projectRoot, 'src', this.serverPath);
-      
+      const serverFullPath = join(this.serverDir, this.serverPath);
+
       if (!existsSync(serverFullPath)) {
         return { success: false, error: `Server file not found: ${serverFullPath}` };
       }
 
       logger.info(`Starting server: ${this.serverPath}`);
+      logger.debug(`Server directory: ${this.serverDir}`);
+      logger.debug(`Project root: ${this.projectRoot}`);
 
       // Spawn server process
       serverProcess = spawn(['bun', 'run', this.serverPath], {
-        cwd: join(this.projectRoot, 'src'),
+        cwd: this.serverDir,
         stdout: 'pipe',
         stderr: 'pipe',
-        env: { 
+        env: {
           ...process.env,
           XEOKEY_MANAGED: 'true', // Signal that we're running under process manager
         },
@@ -73,7 +87,7 @@ export class ProcessManager {
         if (!isShuttingDown && !restartRequested) {
           logger.error(`Server process exited unexpectedly with code ${exitCode}`);
           logger.info('Attempting to restart server in 2 seconds...');
-          
+
           // Auto-restart after delay
           setTimeout(() => {
             if (!isShuttingDown && !restartRequested) {
@@ -154,7 +168,7 @@ export class ProcessManager {
         const pullProc = spawn(['git', 'pull', 'origin', 'master'], {
           stdout: 'pipe',
           stderr: 'pipe',
-          cwd: this.projectRoot,
+          cwd: this.projectRoot, // Git operations should be from project root
         });
 
         const pullOutput = await new Response(pullProc.stdout).text();

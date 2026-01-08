@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
  * XeoKey Host/Manager Process
- * 
+ *
  * This is the main entry point that manages the server process lifecycle.
  * Run this instead of server.ts directly to get automatic process management.
- * 
+ *
  * Usage:
  *   bun run host.ts
  *   or
@@ -17,7 +17,17 @@ import { existsSync, watchFile, unlink } from 'fs';
 import { writeFile as writeFileAsync } from 'fs/promises';
 import { join } from 'path';
 
-const RESTART_FLAG_FILE = join(process.cwd(), '.restart-requested');
+// Determine project root - if we're in src/, go up one level
+function getProjectRoot(): string {
+  const cwd = process.cwd();
+  if (cwd.endsWith('src') || cwd.endsWith('src\\') || cwd.endsWith('src/')) {
+    return join(cwd, '..');
+  }
+  return cwd;
+}
+
+const projectRoot = getProjectRoot();
+const RESTART_FLAG_FILE = join(projectRoot, '.restart-requested');
 
 logger.info('🚀 XeoKey Process Manager Starting...');
 logger.info('This process will manage the server lifecycle');
@@ -42,7 +52,7 @@ function setupRestartWatcher() {
     // Check if file was just created or modified
     if (curr.mtimeMs > prev.mtimeMs && curr.size > 0) {
       logger.info('Restart flag detected, restarting server with updates...');
-      
+
       // Remove the flag file
       try {
         if (existsSync(RESTART_FLAG_FILE)) {
