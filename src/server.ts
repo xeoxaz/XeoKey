@@ -339,17 +339,71 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
       `<a href="/passwords">All Passwords (${passwordCount})</a>`
     );
 
-    // Insert TOTP, Backups, Health and auth menu into nav-actions section
-    const totpMenu = `<div class="nav-item">
-        <a href="/totp">TOTP</a>
+    // Get TOTP count for navigation menu
+    let totpCount = 0;
+    try {
+      if (isConnected()) {
+        const { listTotpEntries } = await import('./models/totp');
+        const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+        const totpEntries = await listTotpEntries(userIdString);
+        totpCount = totpEntries.length;
+      }
+    } catch (error) {
+      // Ignore errors when getting TOTP count for header
+    }
+
+    // Get backup count for navigation menu
+    let backupCount = 0;
+    try {
+      if (isConnected()) {
+        const { listBackups } = await import('./db/backup');
+        const backups = await listBackups();
+        backupCount = backups.length;
+      }
+    } catch (error) {
+      // Ignore errors when getting backup count for header
+    }
+
+    // Get unrecoverable password count for navigation menu
+    let unrecoverableCount = 0;
+    try {
+      if (isConnected()) {
+        const { getUnrecoverablePasswords } = await import('./db/password-recovery');
+        const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+        const unrecoverable = await getUnrecoverablePasswords(userIdString);
+        unrecoverableCount = unrecoverable.filter(e => !e.canDecrypt).length;
+      }
+    } catch (error) {
+      // Ignore errors when getting unrecoverable password count for header
+    }
+
+    // Insert TOTP, Backups, Health, Password Issues and auth menu into nav-actions section
+    const totpMenu = `<div class="nav-item dropdown">
+        <button type="button">TOTP</button>
+        <div class="dropdown-menu">
+          <a href="/totp">All TOTP (${totpCount})</a>
+          <a href="/totp/add">Add TOTP</a>
+        </div>
       </div>`;
-    const backupsMenu = `<div class="nav-item">
-        <a href="/backups">Backups</a>
+    const backupsMenu = `<div class="nav-item dropdown">
+        <button type="button">Backups</button>
+        <div class="dropdown-menu">
+          <a href="/backups">All Backups (${backupCount})</a>
+        </div>
       </div>`;
-    const healthMenu = `<div class="nav-item">
-        <a href="/health">Health</a>
+    const healthMenu = `<div class="nav-item dropdown">
+        <button type="button">Health</button>
+        <div class="dropdown-menu">
+          <a href="/health">Health Check</a>
+        </div>
       </div>`;
-    const navActionsContent = totpMenu + backupsMenu + healthMenu + authMenu;
+    const passwordIssuesMenu = `<div class="nav-item dropdown">
+        <button type="button">Password Issues${unrecoverableCount > 0 ? ` <span class="nav-badge">${unrecoverableCount}</span>` : ''}</button>
+        <div class="dropdown-menu">
+          <a href="/passwords/recover">Password Recovery${unrecoverableCount > 0 ? ` (${unrecoverableCount})` : ''}</a>
+        </div>
+      </div>`;
+    const navActionsContent = totpMenu + backupsMenu + healthMenu + passwordIssuesMenu + authMenu;
     header = header.replace('<div class="nav-actions">\n        <!-- Additional nav items will be inserted here by server -->\n      </div>', `<div class="nav-actions">\n        ${navActionsContent}\n      </div>`);
   }
 

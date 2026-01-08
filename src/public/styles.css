@@ -343,6 +343,15 @@ header nav .nav-item.dropdown.active button::after {
   opacity: 1;
 }
 
+/* Badge in nav buttons */
+header nav .nav-item button .nav-badge {
+  position: relative;
+  top: auto;
+  right: auto;
+  margin-left: var(--spacing-xs);
+  vertical-align: middle;
+}
+
 /* Main Content */
 main {
   flex: 1;
