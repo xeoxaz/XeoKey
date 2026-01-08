@@ -122,7 +122,11 @@ export async function createPasswordEntry(
 }
 
 // Get all passwords for a user, sorted by most searched/copied first, then alphabetically
-export async function getUserPasswords(userId: string): Promise<PasswordEntry[]> {
+// Optional pagination: if limit is provided, only return that many results
+export async function getUserPasswords(
+  userId: string,
+  options?: { limit?: number; skip?: number }
+): Promise<PasswordEntry[]> {
   const db = getDatabase();
   const passwordsCollection = db.collection<PasswordEntry>('passwords');
 
@@ -138,16 +142,25 @@ export async function getUserPasswords(userId: string): Promise<PasswordEntry[]>
     queryConditions.push({ userId: new ObjectId(userIdString) });
   }
 
-  // Query for all matching passwords using $or to find both formats
-  const allResults = await passwordsCollection.find({
+  // Build query with optional pagination
+  let query = passwordsCollection.find({
     $or: queryConditions
   } as any)
     .sort({
       searchCount: -1,  // Most searched first
       copyCount: -1,    // Then most copied
       website: 1        // Then alphabetically
-    })
-    .toArray();
+    });
+
+  // Apply pagination if provided
+  if (options?.skip !== undefined) {
+    query = query.skip(options.skip);
+  }
+  if (options?.limit !== undefined) {
+    query = query.limit(options.limit);
+  }
+
+  const allResults = await query.toArray();
 
   // Remove duplicates by _id (in case same password exists in both formats somehow)
   const uniqueResults = new Map<string, PasswordEntry>();

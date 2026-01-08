@@ -36,6 +36,36 @@ function getSessionSecret(): string {
 
 const SESSION_SECRET = getSessionSecret();
 
+// In-memory session cache with TTL
+interface CachedSession {
+  session: Session;
+  expiresAt: number; // Timestamp when cache entry expires
+}
+
+const sessionCache = new Map<string, CachedSession>();
+const CACHE_TTL = 30 * 1000; // Cache for 30 seconds
+const MAX_CACHE_SIZE = 1000; // Maximum number of cached sessions
+
+// Clean up expired cache entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, cached] of sessionCache.entries()) {
+    if (cached.expiresAt < now) {
+      sessionCache.delete(sessionId);
+    }
+  }
+  // Also limit cache size
+  if (sessionCache.size > MAX_CACHE_SIZE) {
+    // Remove oldest entries (simple FIFO)
+    const entries = Array.from(sessionCache.entries());
+    entries.sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+    const toRemove = entries.slice(0, sessionCache.size - MAX_CACHE_SIZE);
+    for (const [sessionId] of toRemove) {
+      sessionCache.delete(sessionId);
+    }
+  }
+}, 60000); // Run cleanup every minute
+
 // Generate a secure session ID
 function generateSessionId(): string {
   return randomBytes(32).toString('hex');
@@ -85,11 +115,25 @@ export async function createSession(userId: string, username: string): Promise<s
   }
 }
 
-// Get session by session ID
+// Get session by session ID (with caching)
 export async function getSession(sessionId: string): Promise<Session | null> {
   // Input validation
   if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
     return null;
+  }
+
+  const trimmedSessionId = sessionId.trim();
+
+  // Check cache first
+  const cached = sessionCache.get(trimmedSessionId);
+  if (cached && cached.expiresAt > Date.now()) {
+    // Cache hit - verify session hasn't expired
+    if (cached.session.expiresAt > new Date()) {
+      return cached.session;
+    } else {
+      // Session expired, remove from cache
+      sessionCache.delete(trimmedSessionId);
+    }
   }
 
   try {
@@ -97,26 +141,32 @@ export async function getSession(sessionId: string): Promise<Session | null> {
     const sessionsCollection = db.collection<Session>('sessions');
 
     const session = await sessionsCollection.findOne({
-      sessionId: sessionId.trim(),
+      sessionId: trimmedSessionId,
       expiresAt: { $gt: new Date() },
     });
 
     if (session) {
+      // Cache the session
+      sessionCache.set(trimmedSessionId, {
+        session,
+        expiresAt: Date.now() + CACHE_TTL,
+      });
+
       // Update last accessed time (don't fail if update fails)
       try {
         await sessionsCollection.updateOne(
-          { sessionId: sessionId.trim() },
+          { sessionId: trimmedSessionId },
           { $set: { lastAccessed: new Date() } }
         );
       } catch (updateError) {
-        logger.warn(`Failed to update last accessed time for session ${sessionId}: ${updateError}`);
+        logger.warn(`Failed to update last accessed time for session ${trimmedSessionId}: ${updateError}`);
         // Continue - session retrieval was successful
       }
     }
 
     return session;
   } catch (error) {
-    logger.error(`Failed to get session ${sessionId}: ${error}`);
+    logger.error(`Failed to get session ${trimmedSessionId}: ${error}`);
     return null; // Return null on error to prevent authentication bypass
   }
 }
@@ -129,13 +179,18 @@ export async function deleteSession(sessionId: string): Promise<void> {
     return; // Silently return - invalid session ID means nothing to delete
   }
 
+  const trimmedSessionId = sessionId.trim();
+
+  // Remove from cache
+  sessionCache.delete(trimmedSessionId);
+
   try {
     const db = getDatabase();
     const sessionsCollection = db.collection('sessions');
 
-    await sessionsCollection.deleteOne({ sessionId: sessionId.trim() });
+    await sessionsCollection.deleteOne({ sessionId: trimmedSessionId });
   } catch (error) {
-    logger.error(`Failed to delete session ${sessionId}: ${error}`);
+    logger.error(`Failed to delete session ${trimmedSessionId}: ${error}`);
     // Don't throw - logout should succeed even if cleanup fails
     // The session will expire naturally anyway
   }

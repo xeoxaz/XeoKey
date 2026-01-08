@@ -302,12 +302,10 @@ async function checkDataConsistency(): Promise<CheckResult> {
     const passwordsCollection = db.collection('passwords');
     const usersCollection = db.collection('users');
 
-    // Get all passwords directly from database
-    const allPasswords = await passwordsCollection.find({}).toArray();
-    const users = await usersCollection.find({}).toArray();
-
+    // Build user map using cursor for memory efficiency
     const userMap = new Map<string, boolean>();
-    for (const user of users) {
+    const userCursor = usersCollection.find({});
+    for await (const user of userCursor) {
       const userId = user._id?.toString();
       if (userId) {
         userMap.set(userId, true);
@@ -317,7 +315,9 @@ async function checkDataConsistency(): Promise<CheckResult> {
     let checkedCount = 0;
     let inconsistentCount = 0;
 
-    for (const password of allPasswords) {
+    // Process passwords in batches using cursor to avoid loading all into memory
+    const passwordCursor = passwordsCollection.find({});
+    for await (const password of passwordCursor) {
       checkedCount++;
       const passwordId = password._id?.toString();
       if (!passwordId) continue;
