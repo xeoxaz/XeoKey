@@ -112,10 +112,20 @@ export async function startWithPM2(processName: string = 'xeokey', scriptPath: s
 
     logger.info(`Starting XeoKey with PM2 as process: ${processName}`);
 
+    // Get the project root directory and src directory
+    const projectRoot = process.cwd();
+    const srcDir = `${projectRoot}/src`;
+
+    // Extract just the filename from scriptPath (e.g., "src/server.ts" -> "server.ts")
+    const scriptFile = scriptPath.includes('/') ? scriptPath.split('/').pop() : scriptPath;
+
     // Use bun to run the server via PM2
-    const proc = spawn(['pm2', 'start', 'bun', '--name', processName, '--', 'run', scriptPath], {
+    // Command: pm2 start bun --name xeokey -- server.ts
+    // Run from src directory so relative paths (templates, etc.) work correctly
+    const proc = spawn(['pm2', 'start', 'bun', '--name', processName, '--', scriptFile || 'server.ts'], {
       stdout: 'pipe',
       stderr: 'pipe',
+      cwd: srcDir, // Run from src directory so templates and other relative paths work
     });
 
     const output = await new Response(proc.stdout).text();
@@ -128,6 +138,21 @@ export async function startWithPM2(processName: string = 'xeokey', scriptPath: s
     }
 
     logger.info(`XeoKey started with PM2: ${processName}`);
+    logger.info(`PM2 output: ${output}`);
+    if (error) {
+      logger.debug(`PM2 stderr: ${error}`);
+    }
+
+    // Wait a moment and verify the process is actually running
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const status = await getPM2ProcessStatus(processName);
+    if (!status.running) {
+      logger.warn(`PM2 process ${processName} may not have started correctly. Status: ${JSON.stringify(status)}`);
+      // Still return success as PM2 command succeeded, but log warning
+    } else {
+      logger.info(`PM2 process ${processName} is running`);
+    }
+
     return { success: true };
   } catch (error: any) {
     logger.error(`Error starting with PM2: ${error.message || error}`);
