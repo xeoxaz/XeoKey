@@ -1,6 +1,7 @@
 import { logger } from './logger';
 import { spawn } from 'bun';
 import { existsSync } from 'fs';
+import { which } from 'bun';
 
 export interface PM2Status {
   installed: boolean;
@@ -10,11 +11,34 @@ export interface PM2Status {
 }
 
 /**
+ * Get the PM2 command to use (handles Windows .cmd extension)
+ */
+async function getPM2Command(): Promise<string> {
+  // Try to find PM2 in PATH
+  const pm2Path = await which('pm2');
+  if (pm2Path) {
+    return pm2Path;
+  }
+
+  // On Windows, try pm2.cmd
+  if (process.platform === 'win32') {
+    const pm2CmdPath = await which('pm2.cmd');
+    if (pm2CmdPath) {
+      return pm2CmdPath;
+    }
+  }
+
+  // Fallback to just 'pm2' (might work if PATH is set correctly)
+  return 'pm2';
+}
+
+/**
  * Check if PM2 is installed globally
  */
 export async function checkPM2Installed(): Promise<boolean> {
   try {
-    const proc = spawn(['pm2', '--version'], {
+    const pm2Cmd = await getPM2Command();
+    const proc = spawn([pm2Cmd, '--version'], {
       stdout: 'pipe',
       stderr: 'pipe',
     });
@@ -73,7 +97,8 @@ export async function getPM2ProcessStatus(processName: string = 'xeokey'): Promi
 
   try {
     // Check if process is running in PM2
-    const proc = spawn(['pm2', 'list'], {
+    const pm2Cmd = await getPM2Command();
+    const proc = spawn([pm2Cmd, 'list'], {
       stdout: 'pipe',
       stderr: 'pipe',
     });
@@ -119,10 +144,13 @@ export async function startWithPM2(processName: string = 'xeokey', scriptPath: s
     // Extract just the filename from scriptPath (e.g., "src/server.ts" -> "server.ts")
     const scriptFile = scriptPath.includes('/') ? scriptPath.split('/').pop() : scriptPath;
 
+    // Get PM2 command (handles Windows .cmd extension)
+    const pm2Cmd = await getPM2Command();
+
     // Use bun to run the server via PM2
     // Command: pm2 start bun --name xeokey -- server.ts
     // Run from src directory so relative paths (templates, etc.) work correctly
-    const proc = spawn(['pm2', 'start', 'bun', '--name', processName, '--', scriptFile || 'server.ts'], {
+    const proc = spawn([pm2Cmd, 'start', 'bun', '--name', processName, '--', scriptFile || 'server.ts'], {
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: srcDir, // Run from src directory so templates and other relative paths work
@@ -190,6 +218,9 @@ export async function restartWithPM2(processName: string = 'xeokey', scriptPath:
 
     logger.info('Git pull successful...');
 
+    // Get PM2 command
+    const pm2Cmd = await getPM2Command();
+
     // If process doesn't exist, start it instead of restarting
     if (!status.running) {
       logger.info(`Process ${processName} not found in PM2, starting it...`);
@@ -199,7 +230,7 @@ export async function restartWithPM2(processName: string = 'xeokey', scriptPath:
     logger.info(`Restarting XeoKey via PM2: ${processName}`);
 
     // Restart with PM2 (this will reload with new code)
-    const restartProc = spawn(['pm2', 'restart', processName], {
+    const restartProc = spawn([pm2Cmd, 'restart', processName], {
       stdout: 'pipe',
       stderr: 'pipe',
     });
