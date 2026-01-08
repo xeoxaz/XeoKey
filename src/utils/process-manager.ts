@@ -48,9 +48,7 @@ export class ProcessManager {
         return { success: false, error: `Server file not found: ${serverFullPath}` };
       }
 
-      logger.info(`Starting server: ${this.serverPath}`);
-      logger.debug(`Server directory: ${this.serverDir}`);
-      logger.debug(`Project root: ${this.projectRoot}`);
+      logger.info(`Starting ${this.serverPath}`);
 
       // Spawn server process
       serverProcess = spawn(['bun', 'run', this.serverPath], {
@@ -85,8 +83,7 @@ export class ProcessManager {
       // Monitor process exit
       serverProcess.exited.then((exitCode) => {
         if (!isShuttingDown && !restartRequested) {
-          logger.error(`Server process exited unexpectedly with code ${exitCode}`);
-          logger.info('Attempting to restart server in 2 seconds...');
+          logger.error(`Server exited (code ${exitCode}), restarting in 2s...`);
 
           // Auto-restart after delay
           setTimeout(() => {
@@ -104,13 +101,13 @@ export class ProcessManager {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       if (serverProcess && !serverProcess.killed) {
-        logger.info('Server process started successfully');
+        logger.info('Server started');
         return { success: true };
       } else {
-        return { success: false, error: 'Server process failed to start' };
+        return { success: false, error: 'Server failed to start' };
       }
     } catch (error: any) {
-      logger.error(`Error starting server: ${error.message || error}`);
+      logger.error(`Start failed: ${error.message || error}`);
       return { success: false, error: error.message || 'Unknown error' };
     }
   }
@@ -120,20 +117,19 @@ export class ProcessManager {
    */
   async stop(): Promise<{ success: boolean; error?: string }> {
     if (!serverProcess) {
-      logger.warn('Server process is not running');
+      logger.warn('Server not running');
       return { success: true };
     }
 
     // Check if already killed
     if (serverProcess.killed) {
       serverProcess = null;
-      logger.info('Server process already stopped');
       return { success: true };
     }
 
     try {
       isShuttingDown = true;
-      logger.info('Stopping server process...');
+      logger.info('Stopping server...');
 
       // Store reference to avoid null issues
       const process = serverProcess;
@@ -150,17 +146,17 @@ export class ProcessManager {
 
       // Force kill if still running
       if (process && !process.killed) {
-        logger.warn('Server did not stop gracefully, forcing kill...');
+        logger.warn('Force killing server...');
         process.kill('SIGKILL');
       }
 
       serverProcess = null;
-      logger.info('Server process stopped');
+      logger.info('Server stopped');
       return { success: true };
     } catch (error: any) {
       // Clear serverProcess on error
       serverProcess = null;
-      logger.error(`Error stopping server: ${error.message || error}`);
+      logger.error(`Stop failed: ${error.message || error}`);
       return { success: false, error: error.message || 'Unknown error' };
     }
   }
@@ -174,7 +170,7 @@ export class ProcessManager {
 
     // Pull updates if requested
     if (pullUpdates) {
-      logger.info('Pulling updates from git...');
+      logger.info('Pulling git updates...');
       try {
         const { spawn } = await import('bun');
         const pullProc = spawn(['git', 'pull', 'origin', 'master'], {
@@ -193,9 +189,9 @@ export class ProcessManager {
           return { success: false, error: pullError || 'Git pull failed' };
         }
 
-        logger.info('Git pull successful');
+        logger.info('Git pull complete');
       } catch (error: any) {
-        logger.error(`Error pulling updates: ${error.message || error}`);
+        logger.error(`Git pull error: ${error.message || error}`);
         restartRequested = false;
         return { success: false, error: error.message || 'Git pull failed' };
       }
@@ -271,7 +267,7 @@ export async function stopWithProcessManager(): Promise<{ success: boolean; erro
 
 // Handle parent process signals
 process.on('SIGINT', async () => {
-  logger.info('Received SIGINT, shutting down...');
+  logger.info('Shutting down (SIGINT)...');
   isShuttingDown = true;
   if (processManager) {
     await processManager.stop();
@@ -280,7 +276,7 @@ process.on('SIGINT', async () => {
 });
 
 process.on('SIGTERM', async () => {
-  logger.info('Received SIGTERM, shutting down...');
+  logger.info('Shutting down (SIGTERM)...');
   isShuttingDown = true;
   if (processManager) {
     await processManager.stop();

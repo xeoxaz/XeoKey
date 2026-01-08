@@ -29,8 +29,7 @@ function getProjectRoot(): string {
 const projectRoot = getProjectRoot();
 const RESTART_FLAG_FILE = join(projectRoot, '.restart-requested');
 
-logger.info('🚀 XeoKey Process Manager Starting...');
-logger.info('This process will manage the server lifecycle');
+logger.info('🚀 Process Manager starting...');
 
 // Create process manager
 const manager = getProcessManager();
@@ -48,10 +47,10 @@ function setupRestartWatcher() {
     writeFileAsync(RESTART_FLAG_FILE, '', 'utf-8').catch(() => {});
   }
 
-  restartWatcher = watchFile(RESTART_FLAG_FILE, async (curr, prev) => {
+    restartWatcher = watchFile(RESTART_FLAG_FILE, async (curr, prev) => {
     // Check if file was just created or modified
     if (curr.mtimeMs > prev.mtimeMs && curr.size > 0) {
-      logger.info('Restart flag detected, restarting server with updates...');
+      logger.info('Restart flag detected, restarting with updates...');
 
       // Remove the flag file
       try {
@@ -67,7 +66,7 @@ function setupRestartWatcher() {
     }
   });
 
-  logger.info('Watching for restart requests...');
+  logger.info('Watching for restart flags...');
 }
 
 // Start the server
@@ -83,9 +82,7 @@ async function main() {
     // Setup restart watcher
     setupRestartWatcher();
 
-    logger.info('✅ Process Manager is running');
-    logger.info('Server is managed by this process');
-    logger.info('Press Ctrl+C to stop');
+    logger.info('✅ Process Manager ready');
 
     // Keep the process alive
     // The manager will handle server restarts automatically

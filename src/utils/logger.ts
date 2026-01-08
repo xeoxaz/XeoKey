@@ -77,8 +77,16 @@ class SimpleLogger {
     return LOG_LEVELS[level] >= LOG_LEVELS[this.logLevel];
   }
 
+  private formatTime(): string {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
   private formatMessage(level: LogLevel, message: string, ...args: any[]): string {
-    const timestamp = new Date().toISOString();
+    const timestamp = this.formatTime();
     const formattedArgs = args.length > 0 ? ' ' + args.map(arg =>
       typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
     ).join(' ') : '';
@@ -103,9 +111,13 @@ class SimpleLogger {
       return;
     }
 
-    const formattedMessage = this.formatMessage(level, message, ...args);
-
+    const timestamp = this.formatTime();
+    const formattedArgs = args.length > 0 ? ' ' + args.map(arg =>
+      typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+    ).join(' ') : '';
+    
     // Console output with colors
+    const darkGray = '\x1b[90m'; // Dark gray for brackets
     const colors: Record<LogLevel, string> = {
       debug: '\x1b[36m', // Cyan
       info: '\x1b[32m',  // Green
@@ -114,10 +126,14 @@ class SimpleLogger {
     };
     const reset = '\x1b[0m';
 
-    console.log(`${colors[level]}${formattedMessage}${reset}`);
+    // Format with colored brackets and level
+    const consoleMessage = `${darkGray}[${timestamp}]${reset} ${darkGray}[${colors[level]}${level.toUpperCase()}${reset}${darkGray}]${reset} ${darkGray}[${this.name}]${reset} ${colors[level]}${message}${formattedArgs}${reset}`;
+    
+    console.log(consoleMessage);
 
-    // File logging (async, don't wait)
-    this.writeToFile(formattedMessage).catch(() => {
+    // File logging (plain format, async, don't wait)
+    const fileMessage = `[${timestamp}] [${level.toUpperCase()}] [${this.name}] ${message}${formattedArgs}`;
+    this.writeToFile(fileMessage).catch(() => {
       // Ignore file write errors
     });
   }
