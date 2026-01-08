@@ -339,7 +339,7 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
       `<a href="/passwords">All Passwords (${passwordCount})</a>`
     );
 
-    // Insert TOTP, Backups, Health and auth menu before closing nav tag
+    // Insert TOTP, Backups, Health and auth menu into nav-actions section
     const totpMenu = `<div class="nav-item">
         <a href="/totp">TOTP</a>
       </div>`;
@@ -349,7 +349,8 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
     const healthMenu = `<div class="nav-item">
         <a href="/health">Health</a>
       </div>`;
-    header = header.replace('</nav>', totpMenu + backupsMenu + healthMenu + authMenu + '</nav>');
+    const navActionsContent = totpMenu + backupsMenu + healthMenu + authMenu;
+    header = header.replace('<div class="nav-actions">\n        <!-- Additional nav items will be inserted here by server -->\n      </div>', `<div class="nav-actions">\n        ${navActionsContent}\n      </div>`);
   }
 
   return header;

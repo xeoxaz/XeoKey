@@ -13,15 +13,26 @@
       <div id="sessionTimerFill" class="session-timer-fill"></div>
     </div>
     <nav>
-      <div class="nav-item">
-        <a href="/">Dashboard</a>
+      <div class="nav-brand">
+        <a href="/" class="brand-link">
+          <span class="brand-icon">🔐</span>
+          <span class="brand-text">XeoKey</span>
+        </a>
       </div>
-      <div class="nav-item dropdown">
-        <button type="button">Passwords</button>
-        <div class="dropdown-menu">
-          <a href="/passwords">All Passwords</a>
-          <a href="/passwords/add">Add Password</a>
+      <div class="nav-main">
+        <div class="nav-item">
+          <a href="/">Dashboard</a>
         </div>
+        <div class="nav-item dropdown">
+          <button type="button">Passwords</button>
+          <div class="dropdown-menu">
+            <a href="/passwords">All Passwords</a>
+            <a href="/passwords/add">Add Password</a>
+          </div>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <!-- Additional nav items will be inserted here by server -->
       </div>
     </nav>
   </header>
