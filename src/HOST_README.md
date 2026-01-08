@@ -52,8 +52,8 @@ When running under the process manager, the server sets `XEOKEY_MANAGED=true` so
 
 Press `Ctrl+C` to stop both the host and server processes gracefully.
 
-## Fallback
+## Notes
 
-If the process manager is not available, the system falls back to:
-1. PM2 (if installed)
-2. Script-based restart (restart-server.bat/sh)
+- The process manager is the only method for automatic server management
+- If not running under the manager, manual restarts are required
+- Always use `bun run host` to start the server for automatic management

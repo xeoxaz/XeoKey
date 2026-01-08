@@ -115,7 +115,7 @@ class SimpleLogger {
     const formattedArgs = args.length > 0 ? ' ' + args.map(arg =>
       typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
     ).join(' ') : '';
-    
+
     // Console output with colors
     const darkGray = '\x1b[90m'; // Dark gray for brackets
     const colors: Record<LogLevel, string> = {
@@ -128,7 +128,7 @@ class SimpleLogger {
 
     // Format with colored brackets and level
     const consoleMessage = `${darkGray}[${timestamp}]${reset} ${darkGray}[${colors[level]}${level.toUpperCase()}${reset}${darkGray}]${reset} ${darkGray}[${this.name}]${reset} ${colors[level]}${message}${formattedArgs}${reset}`;
-    
+
     console.log(consoleMessage);
 
     // File logging (plain format, async, don't wait)

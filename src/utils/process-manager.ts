@@ -6,6 +6,9 @@ import { join } from 'path';
 let serverProcess: Process | null = null;
 let isShuttingDown = false;
 let restartRequested = false;
+let consecutiveCrashes = 0;
+let lastRestartTime = 0;
+let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Internal Process Manager
@@ -15,9 +18,13 @@ export class ProcessManager {
   private serverPath: string;
   private projectRoot: string;
   private serverDir: string;
+  private serverPort: number;
+  private maxConsecutiveCrashes = 5;
+  private healthCheckInterval = 30000; // 30 seconds
 
   constructor(serverPath: string = 'server.ts', projectRoot?: string) {
     this.serverPath = serverPath;
+    this.serverPort = parseInt(process.env.PORT || '3000', 10);
 
     // Detect project root - if we're in src/, go up one level
     const cwd = process.cwd();
@@ -29,6 +36,115 @@ export class ProcessManager {
       // We're in project root
       this.projectRoot = projectRoot || cwd;
       this.serverDir = join(this.projectRoot, 'src');
+    }
+  }
+
+  /**
+   * Check if server is actually responding (health check)
+   */
+  private async checkServerHealth(): Promise<boolean> {
+    try {
+      const response = await fetch(`http://localhost:${this.serverPort}/api/server/status`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      return data.status === 'ready' || data.status === 'running';
+    } catch (error) {
+      return false; // Server not responding
+    }
+  }
+
+  /**
+   * Wait for server to be ready (with timeout)
+   */
+  private async waitForServerReady(timeoutMs: number = 30000): Promise<boolean> {
+    const startTime = Date.now();
+    const checkInterval = 1000; // Check every second
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (await this.checkServerHealth()) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+
+    return false; // Timeout
+  }
+
+  /**
+   * Start health check monitoring
+   */
+  private startHealthMonitoring(): void {
+    // Clear existing interval if any
+    if (healthCheckInterval) {
+      clearInterval(healthCheckInterval);
+      healthCheckInterval = null;
+    }
+
+    // Start new health check interval
+    healthCheckInterval = setInterval(async () => {
+      if (isShuttingDown || restartRequested || !serverProcess) {
+        return;
+      }
+
+      // Check if process is still alive
+      if (serverProcess.killed) {
+        logger.warn('Server process died, restarting...');
+        consecutiveCrashes++;
+        this.handleCrash();
+        return;
+      }
+
+      // Check if server is responding
+      const isHealthy = await this.checkServerHealth();
+      if (!isHealthy) {
+        logger.warn('Server not responding to health checks, restarting...');
+        consecutiveCrashes++;
+        this.handleCrash();
+      } else {
+        // Reset crash counter on successful health check
+        if (consecutiveCrashes > 0) {
+          logger.info(`Server recovered after ${consecutiveCrashes} crash(es)`);
+          consecutiveCrashes = 0;
+        }
+      }
+    }, this.healthCheckInterval);
+  }
+
+  /**
+   * Stop health check monitoring
+   */
+  private stopHealthMonitoring(): void {
+    if (healthCheckInterval) {
+      clearInterval(healthCheckInterval);
+      healthCheckInterval = null;
+    }
+  }
+
+  /**
+   * Handle server crash with exponential backoff
+   */
+  private async handleCrash(): Promise<void> {
+    if (consecutiveCrashes >= this.maxConsecutiveCrashes) {
+      logger.error(`Server crashed ${consecutiveCrashes} times consecutively. Stopping auto-restart.`);
+      this.stopHealthMonitoring();
+      return;
+    }
+
+    // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+    const backoffDelay = Math.min(2000 * Math.pow(2, consecutiveCrashes - 1), 32000);
+    logger.info(`Restarting in ${backoffDelay / 1000}s (crash #${consecutiveCrashes})...`);
+
+    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+
+    if (!isShuttingDown && !restartRequested) {
+      await this.start();
     }
   }
 
@@ -83,29 +199,36 @@ export class ProcessManager {
       // Monitor process exit
       serverProcess.exited.then((exitCode) => {
         if (!isShuttingDown && !restartRequested) {
-          logger.error(`Server exited (code ${exitCode}), restarting in 2s...`);
-
-          // Auto-restart after delay
-          setTimeout(() => {
-            if (!isShuttingDown && !restartRequested) {
-              this.start().catch((error) => {
-                logger.error(`Failed to restart server: ${error}`);
-              });
-            }
-          }, 2000);
+          consecutiveCrashes++;
+          logger.error(`Server exited (code ${exitCode})`);
+          this.handleCrash();
         }
         serverProcess = null;
       });
 
-      // Wait a moment to see if process starts successfully
+      // Wait for process to start
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (serverProcess && !serverProcess.killed) {
-        logger.info('Server started');
-        return { success: true };
-      } else {
-        return { success: false, error: 'Server failed to start' };
+      if (!serverProcess || serverProcess.killed) {
+        return { success: false, error: 'Server process failed to start' };
       }
+
+      // Wait for server to be ready (health check)
+      logger.info('Waiting for server to be ready...');
+      const isReady = await this.waitForServerReady(30000);
+
+      if (!isReady) {
+        logger.warn('Server started but not responding to health checks');
+        // Don't fail - server might be slow to start
+      }
+
+      // Start health monitoring
+      this.startHealthMonitoring();
+
+      logger.info('Server started and ready');
+      lastRestartTime = Date.now();
+      consecutiveCrashes = 0; // Reset on successful start
+      return { success: true };
     } catch (error: any) {
       logger.error(`Start failed: ${error.message || error}`);
       return { success: false, error: error.message || 'Unknown error' };
@@ -129,6 +252,7 @@ export class ProcessManager {
 
     try {
       isShuttingDown = true;
+      this.stopHealthMonitoring();
       logger.info('Stopping server...');
 
       // Store reference to avoid null issues
@@ -220,10 +344,19 @@ export class ProcessManager {
   /**
    * Get server process info
    */
-  getStatus(): { running: boolean; pid?: number } {
+  getStatus(): {
+    running: boolean;
+    pid?: number;
+    consecutiveCrashes: number;
+    lastRestartTime: number;
+    uptime?: number;
+  } {
     return {
       running: this.isRunning(),
       pid: serverProcess?.pid,
+      consecutiveCrashes,
+      lastRestartTime,
+      uptime: lastRestartTime > 0 ? Math.floor((Date.now() - lastRestartTime) / 1000) : undefined,
     };
   }
 }
@@ -269,6 +402,10 @@ export async function stopWithProcessManager(): Promise<{ success: boolean; erro
 process.on('SIGINT', async () => {
   logger.info('Shutting down (SIGINT)...');
   isShuttingDown = true;
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
   if (processManager) {
     await processManager.stop();
   }
@@ -278,6 +415,10 @@ process.on('SIGINT', async () => {
 process.on('SIGTERM', async () => {
   logger.info('Shutting down (SIGTERM)...');
   isShuttingDown = true;
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
   if (processManager) {
     await processManager.stop();
   }

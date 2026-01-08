@@ -1804,16 +1804,16 @@ router.get("/", async (request, params, query) => {
           </div>
         </div>
       </a>
-      ${!(globalThis as any).pm2Available ? `
-        <a href="/setup/pm2" style="display: block; background: #2d3d4d; padding: 1rem; border-radius: 6px; border: 1px solid #3d4d5d; text-decoration: none; color: #e0e0e0; transition: background 0.2s;">
+      ${!(globalThis as any).processManagerAvailable ? `
+        <div style="display: block; background: #2d3d4d; padding: 1rem; border-radius: 6px; border: 1px solid #3d4d5d; color: #e0e0e0;">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span style="font-size: 1.5rem;">⚙️</span>
             <div>
-              <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">Setup PM2</div>
-              <div style="color: #888; font-size: 0.8rem;">Enable process management</div>
+              <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">Process Manager</div>
+              <div style="color: #888; font-size: 0.8rem;">Run "bun run host" for auto-management</div>
             </div>
           </div>
-        </a>
+        </div>
       ` : ''}
     </div>
 
@@ -4601,27 +4601,13 @@ let dbConnectTime: number | null = null;
 (globalThis as any).serverStartTime = serverStartTime;
 (globalThis as any).dbConnectTime = dbConnectTime;
 
-// Check for PM2 on startup
-try {
-  const { checkPM2Installed, getPM2ProcessStatus } = await import('./utils/pm2-manager');
-  const pm2Installed = await checkPM2Installed();
-
-  if (pm2Installed) {
-    const pm2Status = await getPM2ProcessStatus('xeokey');
-    logger.info('✅ PM2 detected and available for process management');
-    if (pm2Status.running) {
-      logger.info(`📦 XeoKey is running under PM2 as: ${pm2Status.processName}`);
-    }
-    (globalThis as any).pm2Available = true;
-  } else {
-    logger.info('ℹ️  PM2 not detected. Install PM2 for better process management and automatic restarts.');
-    logger.info('   To install: npm install -g pm2');
-    logger.info('   Or use the /setup/pm2 route to install via the web interface.');
-    (globalThis as any).pm2Available = false;
-  }
-} catch (error) {
-  logger.debug(`PM2 check failed: ${error}`);
-  (globalThis as any).pm2Available = false;
+// Check if running under process manager
+if (process.env.XEOKEY_MANAGED === 'true') {
+  logger.info('✅ Running under process manager');
+  (globalThis as any).processManagerAvailable = true;
+} else {
+  logger.info('ℹ️  Not running under process manager. Use "bun run host" for automatic management.');
+  (globalThis as any).processManagerAvailable = false;
 }
 
 // Initialize templates before starting server
