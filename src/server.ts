@@ -1720,7 +1720,7 @@ router.get("/", async (request, params, query) => {
   }
 
   // Get database metadata
-  let dbMetadata: any = null;
+  let dbMetadata: { schemaVersion?: number; appVersion?: string; lastUpdated?: Date } | null = null;
   try {
     const { getDatabaseMetadata } = await import('./db/mongodb');
     dbMetadata = await getDatabaseMetadata();
@@ -2679,9 +2679,12 @@ router.get("/totp/next", async (request, params, query) => {
   try {
     const { getDatabase } = await import('./db/mongodb');
     const { ObjectId } = await import('mongodb');
-    const db: any = getDatabase();
-    await db.collection('totp').updateOne({ _id: new ObjectId(id), userId: session.userId } as any, { $inc: { counter: 1 }, $set: { lastUsedAt: new Date() } });
-  } catch {}
+    const db = getDatabase();
+    await db.collection('totp').updateOne({ _id: new ObjectId(id), userId: session.userId }, { $inc: { counter: 1 }, $set: { lastUsedAt: new Date() } });
+  } catch (error) {
+    // Non-critical: TOTP counter update failed, but code was still generated
+    logger.debug(`Failed to update TOTP counter: ${error}`);
+  }
   return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/totp' } });
 });
 

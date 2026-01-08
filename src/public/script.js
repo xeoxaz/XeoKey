@@ -437,7 +437,8 @@ function initVaultSessionTimer() {
       const remainingMs = (data && typeof data.remainingMs === 'number') ? data.remainingMs : 0;
       deadlineMs = Date.now() + Math.max(0, remainingMs);
       return true;
-    } catch (_) {
+    } catch (error) {
+      // Expected - server is restarting
       return false;
     }
   }
@@ -643,14 +644,7 @@ function initEntryEditing() {
     return; // Not on password details page
   }
 
-  console.log('Initializing entry editing:', {
-    hasEditBtn: !!document.getElementById('editEntryBtn'),
-    hasEditForm: !!document.getElementById('editEntryForm'),
-    hasViewMode: !!document.getElementById('entryViewMode'),
-    hasEditMode: !!document.getElementById('entryEditMode'),
-    hasWebsiteInput: !!editWebsiteInput,
-    hasPasswordInput: !!editPasswordInput
-  });
+  // Initialize entry editing
 
   // Store original values
   // For password field, we need to read it immediately as browsers may clear it when hidden
@@ -664,7 +658,6 @@ function initEntryEditing() {
     if (!passwordValue) {
       passwordValue = editPasswordInput.value || '';
     }
-    console.log('Password value read:', passwordValue ? '[REDACTED]' : 'EMPTY', 'from attribute:', editPasswordInput.hasAttribute('value'));
   }
 
   originalEntryValues = {
@@ -675,13 +668,6 @@ function initEntryEditing() {
     notes: editNotesInput ? editNotesInput.value : ''
   };
 
-  console.log('Stored original values:', {
-    website: originalEntryValues.website,
-    username: originalEntryValues.username,
-    email: originalEntryValues.email,
-    password: originalEntryValues.password ? '[REDACTED]' : 'EMPTY',
-    notes: originalEntryValues.notes
-  });
 
   // Update password strength indicator immediately if we have a password value
   // This ensures the strength is correct even when the form is hidden
@@ -690,13 +676,11 @@ function initEntryEditing() {
     setTimeout(() => {
       isUpdatingPasswordStrength = true;
       updateEditPasswordStrength(passwordValue);
-      console.log('Password strength updated on page load');
       setTimeout(() => {
         isUpdatingPasswordStrength = false;
       }, 100);
     }, 100);
   } else {
-    console.warn('No password value found to calculate strength on page load');
   }
 }
 
@@ -744,7 +728,6 @@ document.addEventListener('click', function(event) {
     isUpdatingPasswordStrength = true;
     editPasswordInput.value = originalEntryValues.password;
     editPasswordInput.type = 'password'; // Ensure password is hidden initially
-    console.log('Password value restored when entering edit mode:', editPasswordInput.value ? '[REDACTED]' : 'EMPTY', 'length:', originalEntryValues.password.length);
 
     // Update password strength after a short delay to ensure DOM is ready
     // Use the stored password value directly
@@ -753,7 +736,6 @@ document.addEventListener('click', function(event) {
       isUpdatingPasswordStrength = false;
     }, 50);
   } else {
-    console.warn('Could not restore password value - editPasswordInput:', !!editPasswordInput, 'originalEntryValues:', !!originalEntryValues);
   }
 
   // Update CSRF token before showing edit mode
@@ -775,11 +757,9 @@ document.addEventListener('click', function(event) {
       const freshTokenInput = doc.querySelector('input[name="csrfToken"]');
       if (freshTokenInput && freshTokenInput.value) {
         csrfInput.value = freshTokenInput.value;
-        console.log('CSRF token updated');
       }
     })
     .catch(error => {
-      console.warn('Could not update CSRF token:', error);
       // Continue anyway - the server will handle it
     });
   }
@@ -800,7 +780,6 @@ document.addEventListener('click', function(event) {
     setTimeout(() => {
       isUpdatingPasswordStrength = true;
       const passwordToUse = originalEntryValues.password;
-      console.log('Updating strength with password from originalEntryValues, length:', passwordToUse.length);
       updateEditPasswordStrength(passwordToUse);
       setTimeout(() => {
         isUpdatingPasswordStrength = false;
@@ -894,7 +873,6 @@ document.addEventListener('submit', function(event) {
   const editForm = event.target;
   if (!editForm || editForm.id !== 'editEntryForm') return;
 
-  console.log('Form submit event triggered');
 
   const editWebsiteInput = document.getElementById('editWebsiteInput');
   const editPasswordInput = document.getElementById('editPasswordInput');
@@ -906,23 +884,13 @@ document.addEventListener('submit', function(event) {
   // If password is empty but we have the original value, restore it
   // This handles cases where browsers clear password fields for security
   if (!password && originalEntryValues && originalEntryValues.password && editPasswordInput) {
-    console.log('Password field appears empty, restoring from original value');
     editPasswordInput.value = originalEntryValues.password;
     password = originalEntryValues.password;
   }
 
-  console.log('Form values before validation:', {
-    website,
-    password: password ? '[REDACTED]' : 'EMPTY',
-    passwordLength: password ? password.length : 0,
-    hasWebsiteInput: !!editWebsiteInput,
-    hasPasswordInput: !!editPasswordInput,
-    originalPasswordExists: !!(originalEntryValues && originalEntryValues.password)
-  });
 
   if (!website) {
     event.preventDefault();
-    console.log('Validation failed: Website is required');
     if (statusDiv) {
       statusDiv.textContent = '✗ Website is required';
       statusDiv.style.color = '#d4a5a5';
@@ -937,7 +905,6 @@ document.addEventListener('submit', function(event) {
 
   if (!password) {
     event.preventDefault();
-    console.log('Validation failed: Password is required');
     if (statusDiv) {
       statusDiv.textContent = '✗ Password is required';
       statusDiv.style.color = '#d4a5a5';
@@ -950,7 +917,6 @@ document.addEventListener('submit', function(event) {
     return false;
   }
 
-  console.log('Form validation passed, allowing submission');
   // Allow form to submit naturally - don't prevent default
 });
 
@@ -959,10 +925,8 @@ function updateEditPasswordStrength(password) {
   const strengthBar = document.getElementById('editPasswordStrengthBar');
   const strengthText = document.getElementById('editPasswordStrengthText');
 
-  console.log('updateEditPasswordStrength called with password length:', password ? password.length : 0, 'hasBar:', !!strengthBar, 'hasText:', !!strengthText, 'password:', password ? password.substring(0, 3) + '...' : 'EMPTY');
 
   if (!strengthBar || !strengthText) {
-    console.warn('Password strength elements not found!');
     return;
   }
 
@@ -971,12 +935,9 @@ function updateEditPasswordStrength(password) {
     const input = document.getElementById('editPasswordInput');
     if (input && input.value) {
       password = input.value;
-      console.log('Got password from input field, length:', password.length);
     } else if (originalEntryValues && originalEntryValues.password) {
       password = originalEntryValues.password;
-      console.log('Got password from originalEntryValues, length:', password.length);
     } else {
-      console.warn('No password value available for strength calculation');
       return;
     }
   }
@@ -991,7 +952,6 @@ function updateEditPasswordStrength(password) {
   if (/[0-9]/.test(password)) strength++;
   if (/[^a-zA-Z0-9]/.test(password)) strength++;
 
-  console.log('Password strength calculation result:', { strength, passwordLength: password.length });
 
   let percentage = 0;
   let color = '#4d4d4d';

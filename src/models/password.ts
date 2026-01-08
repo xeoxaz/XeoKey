@@ -1,5 +1,5 @@
 import { getDatabase } from '../db/mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, Filter, UpdateFilter } from 'mongodb';
 import * as crypto from 'crypto';
 import { passwordLogger } from '../utils/logger';
 import { debugLog } from '../utils/debug';
@@ -297,7 +297,7 @@ export async function updatePasswordEntry(
 
   // First, verify the entry exists and belongs to the user
   // Try with string first, then ObjectId if that doesn't work
-  let findFilter: any = {
+  let findFilter: Filter<PasswordEntry> = {
     _id: new ObjectId(entryId),
     userId: userIdString
   };
@@ -319,7 +319,7 @@ export async function updatePasswordEntry(
   if (!existingEntry) {
     passwordLogger.error(`Entry not found or does not belong to user: entryId=${entryId}, userId=${userIdString}, userIdType=${typeof userIdString}`);
     // Try finding by _id only to see if entry exists
-    const entryByIdOnly = await passwordsCollection.findOne({ _id: new ObjectId(entryId) } as any);
+    const entryByIdOnly = await passwordsCollection.findOne({ _id: new ObjectId(entryId) } as Filter<PasswordEntry>);
     if (entryByIdOnly) {
       passwordLogger.error(`Entry exists but userId does not match: entryId=${entryId}, requestedUserId=${userIdString}, requestedUserIdType=${typeof userIdString}, entryUserId=${entryByIdOnly.userId}, entryUserIdType=${typeof entryByIdOnly.userId}`);
     } else {
@@ -330,25 +330,25 @@ export async function updatePasswordEntry(
 
   debugLog(passwordLogger, `Entry found: entryId=${entryId}, userId=${existingEntry.userId}, website=${existingEntry.website}, entryUserIdType=${typeof existingEntry.userId}, requestedUserIdType=${typeof userId}`);
 
-  const updateData: any = {
+  const updateFields: Partial<PasswordEntry> = {
     updatedAt: new Date(),
   };
 
   // Always update website if provided (even if it's the same value)
   if (updates.website !== undefined) {
-    updateData.website = updates.website;
+    updateFields.website = updates.website;
   }
-  if (updates.username !== undefined) updateData.username = updates.username;
-  if (updates.email !== undefined) updateData.email = updates.email;
-  if (updates.password !== undefined) updateData.password = encryptPassword(updates.password);
+  if (updates.username !== undefined) updateFields.username = updates.username;
+  if (updates.email !== undefined) updateFields.email = updates.email;
+  if (updates.password !== undefined) updateFields.password = encryptPassword(updates.password);
   // Notes can be explicitly set to empty string or null to clear it
   if (updates.notes !== undefined) {
     // Allow empty string to clear notes, or set to null if empty
-    updateData.notes = updates.notes === '' ? null : updates.notes;
+    updateFields.notes = updates.notes === '' ? null : updates.notes;
   }
 
   // Verify we have at least one field to update (besides updatedAt)
-  const fieldsToUpdate = Object.keys(updateData).filter(key => key !== 'updatedAt');
+  const fieldsToUpdate = Object.keys(updateFields).filter(key => key !== 'updatedAt');
   if (fieldsToUpdate.length === 0) {
     passwordLogger.error(`No fields to update! Updates object: ${JSON.stringify(updates)}`);
     return false;
@@ -359,11 +359,11 @@ export async function updatePasswordEntry(
   try {
     // Use _id only for update since we already verified ownership above
     // This is more reliable and matches how deletePasswordEntry works
-    const filter: any = {
+    const filter: Filter<PasswordEntry> = {
       _id: new ObjectId(entryId)
     };
 
-    const updateOperation = { $set: updateData };
+    const updateOperation: UpdateFilter<PasswordEntry> = { $set: updateFields };
 
     debugLog(passwordLogger, `MongoDB update query: entryId=${entryId}, userId=${userId}, filter=_id, updateDataKeys=${Object.keys(updateData).join(',')}, existingWebsite=${existingEntry.website}, newWebsite=${updateData.website || 'N/A'}`);
 
