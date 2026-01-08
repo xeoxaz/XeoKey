@@ -60,20 +60,20 @@ function getMetadataFilePath(): string {
 // Load backup metadata
 async function loadBackupMetadata(): Promise<BackupMetadata[]> {
   const metadataPath = getMetadataFilePath();
-  
+
   if (!fs.existsSync(metadataPath)) {
     return [];
   }
-  
+
   try {
     const data = fs.readFileSync(metadataPath, 'utf-8');
     const parsed = JSON.parse(data);
-    
+
     // Convert timestamp strings back to Date objects
     return parsed.map((item: any) => ({
       ...item,
-      timestamp: item.timestamp instanceof Date 
-        ? item.timestamp 
+      timestamp: item.timestamp instanceof Date
+        ? item.timestamp
         : new Date(item.timestamp || Date.now()),
       _id: item._id ? (typeof item._id === 'string' ? new ObjectId(item._id) : item._id) : new ObjectId(),
     }));
@@ -232,7 +232,7 @@ export async function createPreMigrationBackup(migrationVersion: number): Promis
  */
 export async function listBackups(): Promise<BackupMetadata[]> {
   const metadata = await loadBackupMetadata();
-  
+
   // Sort by timestamp (newest first)
   // Ensure timestamps are Date objects before calling getTime()
   return metadata.sort((a, b) => {
@@ -400,7 +400,7 @@ export async function getBackupStats(): Promise<{
     const ts = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
     return ts.getTime();
   });
-  
+
   return {
     totalBackups: metadata.length,
     totalSize,

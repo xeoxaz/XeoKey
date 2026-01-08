@@ -4602,7 +4602,7 @@ let dbConnectTime: number | null = null;
 try {
   const { checkPM2Installed, getPM2ProcessStatus } = await import('./utils/pm2-manager');
   const pm2Installed = await checkPM2Installed();
-  
+
   if (pm2Installed) {
     const pm2Status = await getPM2ProcessStatus('xeokey');
     logger.info('✅ PM2 detected and available for process management');

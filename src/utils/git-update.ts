@@ -322,12 +322,12 @@ export async function prepareRestart(): Promise<{ success: boolean; error?: stri
  */
 export async function triggerRestart(): Promise<void> {
   logger.info('🔄 Triggering server restart after update...');
-  
+
   try {
     // Try PM2 first
     const { checkPM2Installed, triggerPM2Restart } = await import('./pm2-manager');
     const pm2Installed = await checkPM2Installed();
-    
+
     if (pm2Installed) {
       logger.info('Using PM2 for restart...');
       // PM2 restart will pull updates and restart in one command
@@ -345,25 +345,25 @@ export async function triggerRestart(): Promise<void> {
         // Fall through to script-based restart
       }
     }
-    
+
     // Fallback to script-based restart
     logger.info('PM2 not available, using script-based restart...');
     const { spawn } = await import('bun');
     const path = await import('path');
     const os = await import('os');
-    
+
     // Determine script path based on OS
     // Server runs from src/ directory, so script should be in current directory
     const isWindows = os.platform() === 'win32';
     const scriptName = isWindows ? 'restart-server.bat' : 'restart-server.sh';
-    
+
     // Try multiple possible paths
     const possiblePaths = [
       path.join(process.cwd(), scriptName), // Same directory as server.ts
       path.join(process.cwd(), 'src', scriptName), // src subdirectory
       path.resolve(scriptName), // Relative to current working directory
     ];
-    
+
     let scriptPath: string | null = null;
     for (const possiblePath of possiblePaths) {
       const { existsSync } = await import('fs');
@@ -372,13 +372,13 @@ export async function triggerRestart(): Promise<void> {
         break;
       }
     }
-    
+
     if (!scriptPath) {
       throw new Error(`Restart script not found. Tried: ${possiblePaths.join(', ')}`);
     }
-    
+
     logger.info(`Executing restart script: ${scriptPath}`);
-    
+
     // Execute the restart script
     // On Windows, use cmd.exe to run the .bat file
     // On Unix, ensure script is executable and run it
@@ -392,7 +392,7 @@ export async function triggerRestart(): Promise<void> {
     } else {
       // Make script executable
       await Bun.spawn(['chmod', '+x', scriptPath]).exited;
-      
+
       const proc = spawn([scriptPath], {
         cwd: path.dirname(scriptPath),
         detached: true,
@@ -400,7 +400,7 @@ export async function triggerRestart(): Promise<void> {
       });
       proc.unref(); // Allow parent process to exit independently
     }
-    
+
     // Give script a moment to start, then exit
     setTimeout(() => {
       logger.info('Restart script launched. Exiting current process...');

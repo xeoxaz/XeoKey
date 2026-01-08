@@ -66,7 +66,7 @@ export async function installPM2(): Promise<{ success: boolean; error?: string }
  */
 export async function getPM2ProcessStatus(processName: string = 'xeokey'): Promise<PM2Status> {
   const installed = await checkPM2Installed();
-  
+
   if (!installed) {
     return { installed: false, available: false };
   }
