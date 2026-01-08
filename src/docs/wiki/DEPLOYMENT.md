@@ -203,7 +203,7 @@ bun run host
 Start-Host.bat
 ```
 
-See [HOST_README.md](../../HOST_README.md) for detailed documentation.
+See [Process Manager Documentation](https://github.com/xeoxaz/XeoKey/blob/master/src/HOST_README.md) for detailed documentation.
 
 ### Using systemd (Linux)
 
