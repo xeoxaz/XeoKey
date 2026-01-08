@@ -403,8 +403,22 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
           <a href="/passwords/recover">Password Recovery${unrecoverableCount > 0 ? ` (${unrecoverableCount})` : ''}</a>
         </div>
       </div>`;
-    const navActionsContent = totpMenu + backupsMenu + healthMenu + passwordIssuesMenu + authMenu;
-    header = header.replace('<div class="nav-actions">\n        <!-- Additional nav items will be inserted here by server -->\n      </div>', `<div class="nav-actions">\n        ${navActionsContent}\n      </div>`);
+    const logoutMenu = `<div class="nav-item">
+        <a href="/logout">Logout</a>
+      </div>`;
+    const navActionsContent = totpMenu + backupsMenu + healthMenu + passwordIssuesMenu + authMenu + logoutMenu;
+    // Replace the nav-actions placeholder - use a more flexible regex to handle whitespace variations
+    // Try multiple replacement strategies
+    const navActionsRegex = /<div class="nav-actions">[\s\S]*?<\/div>/;
+    if (navActionsRegex.test(header)) {
+      header = header.replace(navActionsRegex, `<div class="nav-actions">\n        ${navActionsContent}\n      </div>`);
+    } else if (header.includes('<!-- Additional nav items will be inserted here by server -->')) {
+      // Fallback: try to find and replace just the comment
+      header = header.replace('<!-- Additional nav items will be inserted here by server -->', navActionsContent);
+    } else {
+      // Last resort: append before closing nav tag
+      header = header.replace('</nav>', `  <div class="nav-actions">\n        ${navActionsContent}\n      </div>\n    </nav>`);
+    }
   }
 
   return header;
