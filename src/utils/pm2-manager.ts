@@ -138,14 +138,15 @@ export async function startWithPM2(processName: string = 'xeokey', scriptPath: s
 /**
  * Restart server using PM2
  */
-export async function restartWithPM2(processName: string = 'xeokey'): Promise<{ success: boolean; error?: string }> {
+export async function restartWithPM2(processName: string = 'xeokey', scriptPath: string = 'src/server.ts'): Promise<{ success: boolean; error?: string }> {
   try {
     const installed = await checkPM2Installed();
     if (!installed) {
       return { success: false, error: 'PM2 is not installed' };
     }
 
-    logger.info(`Restarting XeoKey via PM2: ${processName}`);
+    // Check if process exists
+    const status = await getPM2ProcessStatus(processName);
 
     // First pull updates
     const pullProc = spawn(['git', 'pull', 'origin', 'master'], {
@@ -162,7 +163,15 @@ export async function restartWithPM2(processName: string = 'xeokey'): Promise<{ 
       return { success: false, error: pullError || 'Git pull failed' };
     }
 
-    logger.info('Git pull successful, restarting with PM2...');
+    logger.info('Git pull successful...');
+
+    // If process doesn't exist, start it instead of restarting
+    if (!status.running) {
+      logger.info(`Process ${processName} not found in PM2, starting it...`);
+      return await startWithPM2(processName, scriptPath);
+    }
+
+    logger.info(`Restarting XeoKey via PM2: ${processName}`);
 
     // Restart with PM2 (this will reload with new code)
     const restartProc = spawn(['pm2', 'restart', processName], {
@@ -191,8 +200,8 @@ export async function restartWithPM2(processName: string = 'xeokey'): Promise<{ 
  * Trigger restart using PM2 (for web interface)
  * This runs asynchronously and doesn't wait for completion
  */
-export async function triggerPM2Restart(processName: string = 'xeokey'): Promise<{ success: boolean; error?: string }> {
+export async function triggerPM2Restart(processName: string = 'xeokey', scriptPath: string = 'src/server.ts'): Promise<{ success: boolean; error?: string }> {
   logger.info('🔄 Triggering PM2 restart after update...');
-  return await restartWithPM2(processName);
+  return await restartWithPM2(processName, scriptPath);
 }
 
