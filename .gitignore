@@ -34,8 +34,3 @@ build/
 
 # Bun
 .bun/
-
-# GitHub Wiki (temporary clone directory)
-XeoKey.wiki/
-
-wiki
