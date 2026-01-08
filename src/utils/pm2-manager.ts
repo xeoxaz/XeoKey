@@ -14,18 +14,69 @@ export interface PM2Status {
  * Get the PM2 command to use (handles Windows .cmd extension)
  */
 async function getPM2Command(): Promise<string> {
-  // Try to find PM2 in PATH
-  const pm2Path = await which('pm2');
-  if (pm2Path) {
-    return pm2Path;
+  // Try multiple methods to find PM2
+  const candidates: string[] = [];
+
+  // Method 1: Try which('pm2')
+  try {
+    const pm2Path = await which('pm2');
+    if (pm2Path && existsSync(pm2Path)) {
+      return pm2Path;
+    }
+    if (pm2Path) {
+      candidates.push(pm2Path);
+    }
+  } catch (error) {
+    // which() might fail, continue
   }
 
-  // On Windows, try pm2.cmd
+  // Method 2: On Windows, try pm2.cmd
   if (process.platform === 'win32') {
-    const pm2CmdPath = await which('pm2.cmd');
-    if (pm2CmdPath) {
-      return pm2CmdPath;
+    try {
+      const pm2CmdPath = await which('pm2.cmd');
+      if (pm2CmdPath && existsSync(pm2CmdPath)) {
+        return pm2CmdPath;
+      }
+      if (pm2CmdPath) {
+        candidates.push(pm2CmdPath);
+      }
+    } catch (error) {
+      // which() might fail, continue
     }
+
+    // Method 3: Try pm2.exe
+    try {
+      const pm2ExePath = await which('pm2.exe');
+      if (pm2ExePath && existsSync(pm2ExePath)) {
+        return pm2ExePath;
+      }
+      if (pm2ExePath) {
+        candidates.push(pm2ExePath);
+      }
+    } catch (error) {
+      // which() might fail, continue
+    }
+  }
+
+  // Method 4: Try common npm global paths
+  if (process.platform === 'win32') {
+    const npmPaths = [
+      `${process.env.APPDATA}\\npm\\pm2.cmd`,
+      `${process.env.APPDATA}\\npm\\pm2`,
+      `${process.env.LOCALAPPDATA}\\npm\\pm2.cmd`,
+      `${process.env.LOCALAPPDATA}\\npm\\pm2`,
+    ];
+
+    for (const path of npmPaths) {
+      if (existsSync(path)) {
+        return path;
+      }
+    }
+  }
+
+  // Log candidates for debugging
+  if (candidates.length > 0) {
+    logger.debug(`PM2 candidates found but don't exist: ${candidates.join(', ')}`);
   }
 
   // Fallback to just 'pm2' (might work if PATH is set correctly)

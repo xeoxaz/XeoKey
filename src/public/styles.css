@@ -306,7 +306,7 @@ code {
   padding: 0.2rem 0.4rem;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
-  color: var(--color-error);
+  color: #c9d1d9;
   border: 1px solid var(--color-border);
 }
 
@@ -443,13 +443,13 @@ footer p {
   align-items: center;
   gap: 0.25rem;
   padding: 0.4rem 0.8rem;
-  background: #4a5568;
+  background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   text-decoration: none;
   border-radius: var(--border-radius);
   font-size: 0.75rem;
   transition: all var(--transition);
-  border: 1px solid #5a6578;
+  border: 1px solid var(--color-border);
   position: relative;
   overflow: hidden;
 }
@@ -468,7 +468,8 @@ footer p {
 }
 
 .report-bug-btn:hover {
-  background: #5a6578;
+  background: var(--color-border);
+  border-color: var(--color-accent);
   transform: translateY(-2px);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-md);
@@ -564,7 +565,7 @@ footer p {
   top: 0.25rem;
   right: 0.25rem;
   background: var(--color-error);
-  color: #1d1d1d;
+  color: var(--color-bg-primary);
   border-radius: 50%;
   width: 18px;
   height: 18px;
@@ -577,7 +578,7 @@ footer p {
 
 .nav-badge-success {
   background: var(--color-success);
-  color: #1d1d1d;
+  color: var(--color-bg-primary);
   font-size: 0.75rem;
 }
 
