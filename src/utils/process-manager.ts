@@ -119,8 +119,15 @@ export class ProcessManager {
    * Stop the server process
    */
   async stop(): Promise<{ success: boolean; error?: string }> {
-    if (!serverProcess || serverProcess.killed) {
+    if (!serverProcess) {
       logger.warn('Server process is not running');
+      return { success: true };
+    }
+
+    // Check if already killed
+    if (serverProcess.killed) {
+      serverProcess = null;
+      logger.info('Server process already stopped');
       return { success: true };
     }
 
@@ -128,26 +135,31 @@ export class ProcessManager {
       isShuttingDown = true;
       logger.info('Stopping server process...');
 
+      // Store reference to avoid null issues
+      const process = serverProcess;
+
       // Try graceful shutdown first (SIGTERM)
-      serverProcess.kill('SIGTERM');
+      process.kill('SIGTERM');
 
       // Wait up to 5 seconds for graceful shutdown
       let waited = 0;
-      while (!serverProcess.killed && waited < 5000) {
+      while (process && !process.killed && waited < 5000) {
         await new Promise(resolve => setTimeout(resolve, 100));
         waited += 100;
       }
 
       // Force kill if still running
-      if (!serverProcess.killed) {
+      if (process && !process.killed) {
         logger.warn('Server did not stop gracefully, forcing kill...');
-        serverProcess.kill('SIGKILL');
+        process.kill('SIGKILL');
       }
 
       serverProcess = null;
       logger.info('Server process stopped');
       return { success: true };
     } catch (error: any) {
+      // Clear serverProcess on error
+      serverProcess = null;
       logger.error(`Error stopping server: ${error.message || error}`);
       return { success: false, error: error.message || 'Unknown error' };
     }
@@ -206,7 +218,7 @@ export class ProcessManager {
    * Check if server is running
    */
   isRunning(): boolean {
-    return serverProcess !== null && !serverProcess.killed;
+    return serverProcess !== null && serverProcess && !serverProcess.killed;
   }
 
   /**
