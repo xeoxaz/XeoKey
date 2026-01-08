@@ -2833,14 +2833,14 @@ router.get("/backups", async (request, params, query) => {
           </div>
           <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
             <form method="POST" action="/backups/${backup.backupId}/restore" style="display: inline;">
-              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+              <input type="hidden" name="csrfToken" value="${getOrCreateCsrfToken(session.sessionId)}">
               <button type="submit" onclick="return confirm('⚠️ WARNING: This will overwrite all data in the restored collections! Are you sure?');"
                       style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
                 Restore
               </button>
             </form>
             <form method="POST" action="/backups/${backup.backupId}/delete" style="display: inline;">
-              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+              <input type="hidden" name="csrfToken" value="${getOrCreateCsrfToken(session.sessionId)}">
               <button type="submit" onclick="return confirm('Are you sure you want to delete this backup?');"
                       style="background: #6d2d2d; color: #d4a5a5; border: 1px solid #7d3d3d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
                 Delete
@@ -2880,7 +2880,7 @@ router.get("/backups", async (request, params, query) => {
       </div>
       <div style="margin-bottom: 1.5rem;">
         <form method="POST" action="/backups/create" style="display: inline;">
-          <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+          <input type="hidden" name="csrfToken" value="${getOrCreateCsrfToken(session.sessionId)}">
           <button type="submit" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
             + Create Manual Backup
           </button>
