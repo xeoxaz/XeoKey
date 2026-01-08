@@ -70,7 +70,7 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
 bun run dev
 ```
 
-### Production Mode:
+### Production Mode (Direct):
 ```bash
 bun run start
 ```
@@ -79,6 +79,18 @@ Or use the provided batch file on Windows:
 ```bash
 Start.bat
 ```
+
+### Production Mode (with Process Manager - Recommended):
+```bash
+bun run host
+```
+
+Or use the provided batch file on Windows:
+```bash
+Start-Host.bat
+```
+
+The process manager provides automatic restarts, health monitoring, and crash recovery. See [HOST_README.md](HOST_README.md) for details.
 
 The server will start on `http://localhost:3000` by default (or the port specified in `PORT` environment variable).
 

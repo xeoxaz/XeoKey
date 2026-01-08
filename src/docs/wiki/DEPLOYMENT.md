@@ -123,10 +123,10 @@ Enable MongoDB encryption at rest for sensitive data.
 
 4. **Use process manager** (recommended):
    ```bash
-   # Using PM2
-   pm2 start bun --name xeokey -- run start
+   # Using built-in process manager (recommended)
+   bun run host
 
-   # Using systemd (Linux)
+   # Or using systemd (Linux)
    # Create /etc/systemd/system/xeokey.service
    ```
 
@@ -171,26 +171,39 @@ Not recommended for this application (requires persistent server).
 2. Install Bun
 3. Clone repository
 4. Set environment variables
-5. Use process manager (PM2, systemd)
+5. Use process manager (built-in manager or systemd)
 6. Configure reverse proxy
 
 ## Process Management
 
-### Using PM2
+### Using Built-in Process Manager (Recommended)
+
+XeoKey includes a built-in process manager that handles automatic restarts, health monitoring, and crash recovery. This is the recommended method for production deployment.
 
 ```bash
-# Install PM2
-npm install -g pm2
+# Start with process manager (from project root)
+bun run host
 
-# Start application
-pm2 start bun --name xeokey -- run start
-
-# Save PM2 configuration
-pm2 save
-
-# Set up PM2 to start on boot
-pm2 startup
+# Or from src/ directory
+cd src
+bun run host
 ```
+
+**Features:**
+- ✅ Automatic restart on crashes
+- ✅ Health check monitoring (every 30 seconds)
+- ✅ Startup verification
+- ✅ Crash recovery with exponential backoff
+- ✅ Git pull integration for updates
+- ✅ No external dependencies required
+
+**Windows:**
+```bash
+# Use the batch file
+Start-Host.bat
+```
+
+See [HOST_README.md](../../HOST_README.md) for detailed documentation.
 
 ### Using systemd (Linux)
 

@@ -71,10 +71,17 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
 bun run dev
 ```
 
-### Production Mode:
+### Production Mode (Direct):
 ```bash
 bun run start
 ```
+
+### Production Mode (with Process Manager - Recommended):
+```bash
+bun run host
+```
+
+The process manager provides automatic restarts, health monitoring, and crash recovery. See [HOST_README.md](src/HOST_README.md) for details.
 
 **Note:** All commands can be run from the root directory. The scripts automatically work with the `src` directory.
 
@@ -242,7 +249,7 @@ This will:
 
 1. Set `NODE_ENV=production`
 2. Set all required environment variables
-3. Run `bun run start`
+3. Run `bun run host` (recommended) or `bun run start` (direct)
 
 ## Troubleshooting
 
@@ -295,7 +302,7 @@ This will:
    - Set up log rotation
    - Monitor for security events
 
-5. **Backup (CRITICAL):**
+6. **Backup (CRITICAL):**
    - **⚠️ Set up regular MongoDB backups immediately** - Without backups, you will lose all your passwords if the database is lost
    - Regular MongoDB backups (daily recommended)
    - Backup encryption keys securely
