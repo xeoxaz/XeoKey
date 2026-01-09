@@ -297,9 +297,8 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
 
   // If not logged in, show only branding, hide nav items
   if (!session) {
-    // Hide nav-main and nav-actions sections, keep only branding
-    header = header.replace(/<div class="nav-main">[\s\S]*?<\/div>\s*/m, '');
-    header = header.replace(/<div class="nav-actions">[\s\S]*?<\/div>\s*/m, '');
+    // Hide nav-main and nav-actions sections using CSS (more reliable than regex)
+    header = header.replace('</head>', '<style>.nav-main, .nav-actions { display: none !important; }</style></head>');
     // Remove session timer bar
     header = header.replace(/<div id="sessionTimer"[\s\S]*?<\/div>\s*/m, '');
   } else {
