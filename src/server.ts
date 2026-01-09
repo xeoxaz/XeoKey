@@ -295,10 +295,11 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
 
   let header = headerTemplate.replace("{{TITLE}}", title);
 
-  // If not logged in, hide the entire nav menu
+  // If not logged in, show only branding, hide nav items
   if (!session) {
-    // Remove the nav element completely
-    header = header.replace(/<nav>[\s\S]*?<\/nav>/, '');
+    // Hide nav-main and nav-actions sections, keep only branding
+    header = header.replace(/<div class="nav-main">[\s\S]*?<\/div>\s*/m, '');
+    header = header.replace(/<div class="nav-actions">[\s\S]*?<\/div>\s*/m, '');
     // Remove session timer bar
     header = header.replace(/<div id="sessionTimer"[\s\S]*?<\/div>\s*/m, '');
   } else {
@@ -610,15 +611,15 @@ const pages: Record<string, { title: string; body: string }> = {
       <form style="margin-top: 1.5rem;">
         <div style="margin-bottom: 1rem;">
           <label for="name" style="display: block; margin-bottom: 0.5rem;">Name:</label>
-          <input type="text" id="name" name="name" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+          <input type="text" id="name" name="name" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
         </div>
         <div style="margin-bottom: 1rem;">
           <label for="email" style="display: block; margin-bottom: 0.5rem;">Email:</label>
-          <input type="email" id="email" name="email" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+          <input type="email" id="email" name="email" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
         </div>
         <div style="margin-bottom: 1rem;">
           <label for="message" style="display: block; margin-bottom: 0.5rem;">Message:</label>
-          <textarea id="message" name="message" rows="5" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+          <textarea id="message" name="message" rows="5" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;"></textarea>
         </div>
         <button type="submit" style="background: #2c3e50; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer;">Send Message</button>
       </form>
@@ -948,11 +949,11 @@ async function renderLoginForm(request: Request, username: string = '', error: s
         ${errorHtml}
         <div style="margin-bottom: 1rem;">
           <label for="username" style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Username:</label>
-          <input type="text" id="username" name="username" required${usernameValue} style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; box-sizing: border-box;">
+          <input type="text" id="username" name="username" required${usernameValue} autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; box-sizing: border-box;">
         </div>
         <div style="margin-bottom: 1.5rem;">
           <label for="password" style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Password:</label>
-          <input type="password" id="password" name="password" required style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; box-sizing: border-box;">
+          <input type="password" id="password" name="password" required autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; box-sizing: border-box;">
         </div>
         <button type="submit" style="width: 100%; background: #3d3d3d; color: #e0e0e0; padding: 0.75rem; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer; font-size: 1rem; transition: background 0.2s;">Login</button>
       </form>
@@ -1009,12 +1010,12 @@ async function renderRegisterForm(request: Request, username: string = '', error
       ${errorHtml}
       <div style="margin-bottom: 1rem;">
         <label for="username" style="display: block; margin-bottom: 0.5rem;">Username:</label>
-        <input type="text" id="username" name="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+"${usernameValue} style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
+        <input type="text" id="username" name="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+"${usernameValue} autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
         <small style="color: #b0b0b0; font-size: 0.85rem;">3-30 characters, letters, numbers, and underscores only</small>
       </div>
       <div style="margin-bottom: 1rem;">
         <label for="password" style="display: block; margin-bottom: 0.5rem;">Password:</label>
-        <input type="password" id="password" name="password" required minlength="6" maxlength="100" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
+        <input type="password" id="password" name="password" required minlength="6" maxlength="100" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
         <div id="passwordStrength" style="margin-top: 0.5rem; height: 4px; background: #2d2d2d; border-radius: 2px; overflow: hidden;">
           <div id="passwordStrengthBar" style="height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s;"></div>
         </div>
@@ -1022,7 +1023,7 @@ async function renderRegisterForm(request: Request, username: string = '', error
       </div>
       <div style="margin-bottom: 1.5rem;">
         <label for="confirmPassword" style="display: block; margin-bottom: 0.5rem;">Confirm Password:</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" maxlength="100" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
+        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" maxlength="100" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
         <div id="passwordMatch" style="color: #b0b0b0; font-size: 0.85rem; margin-top: 0.25rem;"></div>
       </div>
       <button type="submit" id="submitBtn" style="width: 100%; background: #3d3d3d; color: #e0e0e0; padding: 0.75rem; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer; font-size: 1rem;">Register</button>
@@ -2413,7 +2414,7 @@ router.get("/passwords", async (request, params, query) => {
         <h1>All Passwords (0)</h1>
         <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
           <div style="flex: 1; min-width: 250px;">
-            <input type="text" id="passwordSearch" placeholder="Search passwords..." disabled style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #888; font-size: 0.9rem; cursor: not-allowed;">
+            <input type="text" id="passwordSearch" placeholder="Search passwords..." disabled autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #888; font-size: 0.9rem; cursor: not-allowed;">
           </div>
           <a href="/passwords/add" style="color: #9db4d4; text-decoration: none; background: #3d3d3d; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #4d4d4d; display: inline-block; white-space: nowrap;">+ Add Password</a>
         </div>
@@ -2464,7 +2465,7 @@ router.get("/passwords", async (request, params, query) => {
       <h1>All Passwords (${passwordCount})</h1>
       <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 250px;">
-          <input type="text" id="passwordSearch" placeholder="Search passwords..." style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0; font-size: 0.9rem;">
+          <input type="text" id="passwordSearch" placeholder="Search passwords..." autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0; font-size: 0.9rem;">
         </div>
         <a href="/passwords/add" style="color: #9db4d4; text-decoration: none; background: #3d3d3d; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #4d4d4d; display: inline-block; white-space: nowrap;">+ Add Password</a>
       </div>
@@ -2512,21 +2513,21 @@ router.get("/passwords/add", async (request, params, query) => {
       <input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">
       <div style="margin-bottom: 1rem;">
         <label for="website" style="display: block; margin-bottom: 0.5rem;">Website/Service *</label>
-        <input type="text" id="website" name="website" required style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
+        <input type="text" id="website" name="website" required autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
       </div>
       <div style="margin-bottom: 1rem;">
         <label for="username" style="display: block; margin-bottom: 0.5rem;">Username</label>
-        <input type="text" id="username" name="username" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
+        <input type="text" id="username" name="username" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
       </div>
       <div style="margin-bottom: 1rem;">
         <label for="email" style="display: block; margin-bottom: 0.5rem;">Email</label>
-        <input type="email" id="email" name="email" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
+        <input type="email" id="email" name="email" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
       </div>
       <div style="margin-bottom: 1rem;">
         <label for="password" style="display: block; margin-bottom: 0.5rem;">Password *</label>
         <div class="password-input-container" style="display: flex; gap: 0.5rem; align-items: flex-start;">
           <div style="flex: 1;">
-            <input type="text" id="password" name="password" required style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
+            <input type="text" id="password" name="password" required autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0;">
             <div id="passwordStrength" style="margin-top: 0.5rem; height: 4px; background: #2d2d2d; border-radius: 2px; overflow: hidden;">
               <div id="passwordStrengthBar" style="height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s;"></div>
             </div>
@@ -2539,7 +2540,7 @@ router.get("/passwords/add", async (request, params, query) => {
       </div>
       <div style="margin-bottom: 1.5rem;">
         <label for="notes" style="display: block; margin-bottom: 0.5rem;">Notes</label>
-        <textarea id="notes" name="notes" rows="4" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0; font-family: inherit;"></textarea>
+        <textarea id="notes" name="notes" rows="4" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #2d2d2d; color: #e0e0e0; font-family: inherit;"></textarea>
       </div>
       <button type="submit" style="width: 100%; background: #3d3d3d; color: #e0e0e0; padding: 0.75rem; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer; font-size: 1rem;">Save Password</button>
     </form>
@@ -2603,27 +2604,27 @@ router.get("/totp/add", async (request, params, query) => {
       <input type="hidden" name="csrfToken" value="${escapeHtml(csrf)}">
       <div style="margin-bottom:0.75rem;">
         <label style="display:block;margin-bottom:0.35rem;">Label *</label>
-        <input type="text" name="label" required>
+        <input type="text" name="label" required autocomplete="off">
       </div>
       <div style="margin-bottom:0.75rem;">
         <label style="display:block;margin-bottom:0.35rem;">Type</label>
-        <select name="type" id="otpType">
+        <select name="type" id="otpType" autocomplete="off">
           <option value="TOTP" selected>TOTP (RFC 6238)</option>
           <option value="HOTP">HOTP (RFC 4226)</option>
         </select>
       </div>
       <div style="margin-bottom:0.75rem;">
         <label style="display:block;margin-bottom:0.35rem;">Account (optional)</label>
-        <input type="text" name="account">
+        <input type="text" name="account" autocomplete="off">
       </div>
       <div style="margin-bottom:0.75rem;">
         <label style="display:block;margin-bottom:0.35rem;">Secret (Base32) *</label>
-        <input type="text" name="secret" required>
+        <input type="text" name="secret" required autocomplete="off">
       </div>
       <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
         <div style="flex:1; display:none;" id="counterField">
           <label style="display:block;margin-bottom:0.35rem;">Counter (HOTP)</label>
-          <input type="number" name="counter" value="0" min="0">
+          <input type="number" name="counter" value="0" min="0" autocomplete="off">
         </div>
       </div>
       <div style="margin-bottom:0.75rem;color:#888;">
@@ -3263,7 +3264,7 @@ router.get("/passwords/recover", async (request, params, query) => {
                 <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
                 <input type="hidden" name="identifier" value="${identifier}">
                 <div style="display: flex; gap: 0.5rem;">
-                  <input type="password" name="masterKey" placeholder="Master password or key"
+                  <input type="password" name="masterKey" placeholder="Master password or key" autocomplete="off"
                          style="flex: 1; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
                   <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
                     Try Recovery
@@ -3347,7 +3348,7 @@ router.get("/passwords/recover", async (request, params, query) => {
           <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
             <div style="flex: 1;">
               <label style="display: block; color: #888; font-size: 0.9rem; margin-bottom: 0.25rem;">Master Password / Encryption Key:</label>
-              <input type="password" name="masterKey" placeholder="Enter master password or encryption key"
+              <input type="password" name="masterKey" placeholder="Enter master password or encryption key" autocomplete="off"
                      style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
             </div>
             <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
@@ -4056,20 +4057,20 @@ router.get("/passwords/:id", async (request, params, query) => {
               <input type="hidden" name="csrfToken" value="${getOrCreateCsrfToken(session.sessionId)}">
               <div style="margin-bottom: 1rem;">
                 <label style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Website:</label>
-                <input type="text" id="editWebsiteInput" name="website" value="${escapeHtml(entry.website)}" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-size: 0.9rem; box-sizing: border-box;" required>
+                <input type="text" id="editWebsiteInput" name="website" value="${escapeHtml(entry.website)}" autocomplete="off" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-size: 0.9rem; box-sizing: border-box;" required>
               </div>
               <div style="margin-bottom: 1rem;">
                 <label style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Username:</label>
-                <input type="text" id="editUsernameInput" name="username" value="${entry.username ? escapeHtml(entry.username) : ''}" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-family: monospace; font-size: 0.9rem; box-sizing: border-box;">
+                <input type="text" id="editUsernameInput" name="username" value="${entry.username ? escapeHtml(entry.username) : ''}" autocomplete="off" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-family: monospace; font-size: 0.9rem; box-sizing: border-box;">
               </div>
               <div style="margin-bottom: 1rem;">
                 <label style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Email:</label>
-                <input type="email" id="editEmailInput" name="email" value="${entry.email ? escapeHtml(entry.email) : ''}" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-family: monospace; font-size: 0.9rem; box-sizing: border-box;">
+                <input type="email" id="editEmailInput" name="email" value="${entry.email ? escapeHtml(entry.email) : ''}" autocomplete="off" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-family: monospace; font-size: 0.9rem; box-sizing: border-box;">
               </div>
               <div style="margin-bottom: 1rem;">
                 <label style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Password:</label>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                  <input type="password" id="editPasswordInput" name="password" value="${passwordData}" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; font-family: monospace; flex: 1; font-size: 0.9rem;" required>
+                  <input type="password" id="editPasswordInput" name="password" value="${passwordData}" autocomplete="off" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; font-family: monospace; flex: 1; font-size: 0.9rem;" required>
                   <button type="button" id="togglePasswordVisibility" style="background: #3d3d3d; color: #e0e0e0; padding: 0.75rem 1rem; border: 1px solid #4d4d4d; border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap;">
                     Show
                   </button>
@@ -4084,7 +4085,7 @@ router.get("/passwords/:id", async (request, params, query) => {
               </div>
               <div style="margin-bottom: 1rem;">
                 <label style="display: block; margin-bottom: 0.5rem; color: #b0b0b0;">Notes:</label>
-                <textarea id="editNotesInput" name="notes" rows="4" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-size: 0.9rem; box-sizing: border-box; resize: vertical; font-family: inherit;">${entry.notes ? escapeHtml(entry.notes) : ''}</textarea>
+                <textarea id="editNotesInput" name="notes" rows="4" autocomplete="off" style="background: #1d1d1d; padding: 0.75rem; border-radius: 4px; border: 1px solid #3d3d3d; color: #e0e0e0; width: 100%; font-size: 0.9rem; box-sizing: border-box; resize: vertical; font-family: inherit;">${entry.notes ? escapeHtml(entry.notes) : ''}</textarea>
               </div>
               <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1.5rem;">
                 <button type="submit" style="background: #7fb069; color: #1d1d1d; padding: 0.75rem 1.5rem; border: 1px solid #6fa059; border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap;">
