@@ -3,7 +3,7 @@ import { logger } from './utils/logger';
 import { debugLog } from './utils/debug';
 
 // MongoDB connection
-import { connectMongoDB, closeMongoDB, getDatabase, isConnected } from './db/mongodb';
+import { connectMongoDB, closeMongoDB, isConnected } from './db/mongodb';
 
 // Authentication
 import { createSession, getSession, deleteSession, getSessionIdFromRequest, createSessionCookie, createLogoutCookie } from './auth/session';
@@ -14,16 +14,19 @@ import { authenticateUser, createUser } from './auth/users';
 import { createPasswordEntry, getUserPasswords, getPasswordEntry, getDecryptedPassword, updatePasswordEntry, deletePasswordEntry } from './models/password';
 
 // Notes management
-import { createNoteEntry, getUserNotes, getNoteEntry, getDecryptedNoteContent, updateNoteEntry, deleteNoteEntry, incrementNoteSearchCount } from './models/notes';
+// Remove unused imports
+import { createNoteEntry, getUserNotes, getNoteEntry, getDecryptedNoteContent, updateNoteEntry, deleteNoteEntry } from './models/notes';
 
 // Analytics
 import { trackEvent } from './models/analytics';
 
 // Backup management
-import { listBackups, createBackup, restoreBackup, deleteBackup, getBackupStats, getBackupMetadata } from './db/backup';
+// Remove unused imports
+import { listBackups, createBackup, restoreBackup, deleteBackup, getBackupStats } from './db/backup';
 
 // Health and integrity checks
-import { runIntegrityChecks, quickHealthCheck } from './db/integrity';
+// Remove unused imports
+import { quickHealthCheck } from './db/integrity';
 import { forceHealthCheck, getLastHealthCheck } from './db/health';
 
 // Password recovery
@@ -50,15 +53,6 @@ const SECURITY_HEADERS = {
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS";
 type RouteHandler = (request: Request, params: Record<string, string>, query: URLSearchParams) => Promise<Response> | Response;
 type Middleware = (request: Request, params: Record<string, string>, query: URLSearchParams) => Promise<Response | null> | Response | null;
-
-// Session interface
-interface AuthenticatedRequest extends Request {
-  session?: {
-    sessionId: string;
-    userId: string;
-    username: string;
-  };
-}
 
 interface RouteNode {
   handlers: Map<HttpMethod, RouteHandler>;
@@ -1900,7 +1894,7 @@ router.get("/", async (request, params, query) => {
         <div style="color: #b0b0b0; font-size: 0.85rem; margin-bottom: 0.25rem;">Server Uptime</div>
         <div style="color: #888; font-size: 0.7rem;" id="serverUptime">-</div>
       </div>
-      ${dbMetadata && dbMetadata.indexesInitialized ? `
+      ${(dbMetadata as any)?.indexesInitialized ? `
       <div style="background: #2d2d2d; padding: 0.75rem; border-radius: 6px; border: 1px solid #3d3d3d;">
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
           <span style="color: #7fb069; font-size: 1.2rem;">✓</span>
@@ -2736,15 +2730,6 @@ router.get("/totp/next", async (request, params, query) => {
     return new Response(null, { status: 302, headers: { ...SECURITY_HEADERS, Location: '/totp' } });
   }
   // For HOTP, increment counter and show the new code
-  const { decrypt } = await import('./models/totp'); // not exported; instead compute using util
-  try {
-    const { generateHotpCode } = await import('./utils/totp');
-    const { default: mongodb } = await import('mongodb');
-  } catch {}
-  // We don't have decrypt exported; instead getCurrentTotpCode already shows TOTP. For HOTP, we'll simply advance counter and compute based on new counter using util and decrypted secret.
-  // To avoid exporting decrypt, re-fetch via models with helper function:
-  const { listTotpEntries } = await import('./models/totp');
-  // Simpler: just redirect back; list view shows '(tap Next to generate)'. For a minimal working flow, increment counter and redirect.
   try {
     const { getDatabase } = await import('./db/mongodb');
     const { ObjectId } = await import('mongodb');
@@ -4905,7 +4890,7 @@ router.get("/:page*", async (request, params, query) => {
     pagePath.endsWith(".jpg") ||
     pagePath.endsWith(".ico")
   ) {
-    return null; // Let router return 404
+    return new Response("Not Found", { status: 404, ...SECURITY_HEADERS });
   }
 
   // Require authentication for all pages

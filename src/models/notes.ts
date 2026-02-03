@@ -256,20 +256,20 @@ export async function updateNoteEntry(
   const userIdString = typeof userId === 'string' ? userId : (userId as any).toString();
 
   // First, verify the entry exists and belongs to the user
-  let findFilter: Filter<NoteEntry> = {
+  let filter: any = {
     _id: new ObjectId(entryId),
     userId: userIdString
   };
 
-  let existingEntry = await notesCollection.findOne(findFilter);
+  let existingEntry = await notesCollection.findOne(filter);
 
   // If not found and userId is a valid ObjectId, try with ObjectId
   if (!existingEntry && ObjectId.isValid(userIdString)) {
-    findFilter = {
+    filter = {
       _id: new ObjectId(entryId),
       userId: new ObjectId(userIdString)
     };
-    existingEntry = await notesCollection.findOne(findFilter);
+    existingEntry = await notesCollection.findOne(filter);
   }
 
   if (!existingEntry) {
@@ -293,7 +293,7 @@ export async function updateNoteEntry(
 
   try {
     // Use _id only for update since we already verified ownership above
-    const filter: Filter<NoteEntry> = {
+    const filter: any = {
       _id: new ObjectId(entryId)
     };
 
