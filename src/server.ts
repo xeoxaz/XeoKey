@@ -13,6 +13,9 @@ import { authenticateUser, createUser } from './auth/users';
 // Password management
 import { createPasswordEntry, getUserPasswords, getPasswordEntry, getDecryptedPassword, updatePasswordEntry, deletePasswordEntry } from './models/password';
 
+// Notes management
+import { createNoteEntry, getUserNotes, getNoteEntry, getDecryptedNoteContent, updateNoteEntry, deleteNoteEntry, incrementNoteSearchCount } from './models/notes';
+
 // Analytics
 import { trackEvent } from './models/analytics';
 
@@ -2780,6 +2783,417 @@ router.get("/totp/code", async (request, params, query) => {
     return new Response(body, { headers: { ...SECURITY_HEADERS, "Content-Type": "application/json" } });
   } catch (e) {
     return createErrorResponse(500, "Failed to generate code");
+  }
+});
+
+// Notes management routes
+router.get("/notes", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return renderPage(`
+      <h1>Secure Notes</h1>
+      <p style="color: #d4a5a5;">Database not available.</p>
+    `, "Notes - XeoKey", request);
+  }
+
+  try {
+    const notes = await getUserNotes(session.userId);
+    const noteCount = notes.length;
+
+    if (noteCount === 0) {
+      return renderPage(`
+        <h1>Secure Notes (0)</h1>
+        <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 250px;">
+            <input type="text" id="noteSearch" placeholder="Search notes..." disabled autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #888; font-size: 0.9rem; cursor: not-allowed;">
+          </div>
+          <a href="/notes/add" style="color: #9db4d4; text-decoration: none; background: #3d3d3d; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #4d4d4d; display: inline-block; white-space: nowrap;">+ Add Note</a>
+        </div>
+        <p>No notes saved yet.</p>
+        <p><a href="/notes/add" style="color: #9db4d4;">Create your first note</a></p>
+      `, "Notes - XeoKey", request);
+    }
+
+    const noteList = notes.map(note => {
+      const createdDate = new Date(note.createdAt).toLocaleDateString();
+      const updatedDate = new Date(note.updatedAt).toLocaleDateString();
+      const preview = note.content.length > 100 ? note.content.substring(0, 100) + '...' : note.content;
+      
+      return `
+        <div class="note-item" style="background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d; margin-bottom: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; color: #e0e0e0; font-size: 1.1rem;">${escapeHtml(note.title)}</h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <a href="/notes/${note._id}/edit" style="color: #9db4d4; text-decoration: none; font-size: 0.85rem; padding: 0.35rem 0.75rem; border: 1px solid #4d4d4d; border-radius: 4px; background: #3d3d3d; transition: all 0.2s ease; display: inline-block;">✏️ Edit</a>
+              <form method="POST" action="/notes/${note._id}/delete" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this note?');">
+                <button type="submit" style="color: #d4a5a5; background: #3d3d3d; border: 1px solid #4d4d4d; text-decoration: none; font-size: 0.85rem; cursor: pointer; padding: 0.35rem 0.75rem; border-radius: 4px; transition: all 0.2s ease;">🗑️ Delete</button>
+              </form>
+            </div>
+          </div>
+          <p style="margin: 0.5rem 0; color: #888; font-size: 0.9rem; line-height: 1.4;">${escapeHtml(preview)}</p>
+          <div style="font-size: 0.8rem; color: #666;">
+            Created: ${createdDate} | Updated: ${updatedDate}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const body = `
+      <h1>Secure Notes (${noteCount})</h1>
+      <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 250px;">
+          <input type="text" id="noteSearch" placeholder="Search notes..." autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem;">
+        </div>
+        <a href="/notes/add" style="color: #9db4d4; text-decoration: none; background: #3d3d3d; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #4d4d4d; display: inline-block; white-space: nowrap;">+ Add Note</a>
+      </div>
+      <div id="notesList">
+        ${noteList}
+      </div>
+      <script>
+        document.getElementById('noteSearch').addEventListener('input', function(e) {
+          const searchTerm = e.target.value.toLowerCase();
+          const notes = document.querySelectorAll('.note-item');
+          
+          notes.forEach(note => {
+            const title = note.querySelector('h3').textContent.toLowerCase();
+            const content = note.querySelector('p').textContent.toLowerCase();
+            
+            if (title.includes(searchTerm) || content.includes(searchTerm)) {
+              note.style.display = 'block';
+            } else {
+              note.style.display = 'none';
+            }
+          });
+        });
+
+        // Add hover effects for buttons
+        document.addEventListener('DOMContentLoaded', function() {
+          const style = document.createElement('style');
+          style.textContent = \`
+            .note-item a[href*="/edit"] {
+              transition: all 0.2s ease !important;
+            }
+            .note-item a[href*="/edit"]:hover {
+              background: #4d7d4d !important;
+              border-color: #5d8d5d !important;
+              transform: translateY(-1px);
+            }
+            .note-item button[type="submit"] {
+              transition: all 0.2s ease !important;
+            }
+            .note-item button[type="submit"]:hover {
+              background: #7d4d4d !important;
+              border-color: #8d5d5d !important;
+              transform: translateY(-1px);
+            }
+          \`;
+          document.head.appendChild(style);
+        });
+      </script>
+    `;
+
+    return renderPage(body, "Notes - XeoKey", request);
+  } catch (error) {
+    logger.error(`Error loading notes: ${error}`);
+    // Try to get count for error page
+    let noteCount = 0;
+    try {
+      const notes = await getUserNotes(session.userId);
+      noteCount = notes.length;
+    } catch {
+      // Ignore errors when getting count for error page
+    }
+    return renderPage(`
+      <h1>Secure Notes (${noteCount})</h1>
+      <p style="color: #d4a5a5;">Error loading notes. Please try again.</p>
+      <div style="margin-bottom: 1.5rem;">
+        <a href="/notes/add" style="color: #9db4d4; text-decoration: none; background: #3d3d3d; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #4d4d4d; display: inline-block;">+ Add Note</a>
+      </div>
+    `, "Notes - XeoKey", request);
+  }
+});
+
+router.get("/notes/add", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  const csrfToken = await getOrCreateCsrfToken(session.sessionId);
+
+  const body = `
+    <h1>Add New Note</h1>
+    <form method="POST" action="/notes/add" style="max-width: 600px;">
+      <input type="hidden" name="csrf_token" value="${csrfToken}">
+      
+      <div style="margin-bottom: 1rem;">
+        <label for="title" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Title</label>
+        <input type="text" id="title" name="title" required maxlength="200" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
+      </div>
+      
+      <div style="margin-bottom: 1.5rem;">
+        <label for="content" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Content</label>
+        <textarea id="content" name="content" required rows="15" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem; resize: vertical; font-family: inherit; line-height: 1.5;"></textarea>
+      </div>
+      
+      <div style="display: flex; gap: 1rem; align-items: center;">
+        <button type="submit" style="background: #4d7d4d; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">Save Note</button>
+        <a href="/notes" style="color: #9db4d4; text-decoration: none;">Cancel</a>
+      </div>
+    </form>
+  `;
+
+  return renderPage(body, "Add Note - XeoKey", request);
+});
+
+router.post("/notes/add", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(500, "Database not available");
+  }
+
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrf_token') as string;
+    const title = sanitizeString(formData.get('title') as string);
+    const content = sanitizeString(formData.get('content') as string);
+
+    // Verify CSRF token
+    if (!csrfToken || !await verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    // Validate input
+    if (!title || title.trim().length === 0) {
+      return createErrorResponse(400, "Title is required");
+    }
+    if (!content || content.trim().length === 0) {
+      return createErrorResponse(400, "Content is required");
+    }
+    if (title.length > 200) {
+      return createErrorResponse(400, "Title must be 200 characters or less");
+    }
+
+    await createNoteEntry(session.userId, title.trim(), content.trim());
+    await trackEvent(session.userId, 'add');
+
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/notes',
+      },
+    });
+  } catch (error) {
+    logger.error(`Error creating note: ${error}`);
+    return createErrorResponse(500, "Failed to create note");
+  }
+});
+
+router.get("/notes/:id/edit", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return renderPage(`
+      <h1>Edit Note</h1>
+      <p style="color: #d4a5a5;">Database not available.</p>
+    `, "Edit Note - XeoKey", request);
+  }
+
+  try {
+    const note = await getNoteEntry(params.id, session.userId);
+    if (!note) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          ...SECURITY_HEADERS,
+          Location: '/notes',
+        },
+      });
+    }
+
+    const decryptedContent = await getDecryptedNoteContent(params.id, session.userId);
+    if (decryptedContent === null) {
+      return renderPage(`
+        <h1>Edit Note</h1>
+        <p style="color: #d4a5a5;">Unable to decrypt note content.</p>
+      `, "Edit Note - XeoKey", request);
+    }
+
+    const csrfToken = await getOrCreateCsrfToken(session.sessionId);
+
+    const body = `
+      <h1>Edit Note</h1>
+      <form method="POST" action="/notes/${params.id}/update" style="max-width: 600px;">
+        <input type="hidden" name="csrf_token" value="${csrfToken}">
+        
+        <div style="margin-bottom: 1rem;">
+          <label for="title" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Title</label>
+          <input type="text" id="title" name="title" required maxlength="200" value="${escapeHtml(note.title)}" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
+        </div>
+        
+        <div style="margin-bottom: 1.5rem;">
+          <label for="content" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Content</label>
+          <textarea id="content" name="content" required rows="15" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem; resize: vertical; font-family: inherit; line-height: 1.5;">${escapeHtml(decryptedContent)}</textarea>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <button type="submit" style="background: #4d7d4d; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">Update Note</button>
+          <a href="/notes" style="color: #9db4d4; text-decoration: none;">Cancel</a>
+        </div>
+      </form>
+    `;
+
+    return renderPage(body, "Edit Note - XeoKey", request);
+  } catch (error) {
+    logger.error(`Error loading note for editing: ${error}`);
+    return renderPage(`
+      <h1>Edit Note</h1>
+      <p style="color: #d4a5a5;">Error loading note. Please try again.</p>
+    `, "Edit Note - XeoKey", request);
+  }
+});
+
+router.post("/notes/:id/update", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(500, "Database not available");
+  }
+
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrf_token') as string;
+    const title = sanitizeString(formData.get('title') as string);
+    const content = sanitizeString(formData.get('content') as string);
+
+    // Verify CSRF token
+    if (!csrfToken || !await verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    // Validate input
+    if (!title || title.trim().length === 0) {
+      return createErrorResponse(400, "Title is required");
+    }
+    if (!content || content.trim().length === 0) {
+      return createErrorResponse(400, "Content is required");
+    }
+    if (title.length > 200) {
+      return createErrorResponse(400, "Title must be 200 characters or less");
+    }
+
+    const success = await updateNoteEntry(params.id, session.userId, {
+      title: title.trim(),
+      content: content.trim()
+    });
+
+    if (!success) {
+      return createErrorResponse(404, "Note not found or update failed");
+    }
+
+    await trackEvent(session.userId, 'edit');
+
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/notes',
+      },
+    });
+  } catch (error) {
+    logger.error(`Error updating note: ${error}`);
+    return createErrorResponse(500, "Failed to update note");
+  }
+});
+
+router.post("/notes/:id/delete", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  if (!isConnected()) {
+    return createErrorResponse(500, "Database not available");
+  }
+
+  try {
+    const formData = await request.formData();
+    const csrfToken = formData.get('csrf_token') as string;
+
+    // Verify CSRF token
+    if (!csrfToken || !await verifyCsrfToken(session.sessionId, csrfToken)) {
+      return createErrorResponse(403, "Invalid CSRF token");
+    }
+
+    const success = await deleteNoteEntry(params.id, session.userId);
+
+    if (!success) {
+      return createErrorResponse(404, "Note not found or delete failed");
+    }
+
+    await trackEvent(session.userId, 'delete');
+
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/notes',
+      },
+    });
+  } catch (error) {
+    logger.error(`Error deleting note: ${error}`);
+    return createErrorResponse(500, "Failed to delete note");
   }
 });
 
