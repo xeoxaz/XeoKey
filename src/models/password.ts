@@ -310,7 +310,7 @@ export async function updatePasswordEntry(
 
   // First, verify the entry exists and belongs to the user
   // Try with string first, then ObjectId if that doesn't work
-  let findFilter: Filter<PasswordEntry> = {
+  let findFilter: any = {
     _id: new ObjectId(entryId),
     userId: userIdString
   };
@@ -332,7 +332,7 @@ export async function updatePasswordEntry(
   if (!existingEntry) {
     passwordLogger.error(`Entry not found or does not belong to user: entryId=${entryId}, userId=${userIdString}, userIdType=${typeof userIdString}`);
     // Try finding by _id only to see if entry exists
-    const entryByIdOnly = await passwordsCollection.findOne({ _id: new ObjectId(entryId) } as Filter<PasswordEntry>);
+    const entryByIdOnly = await passwordsCollection.findOne({ _id: new ObjectId(entryId) } as any);
     if (entryByIdOnly) {
       passwordLogger.error(`Entry exists but userId does not match: entryId=${entryId}, requestedUserId=${userIdString}, requestedUserIdType=${typeof userIdString}, entryUserId=${entryByIdOnly.userId}, entryUserIdType=${typeof entryByIdOnly.userId}`);
     } else {
@@ -357,7 +357,7 @@ export async function updatePasswordEntry(
   // Notes can be explicitly set to empty string or null to clear it
   if (updates.notes !== undefined) {
     // Allow empty string to clear notes, or set to null if empty
-    updateFields.notes = updates.notes === '' ? null : updates.notes;
+    updateFields.notes = updates.notes === '' ? undefined : updates.notes;
   }
 
   // Verify we have at least one field to update (besides updatedAt)
@@ -372,13 +372,13 @@ export async function updatePasswordEntry(
   try {
     // Use _id only for update since we already verified ownership above
     // This is more reliable and matches how deletePasswordEntry works
-    const filter: Filter<PasswordEntry> = {
+    const filter: any = {
       _id: new ObjectId(entryId)
     };
 
     const updateOperation: UpdateFilter<PasswordEntry> = { $set: updateFields };
 
-    debugLog(passwordLogger, `MongoDB update query: entryId=${entryId}, userId=${userId}, filter=_id, updateDataKeys=${Object.keys(updateData).join(',')}, existingWebsite=${existingEntry.website}, newWebsite=${updateData.website || 'N/A'}`);
+    debugLog(passwordLogger, `MongoDB update query: entryId=${entryId}, userId=${userId}, filter=_id, updateDataKeys=${Object.keys(updateFields).join(',')}, existingWebsite=${existingEntry.website}, newWebsite=${updateFields.website || 'N/A'}`);
 
     const result = await passwordsCollection.updateOne(
       filter,
@@ -392,7 +392,7 @@ export async function updatePasswordEntry(
       if (result.modifiedCount === 0) {
         passwordLogger.warn('Document matched but not modified - checking if values are actually different');
         // Check if the values are actually different
-        const hasChanges = Object.keys(updateData).some(key => {
+        const hasChanges = Object.keys(updateFields).some(key => {
           if (key === 'updatedAt') return true; // Always update timestamp
           if (key === 'password') {
             // Password is encrypted, so we can't directly compare
@@ -400,7 +400,7 @@ export async function updatePasswordEntry(
             return true;
           }
           const existingValue = (existingEntry as any)[key];
-          const newValue = updateData[key];
+          const newValue = (updateFields as any)[key];
           const isDifferent = existingValue !== newValue;
           if (isDifferent) {
             debugLog(passwordLogger, `Field ${key} is different: existing=${existingValue}, new=${newValue}`);
@@ -417,7 +417,7 @@ export async function updatePasswordEntry(
           debugLog(passwordLogger, 'Attempting to force update...');
           const forceResult = await passwordsCollection.updateOne(
             filter,
-            { $set: updateData },
+            { $set: updateFields },
             { upsert: false }
           );
           debugLog(passwordLogger, `Force update result: matchedCount=${forceResult.matchedCount}, modifiedCount=${forceResult.modifiedCount}`);
@@ -431,13 +431,13 @@ export async function updatePasswordEntry(
       if (updatedEntry) {
         debugLog(passwordLogger, `Verification - updated entry: website=${updatedEntry.website}, updatedAt=${updatedEntry.updatedAt}`);
         // Check if website was actually updated
-        if (updateData.website && updatedEntry.website !== updateData.website) {
-          passwordLogger.error(`UPDATE VERIFICATION FAILED - website was not updated! expected=${updateData.website}, actual=${updatedEntry.website}, matchedCount=${result.matchedCount}, modifiedCount=${result.modifiedCount}`);
+        if (updateFields.website && updatedEntry.website !== updateFields.website) {
+          passwordLogger.error(`UPDATE VERIFICATION FAILED - website was not updated! expected=${updateFields.website}, actual=${updatedEntry.website}, matchedCount=${result.matchedCount}, modifiedCount=${result.modifiedCount}`);
           // Try one more time with explicit field update
           debugLog(passwordLogger, 'Retrying update with explicit website field...');
           const retryResult = await passwordsCollection.updateOne(
             filter,
-            { $set: { website: updateData.website, updatedAt: new Date() } }
+            { $set: { website: updateFields.website, updatedAt: new Date() } }
           );
           debugLog(passwordLogger, `Retry result: matchedCount=${retryResult.matchedCount}, modifiedCount=${retryResult.modifiedCount}`);
           if (retryResult.modifiedCount > 0) {
