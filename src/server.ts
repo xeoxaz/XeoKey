@@ -2929,7 +2929,7 @@ router.get("/notes/add", async (request, params, query) => {
       
       <div style="margin-bottom: 1rem;">
         <label for="title" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Title</label>
-        <input type="text" id="title" name="title" required maxlength="200" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
+        <input type="text" id="title" name="title" required style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
       </div>
       
       <div style="margin-bottom: 1.5rem;">
@@ -3049,7 +3049,7 @@ router.get("/notes/:id/edit", async (request, params, query) => {
         
         <div style="margin-bottom: 1rem;">
           <label for="title" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Title</label>
-          <input type="text" id="title" name="title" required maxlength="200" value="${escapeHtml(note.title)}" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
+          <input type="text" id="title" name="title" required value="${escapeHtml(note.title)}" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
         </div>
         
         <div style="margin-bottom: 1.5rem;">
