@@ -2794,6 +2794,7 @@ router.get("/notes", async (request, params, query) => {
   try {
     const notes = await getUserNotes(session.userId);
     const noteCount = notes.length;
+    const csrfToken = await getOrCreateCsrfToken(session.sessionId);
 
     if (noteCount === 0) {
       return renderPage(`
@@ -2821,6 +2822,7 @@ router.get("/notes", async (request, params, query) => {
             <div style="display: flex; gap: 0.5rem;">
               <a href="/notes/${note._id}/edit" style="color: #9db4d4; text-decoration: none; font-size: 0.85rem; padding: 0.35rem 0.75rem; border: 1px solid #4d4d4d; border-radius: 4px; background: #3d3d3d; transition: all 0.2s ease; display: inline-block;">✏️ Edit</a>
               <form method="POST" action="/notes/${note._id}/delete" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this note?');">
+                <input type="hidden" name="csrf_token" value="${csrfToken}">
                 <button type="submit" style="color: #d4a5a5; background: #3d3d3d; border: 1px solid #4d4d4d; text-decoration: none; font-size: 0.85rem; cursor: pointer; padding: 0.35rem 0.75rem; border-radius: 4px; transition: all 0.2s ease;">🗑️ Delete</button>
               </form>
             </div>
