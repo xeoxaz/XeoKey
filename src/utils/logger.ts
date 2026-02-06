@@ -90,7 +90,16 @@ class SimpleLogger {
     const formattedArgs = args.length > 0 ? ' ' + args.map(arg =>
       typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
     ).join(' ') : '';
-    return `[${timestamp}] [${level.toUpperCase()}] [${this.name}] ${message}${formattedArgs}`;
+    
+    // More conversational prefixes based on level
+    const prefixes = {
+      debug: '✨ Hey, just so you know...',
+      info: '🌟 So here\'s the thing...',
+      warn: '⚡ Heads up!',
+      error: '💥 Oops, something went sideways...'
+    };
+    
+    return `[${timestamp}] ${prefixes[level]} ${message}${formattedArgs}`;
   }
 
   private async writeToFile(message: string): Promise<void> {
@@ -116,18 +125,26 @@ class SimpleLogger {
       typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
     ).join(' ') : '';
 
-    // Console output with colors
-    const darkGray = '\x1b[90m'; // Dark gray for brackets
+    // More vibrant and friendly colors
     const colors: Record<LogLevel, string> = {
-      debug: '\x1b[36m', // Cyan
-      info: '\x1b[32m',  // Green
-      warn: '\x1b[33m', // Yellow
-      error: '\x1b[31m' // Red
+      debug: '\x1b[38;5;147m', // Soft purple
+      info: '\x1b[38;5;82m',  // Bright green
+      warn: '\x1b[38;5;226m', // Bright yellow
+      error: '\x1b[38;5;203m' // Coral red
     };
     const reset = '\x1b[0m';
+    const gray = '\x1b[38;5;245m'; // Soft gray
 
-    // Format with colored brackets and level
-    const consoleMessage = `${darkGray}[${timestamp}]${reset} ${darkGray}[${colors[level]}${level.toUpperCase()}${reset}${darkGray}]${reset} ${darkGray}[${this.name}]${reset} ${colors[level]}${message}${formattedArgs}${reset}`;
+    // Conversational prefixes
+    const prefixes = {
+      debug: '✨ Hey, just so you know...',
+      info: '🌟 So here\'s the thing...',
+      warn: '⚡ Heads up!',
+      error: '💥 Oops, something went sideways...'
+    };
+
+    // More relaxed, conversational format
+    const consoleMessage = `${gray}[${timestamp}]${reset} ${colors[level]}${prefixes[level]}${reset} ${colors[level]}${message}${formattedArgs}${reset}`;
 
     console.log(consoleMessage);
 
@@ -164,7 +181,7 @@ export const logger = new SimpleLogger('XeoKey', {
   logLevel
 });
 
-// Specialized loggers for different modules
+// Specialized loggers with more personality
 export const dbLogger = new SimpleLogger('Database', {
   enableFileLogging: true,
   logFilePath: './logs/server.log',
@@ -182,3 +199,13 @@ export const analyticsLogger = new SimpleLogger('Analytics', {
   logFilePath: './logs/server.log',
   logLevel
 });
+
+// Fun conversational helper functions
+export const chat = {
+  hey: (msg: string, ...args: any[]) => logger.info(msg, ...args),
+  btw: (msg: string, ...args: any[]) => logger.debug(msg, ...args),
+  fyi: (msg: string, ...args: any[]) => logger.info(msg, ...args),
+  whoa: (msg: string, ...args: any[]) => logger.warn(msg, ...args),
+  yikes: (msg: string, ...args: any[]) => logger.error(msg, ...args),
+  awesome: (msg: string, ...args: any[]) => logger.info(`🎉 ${msg}`, ...args)
+};
