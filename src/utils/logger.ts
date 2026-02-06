@@ -91,15 +91,7 @@ class SimpleLogger {
       typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
     ).join(' ') : '';
     
-    // More conversational prefixes based on level
-    const prefixes = {
-      debug: '✨ Hey, just so you know...',
-      info: '🌟 So here\'s the thing...',
-      warn: '⚡ Heads up!',
-      error: '💥 Oops, something went sideways...'
-    };
-    
-    return `[${timestamp}] ${prefixes[level]} ${message}${formattedArgs}`;
+    return `[${timestamp}] ${message}${formattedArgs}`;
   }
 
   private async writeToFile(message: string): Promise<void> {
@@ -135,16 +127,8 @@ class SimpleLogger {
     const reset = '\x1b[0m';
     const gray = '\x1b[38;5;245m'; // Soft gray
 
-    // Conversational prefixes
-    const prefixes = {
-      debug: '✨ Hey, just so you know...',
-      info: '🌟 So here\'s the thing...',
-      warn: '⚡ Heads up!',
-      error: '💥 Oops, something went sideways...'
-    };
-
-    // More relaxed, conversational format
-    const consoleMessage = `${gray}[${timestamp}]${reset} ${colors[level]}${prefixes[level]}${reset} ${colors[level]}${message}${formattedArgs}${reset}`;
+    // Clean format with just timestamp and message
+    const consoleMessage = `${gray}[${timestamp}]${reset} ${colors[level]}${message}${formattedArgs}${reset}`;
 
     console.log(consoleMessage);
 
