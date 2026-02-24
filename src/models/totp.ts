@@ -21,7 +21,7 @@ export interface TotpEntry {
 }
 
 // Reuse AES-256-CBC encryption from password model
-function getEncryptionKey(): Buffer {
+export function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY || 'default-encryption-key-change-in-production';
   if (process.env.NODE_ENV === 'production' && key === 'default-encryption-key-change-in-production') {
     throw new Error('ENCRYPTION_KEY environment variable must be set in production. Please set a secure encryption key in your .env file or environment variables. Generate one with: openssl rand -base64 32');
@@ -29,7 +29,34 @@ function getEncryptionKey(): Buffer {
   return crypto.createHash('sha256').update(key).digest();
 }
 
-function encrypt(value: string): string {
+// Get all possible encryption keys for fallback attempts
+function getAllEncryptionKeys(): Buffer[] {
+  const keys: Buffer[] = [];
+  
+  // Primary key (from environment)
+  if (process.env.ENCRYPTION_KEY) {
+    keys.push(crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY).digest());
+  }
+  
+  // Default key (for recovery of data encrypted with default)
+  keys.push(crypto.createHash('sha256').update('default-encryption-key-change-in-production').digest());
+  
+  // Common development keys (for recovery scenarios)
+  const commonKeys = [
+    'test-encryption-key-for-development-use-only-change-in-production',
+    'XeoKey-Dev-Key-2024-Change-In-Production-Use-Strong-Key',
+    'xeokey-test-key',
+    'development-key-only',
+  ];
+  
+  for (const commonKey of commonKeys) {
+    keys.push(crypto.createHash('sha256').update(commonKey).digest());
+  }
+  
+  return keys;
+}
+
+export function encrypt(value: string): string {
   const algorithm = 'aes-256-cbc';
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(16);
@@ -39,19 +66,47 @@ function encrypt(value: string): string {
   return iv.toString('hex') + ':' + encrypted;
 }
 
-function decrypt(encrypted: string): string {
+export function decrypt(encrypted: string): string {
   const algorithm = 'aes-256-cbc';
-  const key = getEncryptionKey();
   const parts = encrypted.split(':');
   if (parts.length !== 2) {
     throw new Error('Invalid encrypted value format');
   }
   const iv = Buffer.from(parts[0], 'hex');
   const data = parts[1];
-  const decipher = crypto.createDecipheriv(algorithm, key, iv);
-  let decrypted = decipher.update(data, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+
+  // Try primary key first
+  try {
+    const key = getEncryptionKey();
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    let decrypted = decipher.update(data, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (primaryError) {
+    // Primary key failed, try fallback keys
+    const fallbackKeys = getAllEncryptionKeys();
+    
+    // Skip the first key since we already tried it
+    for (let i = 1; i < fallbackKeys.length; i++) {
+      try {
+        const key = fallbackKeys[i];
+        const decipher = crypto.createDecipheriv(algorithm, key, iv);
+        let decrypted = decipher.update(data, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        
+        // Log successful fallback for monitoring
+        console.warn(`Successfully decrypted TOTP with fallback key ${i + 1}/${fallbackKeys.length}. Consider re-encrypting with current key.`);
+        
+        return decrypted;
+      } catch (fallbackError) {
+        // Continue trying other keys
+        continue;
+      }
+    }
+    
+    // All keys failed, throw the original error
+    throw primaryError;
+  }
 }
 
 export function generateBackupCodes(count: number = 10): { codes: string[]; hashes: string[] } {

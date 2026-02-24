@@ -14,7 +14,7 @@ export interface NoteEntry {
 }
 
 // Encryption key (same as passwords for consistency)
-function getEncryptionKey(): Buffer {
+export function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY || 'default-encryption-key-change-in-production';
   if (process.env.NODE_ENV === 'production' && key === 'default-encryption-key-change-in-production') {
     throw new Error('ENCRYPTION_KEY environment variable must be set in production. Please set a secure encryption key in your .env file or environment variables. Generate one with: openssl rand -base64 32');
@@ -23,8 +23,35 @@ function getEncryptionKey(): Buffer {
   return crypto.createHash('sha256').update(key).digest();
 }
 
+// Get all possible encryption keys for fallback attempts
+function getAllEncryptionKeys(): Buffer[] {
+  const keys: Buffer[] = [];
+  
+  // Primary key (from environment)
+  if (process.env.ENCRYPTION_KEY) {
+    keys.push(crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY).digest());
+  }
+  
+  // Default key (for recovery of data encrypted with default)
+  keys.push(crypto.createHash('sha256').update('default-encryption-key-change-in-production').digest());
+  
+  // Common development keys (for recovery scenarios)
+  const commonKeys = [
+    'test-encryption-key-for-development-use-only-change-in-production',
+    'XeoKey-Dev-Key-2024-Change-In-Production-Use-Strong-Key',
+    'xeokey-test-key',
+    'development-key-only',
+  ];
+  
+  for (const commonKey of commonKeys) {
+    keys.push(crypto.createHash('sha256').update(commonKey).digest());
+  }
+  
+  return keys;
+}
+
 // Encrypt note content
-function encryptNoteContent(content: string): string {
+export function encryptNoteContent(content: string): string {
   const algorithm = 'aes-256-cbc';
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(16);
@@ -37,10 +64,9 @@ function encryptNoteContent(content: string): string {
   return iv.toString('hex') + ':' + encrypted;
 }
 
-// Decrypt note content
+// Decrypt note content with fallback key support
 export function decryptNoteContent(encrypted: string): string {
   const algorithm = 'aes-256-cbc';
-  const key = getEncryptionKey();
 
   const parts = encrypted.split(':');
   if (parts.length !== 2) {
@@ -50,11 +76,38 @@ export function decryptNoteContent(encrypted: string): string {
   const iv = Buffer.from(parts[0], 'hex');
   const encryptedData = parts[1];
 
-  const decipher = crypto.createDecipheriv(algorithm, key, iv);
-  let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-
-  return decrypted;
+  // Try primary key first
+  try {
+    const key = getEncryptionKey();
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (primaryError) {
+    // Primary key failed, try fallback keys
+    const fallbackKeys = getAllEncryptionKeys();
+    
+    // Skip the first key since we already tried it
+    for (let i = 1; i < fallbackKeys.length; i++) {
+      try {
+        const key = fallbackKeys[i];
+        const decipher = crypto.createDecipheriv(algorithm, key, iv);
+        let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        
+        // Log successful fallback for monitoring
+        passwordLogger.warn(`Successfully decrypted note with fallback key ${i + 1}/${fallbackKeys.length}. Consider re-encrypting with current key.`);
+        
+        return decrypted;
+      } catch (fallbackError) {
+        // Continue trying other keys
+        continue;
+      }
+    }
+    
+    // All keys failed, throw the original error
+    throw primaryError;
+  }
 }
 
 // Create a new note entry
