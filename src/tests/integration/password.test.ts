@@ -21,7 +21,7 @@ describe('Password Management Integration Tests', () => {
 
       // Create a test user
       const user = await createUser(`testuser_${randomString(8)}`, 'testpassword123');
-      userId = user._id!;
+      userId = user._id!.toString();
     } catch (error) {
       console.warn('MongoDB not available for integration tests:', error);
     }

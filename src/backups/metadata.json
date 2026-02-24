@@ -1,22 +1,5 @@
 [
   {
-    "_id": "695ecdd7c7e61efbe6c44cb1",
-    "backupId": "backup_1767820759680_5xnn207",
-    "timestamp": "2026-01-07T21:19:19.680Z",
-    "schemaVersion": 3,
-    "collections": [
-      "passwords",
-      "totp",
-      "users",
-      "sessions"
-    ],
-    "totalDocuments": 79,
-    "backupType": "pre-migration",
-    "migrationVersion": 3,
-    "description": "Automatic backup before migration to version 3",
-    "size": 34760
-  },
-  {
     "_id": "695ed2c26cb0b4444a78dbb1",
     "backupId": "backup_1767822018476_nnbke6d",
     "timestamp": "2026-01-07T21:40:18.476Z",
@@ -47,5 +30,21 @@
     "backupType": "manual",
     "description": "Manual backup",
     "size": 37957
+  },
+  {
+    "_id": "6982272d0f1bc90dc7162256",
+    "backupId": "backup_1770137389643_gm0omew",
+    "timestamp": "2026-02-03T16:49:49.643Z",
+    "schemaVersion": 3,
+    "collections": [
+      "passwords",
+      "totp",
+      "users",
+      "sessions"
+    ],
+    "totalDocuments": 118,
+    "backupType": "manual",
+    "description": "Manual backup",
+    "size": 56325
   }
 ]

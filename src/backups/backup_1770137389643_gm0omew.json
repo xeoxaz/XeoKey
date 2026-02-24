@@ -1,6 +1,6 @@
 {
-  "backupId": "backup_1767820759680_5xnn207",
-  "timestamp": "2026-01-07T21:19:19.680Z",
+  "backupId": "backup_1770137389643_gm0omew",
+  "timestamp": "2026-02-03T16:49:49.643Z",
   "schemaVersion": 3,
   "collections": {
     "passwords": [
@@ -14,8 +14,8 @@
         "notes": null,
         "createdAt": "2025-12-15T08:09:18.382Z",
         "updatedAt": "2025-12-15T08:09:18.382Z",
-        "searchCount": 1,
-        "copyCount": 1
+        "searchCount": 3,
+        "copyCount": 3
       },
       {
         "_id": "693fc2418b148e5f9ba480c3",
@@ -39,8 +39,8 @@
         "notes": "runescape",
         "createdAt": "2025-12-15T08:10:00.076Z",
         "updatedAt": "2025-12-24T19:30:20.364Z",
-        "searchCount": 8,
-        "copyCount": 6
+        "searchCount": 15,
+        "copyCount": 12
       },
       {
         "_id": "693fc2728b148e5f9ba480c5",
@@ -62,7 +62,9 @@
         "password": "207ea006d870d879db792945b735823a:60ed9dd2df213b2ea64035f6b035af09",
         "notes": null,
         "createdAt": "2025-12-15T08:10:47.047Z",
-        "updatedAt": "2025-12-15T08:10:47.047Z"
+        "updatedAt": "2025-12-15T08:10:47.047Z",
+        "searchCount": 3,
+        "copyCount": 2
       },
       {
         "_id": "693fc2a18b148e5f9ba480c7",
@@ -73,19 +75,8 @@
         "password": "f6da371cbe4a723b18666d31716df512:770a7c184c5e0e3bf99d74385a3c491c",
         "notes": null,
         "createdAt": "2025-12-15T08:11:13.072Z",
-        "updatedAt": "2025-12-15T08:11:13.072Z"
-      },
-      {
-        "_id": "693fc2b28b148e5f9ba480c8",
-        "userId": "693fbfbc8b148e5f9ba480bf",
-        "website": "Outlook.com",
-        "username": "Xeoxaz",
-        "email": "Xeoxaz@outlook.com",
-        "password": "3e50bdba9078d60273636f89dfa8b878:7ffed582722b6222f7e25349a0313c934dac381a3f7a89af8b67af6b5257e224",
-        "notes": "Email",
-        "createdAt": "2025-12-15T08:11:30.653Z",
-        "updatedAt": "2025-12-15T12:12:30.690Z",
-        "searchCount": 4,
+        "updatedAt": "2025-12-15T08:11:13.072Z",
+        "searchCount": 1,
         "copyCount": 1
       },
       {
@@ -98,8 +89,8 @@
         "notes": "Social",
         "createdAt": "2025-12-15T08:11:53.563Z",
         "updatedAt": "2025-12-15T11:00:06.873Z",
-        "searchCount": 6,
-        "copyCount": 1
+        "searchCount": 8,
+        "copyCount": 3
       },
       {
         "_id": "693fc2d88b148e5f9ba480ca",
@@ -175,10 +166,11 @@
         "website": "deviantart.com",
         "username": "xeoxaz",
         "email": "xeoxaz@outlook.com",
-        "password": "3a161293fd63eb187c3492af12da3ef3:959e28a149b3e1848ad9615b0ec9fc9f7ead3e3c2f1d28d1a2305316022a6e51",
-        "notes": "This is a Password Note test.",
+        "password": "a8e849d0b71f1488250191eb53a18ca9:06fdd94337bbb348d1af97e76d48dd0a03e95b37f40734638ce3e37323beed8c",
+        "notes": "a",
         "createdAt": "2025-12-15T08:13:47.360Z",
-        "updatedAt": "2025-12-15T10:01:25.800Z"
+        "updatedAt": "2026-01-07T22:08:04.608Z",
+        "searchCount": 13
       },
       {
         "_id": "693fc3948b148e5f9ba480d1",
@@ -226,8 +218,8 @@
         "notes": "Social",
         "createdAt": "2025-12-15T08:16:16.707Z",
         "updatedAt": "2025-12-15T10:15:02.718Z",
-        "searchCount": 5,
-        "copyCount": 2
+        "searchCount": 8,
+        "copyCount": 5
       },
       {
         "_id": "693fc3de8b148e5f9ba480d5",
@@ -295,8 +287,8 @@
         "notes": "Banking",
         "createdAt": "2025-12-15T08:17:56.864Z",
         "updatedAt": "2025-12-15T10:59:51.096Z",
-        "searchCount": 23,
-        "copyCount": 10
+        "searchCount": 34,
+        "copyCount": 17
       },
       {
         "_id": "693fc4438b148e5f9ba480db",
@@ -307,7 +299,8 @@
         "password": "ed8095b30b9fd1c9bccbb53570375d65:01e09b8d998320f58e65248b1b2cbacb72ce37b23220f1a880f43acebcaa2ad5",
         "notes": null,
         "createdAt": "2025-12-15T08:18:11.773Z",
-        "updatedAt": "2025-12-15T08:18:11.773Z"
+        "updatedAt": "2025-12-15T08:18:11.773Z",
+        "searchCount": 1
       },
       {
         "_id": "693fc4518b148e5f9ba480dc",
@@ -472,7 +465,9 @@
         "password": "b060c76d9068e9c870324f2d1b34299c:bd879eac3a6de43b6841e27c6d6c5dc7",
         "notes": null,
         "createdAt": "2025-12-15T08:23:31.231Z",
-        "updatedAt": "2025-12-15T08:23:31.231Z"
+        "updatedAt": "2025-12-15T08:23:31.231Z",
+        "searchCount": 2,
+        "copyCount": 4
       },
       {
         "_id": "693fc5ca8b148e5f9ba480eb",
@@ -483,7 +478,9 @@
         "password": "d7e6a16e0ce1ac45f4a4d07466ec93c6:749d6fa2ccbc4571978d736b9fa5fd6b",
         "notes": null,
         "createdAt": "2025-12-15T08:24:42.582Z",
-        "updatedAt": "2025-12-15T08:24:42.582Z"
+        "updatedAt": "2025-12-15T08:24:42.582Z",
+        "searchCount": 1,
+        "copyCount": 1
       },
       {
         "_id": "693fc5e08b148e5f9ba480ec",
@@ -495,8 +492,8 @@
         "notes": null,
         "createdAt": "2025-12-15T08:25:04.109Z",
         "updatedAt": "2025-12-15T08:25:04.109Z",
-        "searchCount": 2,
-        "copyCount": 2
+        "searchCount": 4,
+        "copyCount": 4
       },
       {
         "_id": "693fc60c8b148e5f9ba480ed",
@@ -510,97 +507,6 @@
         "updatedAt": "2025-12-15T08:25:48.767Z",
         "searchCount": 2,
         "copyCount": 1
-      },
-      {
-        "_id": "693ffa797425410a96265b1e",
-        "userId": "693ffa797425410a96265b1d",
-        "website": "example.com",
-        "username": "testuser",
-        "email": "test@example.com",
-        "password": "cb9d06ae017b4ded536eaecd3f8224d1:33a3616df16fc7622aed7668e76bef3c",
-        "notes": "Test notes",
-        "createdAt": "2025-12-15T12:09:29.747Z",
-        "updatedAt": "2025-12-15T12:09:29.747Z",
-        "searchCount": 0,
-        "copyCount": 0
-      },
-      {
-        "_id": "693ffa797425410a96265b1f",
-        "userId": "693ffa797425410a96265b1d",
-        "website": "example.com",
-        "username": null,
-        "email": null,
-        "password": "06aa1cd7be13ed7ea50bd4c407943a44:99caf8d4b7f69836f4ddead1ef0eb768",
-        "notes": null,
-        "createdAt": "2025-12-15T12:09:29.757Z",
-        "updatedAt": "2025-12-15T12:09:29.757Z",
-        "searchCount": 0,
-        "copyCount": 0
-      },
-      {
-        "_id": "693ffa797425410a96265b20",
-        "userId": "693ffa797425410a96265b1d",
-        "website": "example.com",
-        "username": null,
-        "email": null,
-        "password": "c5858f1dcb0f6117eceeee27671a97fb:a1b0098bbe60d316dd407a542aacfd5c",
-        "notes": null,
-        "createdAt": "2025-12-15T12:09:29.767Z",
-        "updatedAt": "2025-12-15T12:09:29.767Z",
-        "searchCount": 0,
-        "copyCount": 0
-      },
-      {
-        "_id": "693ffa797425410a96265b21",
-        "userId": "693ffa797425410a96265b1d",
-        "website": "test.com",
-        "username": null,
-        "email": null,
-        "password": "485af1e9ac51bb85aa13209ef31fa6e3:b1a02f95dd065fa37486e9fe4c35a3cc",
-        "notes": null,
-        "createdAt": "2025-12-15T12:09:29.768Z",
-        "updatedAt": "2025-12-15T12:09:29.768Z",
-        "searchCount": 0,
-        "copyCount": 0
-      },
-      {
-        "_id": "693ffa797425410a96265b22",
-        "userId": "693ffa797425410a96265b1d",
-        "website": "example.com",
-        "username": null,
-        "email": null,
-        "password": "3b18f6a9f84a2ed8ab5a9745523956d5:d8b5aba55f9e82126e2a3b03eb364bbd",
-        "notes": null,
-        "createdAt": "2025-12-15T12:09:29.779Z",
-        "updatedAt": "2025-12-15T12:09:29.779Z",
-        "searchCount": 0,
-        "copyCount": 0
-      },
-      {
-        "_id": "693ffa797425410a96265b23",
-        "userId": "693ffa797425410a96265b1d",
-        "website": "example.com",
-        "username": null,
-        "email": null,
-        "password": "dafc1d8ece90af52a3b3bb5ca9dbde47:03bf74b5401705dac01435caf3b7b0a1",
-        "notes": null,
-        "createdAt": "2025-12-15T12:09:29.790Z",
-        "updatedAt": "2025-12-15T12:09:29.790Z",
-        "searchCount": 0,
-        "copyCount": 0
-      },
-      {
-        "_id": "693ffa797425410a96265b24",
-        "userId": "693ffa797425410a96265b1d",
-        "website": "newexample.com",
-        "username": null,
-        "email": null,
-        "password": "51c7e9655d1da5156ec0d7dabac70b8a:9211bbbc26fc8d2c8f286059e6d71f35",
-        "notes": null,
-        "createdAt": "2025-12-15T12:09:29.800Z",
-        "updatedAt": "2025-12-15T12:09:29.803Z",
-        "searchCount": 0,
-        "copyCount": 0
       },
       {
         "_id": "694287f3eddb93dd7d54bf46",
@@ -664,8 +570,8 @@
         "notes": "Email",
         "createdAt": "2025-12-22T19:29:40.911Z",
         "updatedAt": "2025-12-22T19:29:40.911Z",
-        "searchCount": 1,
-        "copyCount": 1
+        "searchCount": 3,
+        "copyCount": 2
       },
       {
         "_id": "6949bf946a7f254652b453ae",
@@ -703,8 +609,8 @@
         "notes": "Bill",
         "createdAt": "2025-12-28T16:39:51.143Z",
         "updatedAt": "2025-12-28T16:39:51.143Z",
-        "searchCount": 1,
-        "copyCount": 1
+        "searchCount": 2,
+        "copyCount": 2
       },
       {
         "_id": "695975d96ea98399d6c5b0b6",
@@ -755,7 +661,7 @@
         "notes": "Email",
         "createdAt": "2026-01-03T20:36:49.361Z",
         "updatedAt": "2026-01-03T20:36:49.361Z",
-        "searchCount": 1,
+        "searchCount": 2,
         "copyCount": 1
       },
       {
@@ -833,8 +739,8 @@
         "notes": null,
         "createdAt": "2026-01-05T23:51:05.694Z",
         "updatedAt": "2026-01-05T23:51:05.694Z",
-        "searchCount": 0,
-        "copyCount": 0
+        "searchCount": 1,
+        "copyCount": 1
       },
       {
         "_id": "695ec72681cf5bc48e36c23b",
@@ -846,18 +752,641 @@
         "notes": "Email, Aeris Taurus",
         "createdAt": "2026-01-07T20:50:46.704Z",
         "updatedAt": "2026-01-07T20:50:46.704Z",
+        "searchCount": 8,
+        "copyCount": 8
+      },
+      {
+        "_id": "695ed839fef3eb6ba147a8cd",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Hotmail",
+        "username": "ofusthecreator",
+        "email": "ofusthecreator@hotmail.com",
+        "password": "c0d61314222c064f921e7124027bc0b6:27235ce9c81bb64856d767b3d2819a51c1976b23aa080db754ecfe1a1b4285c8",
+        "notes": "Email, Aeris Taurus",
+        "createdAt": "2026-01-07T22:03:37.191Z",
+        "updatedAt": "2026-01-07T22:04:00.490Z",
+        "searchCount": 4,
+        "copyCount": 0
+      },
+      {
+        "_id": "695efd6a023c9cef9759fbcc",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Gmail",
+        "username": "ofusthecreator",
+        "email": "ofusthecreator@gmail.com",
+        "password": "22215a468a40af943fe40b4a4e50b9d5:b76eb1eed1eb1e85ee6248e1ebd639d2ca88d891c8adbce9bee87dba667bb716",
+        "notes": "Email, Aeris Taurus",
+        "createdAt": "2026-01-08T00:42:18.160Z",
+        "updatedAt": "2026-01-08T00:42:40.010Z",
+        "searchCount": 6,
+        "copyCount": 3
+      },
+      {
+        "_id": "695f21c8023c9cef9759fbe8",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "nexusmods",
+        "username": "yaitszack",
+        "email": "yaitszack@gmail.com",
+        "password": "027ae7977d3bb116ee7798f9cbb945a4:73fc9fb43cb3505a5dbeab8acf3a4cc0ad23f67b3514a14106612a7650910635",
+        "notes": "mods",
+        "createdAt": "2026-01-08T03:17:28.780Z",
+        "updatedAt": "2026-01-08T03:17:28.780Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "695f22b9023c9cef9759fbea",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Twitch",
+        "username": "yaitszack",
+        "email": "yaitszack@gmail.com",
+        "password": "f66a077004f7559d5aed47e8becc9109:3472069d0d0b07125bd48137199e935dfbe1a3eb18467ce6bf0331e92e0afe24",
+        "notes": null,
+        "createdAt": "2026-01-08T03:21:29.035Z",
+        "updatedAt": "2026-01-08T03:21:29.035Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "695f2596023c9cef9759fbed",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Toribash",
+        "username": "cuul",
+        "email": "xeoxaz@gmail.com",
+        "password": "44c9f1c901bd464e8f529e40c8a649d8:ba45f633a788662d09c26a0f9755432705d1c8a69b78f9abf957f86e2c60b081",
+        "notes": "Game",
+        "createdAt": "2026-01-08T03:33:42.300Z",
+        "updatedAt": "2026-01-08T03:33:42.300Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "695f26af023c9cef9759fbf0",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Toribash",
+        "username": "annzrd",
+        "email": "annzrd@outlook.com",
+        "password": "a7037a353f20f61b1c4d3d2638a274db:e3f3270efd6993a405c6a3c05724e228f2f6d23de284ed8fc7617c9231db425c",
+        "notes": "Game",
+        "createdAt": "2026-01-08T03:38:23.256Z",
+        "updatedAt": "2026-01-08T03:38:23.256Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "695f2824023c9cef9759fbf3",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Toribash",
+        "username": "Zambosoe",
+        "email": "Zambosoe@Hotmail.com",
+        "password": "b8d6a973c7651d892ff1dd0250d57aef:606c7049925fb377c0f5af264bcefe721de4162140d539eb017023ccb4fb390f",
+        "notes": "Game",
+        "createdAt": "2026-01-08T03:44:36.839Z",
+        "updatedAt": "2026-01-08T03:44:36.839Z",
         "searchCount": 1,
+        "copyCount": 0
+      },
+      {
+        "_id": "696058b38ae683088013f424",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Dropbox",
+        "username": "YaItsZack",
+        "email": "YaItsZack@Gmail.com",
+        "password": "4a3bada751f8703fe02d855f3479ee90:c93d1a24d83bdd1805cb489df31d0bcda9c67ae4552a08126893024c5644ad78",
+        "notes": null,
+        "createdAt": "2026-01-09T01:24:03.845Z",
+        "updatedAt": "2026-01-09T01:24:03.845Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69605ab18ae683088013f427",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Newegg",
+        "username": "YaItsZack",
+        "email": "YaItsZack@Gmail.com",
+        "password": "9c904e1b4f77bab9e156212cf4995e49:3ed28b5fdb1ee5fcc61df95efe49c86b75cf9cc797d04b1c9d4ca9bac203aed4",
+        "notes": null,
+        "createdAt": "2026-01-09T01:32:33.988Z",
+        "updatedAt": "2026-01-09T01:32:33.988Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69605d558ae683088013f42a",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Steam",
+        "username": "squidustries",
+        "email": "xeoxaz@outlook.com",
+        "password": "4d263db9a69e21cdea3847399f395958:13619fefa6f8854e9115589fa97bc2d1c09cefa3d7e8d9f0d657c75987f49d0f",
+        "notes": null,
+        "createdAt": "2026-01-09T01:43:49.404Z",
+        "updatedAt": "2026-01-09T01:43:49.404Z",
+        "searchCount": 1,
+        "copyCount": 1
+      },
+      {
+        "_id": "69606b838ae683088013f431",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "spotify",
+        "username": "yaitszack",
+        "email": "yaitszack@gmail.com",
+        "password": "9ce40cc2035fea9f35bb721f79800fca:5a4fb60fe3827d51c4af7019462dd4d505b737b73e5ae597e1dc31c97028ed1b",
+        "notes": null,
+        "createdAt": "2026-01-09T02:44:19.450Z",
+        "updatedAt": "2026-01-09T02:44:19.450Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69606f908ae683088013f436",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Chess.com",
+        "username": "Zambosoe",
+        "email": "Zambosoe@Hotmail.com",
+        "password": "5a93e2a4fa3460c34235f80f31d4ef67:f9838a6c32af3730c5c11802ae0eb90d351217a3a175e8a31eaab67993e54764",
+        "notes": null,
+        "createdAt": "2026-01-09T03:01:36.573Z",
+        "updatedAt": "2026-01-09T03:01:36.573Z",
+        "searchCount": 2,
+        "copyCount": 2
+      },
+      {
+        "_id": "696072b58ae683088013f439",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "spotify",
+        "username": "zambosoe",
+        "email": "zambosoe@hotmail.com",
+        "password": "945c19323cba46548e7c5e56f110c63e:ae4940d2c6b256fefffee558066d9df1065258eea71cc6c59f69b22ddd50be21",
+        "notes": null,
+        "createdAt": "2026-01-09T03:15:01.469Z",
+        "updatedAt": "2026-01-09T03:15:01.469Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696076978ae683088013f43c",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "battle.net",
+        "username": "xeoxaz",
+        "email": "xeoxaz@outlook.com",
+        "password": "bea0559c1b2bfbb36376aa7a8751183e:5fd96f6de5ce3e1e2f204d078b39696b947ca0af827d55e5d93ddd6d6a3d5153",
+        "notes": null,
+        "createdAt": "2026-01-09T03:31:35.670Z",
+        "updatedAt": "2026-01-09T03:31:35.670Z",
+        "searchCount": 1,
+        "copyCount": 0
+      },
+      {
+        "_id": "696077268ae683088013f43f",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Spectrum",
+        "username": "xeoxaz",
+        "email": "xeoxaz@outlook.com",
+        "password": "5dc3ce2406d59b0fe7cafbf3608014ac:563e7c23332b49f9e8f5866fcea03fcbf414932105b7f908c420371dff0dd6d7",
+        "notes": null,
+        "createdAt": "2026-01-09T03:33:58.987Z",
+        "updatedAt": "2026-01-09T03:33:58.987Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69607bec8ae683088013f447",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Gmail",
+        "username": "Zambosoe",
+        "email": "Zambosoe@gmail.com",
+        "password": "98c3023d01f32f4efa514c05a08fabe7:57d23e9f4f66b953698520badd5137a22f6018ffb9af44524f6ecb8f6304b7ef",
+        "notes": "Email",
+        "createdAt": "2026-01-09T03:54:20.845Z",
+        "updatedAt": "2026-01-09T03:54:20.845Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696090cf8ae683088013f44a",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "League Of Legends",
+        "username": "Zambosoe",
+        "email": "Xeoxaz@outlook.com",
+        "password": "0709f681795617d2bc3b7fc8c7ae1a99:d5fee257d36e821d0649f267d7a3ce425a41f7d20557960fe7eff458ae0c3514",
+        "notes": null,
+        "createdAt": "2026-01-09T05:23:27.265Z",
+        "updatedAt": "2026-01-09T05:23:27.265Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "6960923d8ae683088013f44d",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Gmail",
+        "username": "itsskillsbro",
+        "email": "itsskillsbro@gmail.com",
+        "password": "7b58b8b227af88f67720681dcced1612:c0e34f36429352a949ae35560013519d23e669b870d2cbc44eaab8fd6280307d",
+        "notes": "Email",
+        "createdAt": "2026-01-09T05:29:33.979Z",
+        "updatedAt": "2026-01-09T05:29:33.979Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696092648ae683088013f44f",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "League Of Legends",
+        "username": "itsskillsbro",
+        "email": "itsskillsbro@gmail.com",
+        "password": "754044a6db91d9c227e2517dc740e98f:522e605e0c70ad450cc2aeb36e54ce45b945a90530554e39b533ac6898c3f246",
+        "notes": "Game",
+        "createdAt": "2026-01-09T05:30:12.353Z",
+        "updatedAt": "2026-01-09T05:30:12.353Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "6960950b8ae683088013f454",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "League Of Legends",
+        "username": "YaItsZack",
+        "email": "YaItsZack@Gmail.com",
+        "password": "f47b5e6d23430941d8cff7a235d9058c:c5f4a3dd0cfdb4d425b9b24d6f75aefe59af96c2b79f7ddd633a8f6775b865a7",
+        "notes": "Game",
+        "createdAt": "2026-01-09T05:41:31.734Z",
+        "updatedAt": "2026-01-09T05:41:31.734Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696096a68ae683088013f457",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "imgur",
+        "username": "YaItsZack",
+        "email": "YaItsZack@Gmail.com",
+        "password": "ce3e7339ac0d816f60c786c6a81dd81e:d99830561c503356f8e708e757ecdc5598bb18a00172eecca70935e526376c23",
+        "notes": null,
+        "createdAt": "2026-01-09T05:48:22.105Z",
+        "updatedAt": "2026-01-09T05:48:22.105Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696098568ae683088013f45a",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "firefox",
+        "username": "YaItsZack",
+        "email": "YaItsZack@Gmail.com",
+        "password": "63e485ed46cda092197be5d99d888a7c:557c77228be514a3ceee3ad0729007db4b31295c9bffb00b7233dbb9f2da2b49",
+        "notes": "Browser",
+        "createdAt": "2026-01-09T05:55:34.096Z",
+        "updatedAt": "2026-01-09T05:55:34.096Z",
+        "searchCount": 1,
+        "copyCount": 1
+      },
+      {
+        "_id": "6960bd2a8ae683088013f461",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Outlook",
+        "username": "LordRape",
+        "email": "LordRape@live.com",
+        "password": "5ac38245551328d44daf4791fa8cc2b2:b0966b971d65029c493866d380d76e9e45c71472d3e3bec4749532d21f5ad925",
+        "notes": "Email",
+        "createdAt": "2026-01-09T08:32:42.521Z",
+        "updatedAt": "2026-01-09T08:32:42.521Z",
+        "searchCount": 1,
+        "copyCount": 0
+      },
+      {
+        "_id": "69628495b1f92d64a0ed72b3",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "bandcamp",
+        "username": "ofusthecreator",
+        "email": "ofusthecreator@outlook.com",
+        "password": "a37d6d1a30ff2075232f03098a302392:a0eb133c2d5111ae59f39a7be6a6ac05084002d8817eeb151bcf21e86de99e53",
+        "notes": "music",
+        "createdAt": "2026-01-10T16:55:49.038Z",
+        "updatedAt": "2026-01-10T16:55:49.038Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696285c9b1f92d64a0ed72b6",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "freesound",
+        "username": "ofusthecreator",
+        "email": "ofusthecreator@outlook.com",
+        "password": "c95e93deac7de6cbd720f8509b93e46e:38419fdb3d24e7072eee475d3ac8a074d4815fb0860babe947c04edaf9771e49",
+        "notes": "music",
+        "createdAt": "2026-01-10T17:00:57.385Z",
+        "updatedAt": "2026-01-10T17:00:57.385Z",
+        "searchCount": 1,
+        "copyCount": 0
+      },
+      {
+        "_id": "69628759b1f92d64a0ed72ba",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "soundcloud",
+        "username": "ofusthecreator",
+        "email": "ofusthecreator@outlook.com",
+        "password": "7d5fca8ee641485c105d2ec8cccb6b1a:0a9d4a40ad40794f5ea93adb35d87889377cc0bf11977274a948c7bc972075de",
+        "notes": "music",
+        "createdAt": "2026-01-10T17:07:37.951Z",
+        "updatedAt": "2026-01-10T17:07:37.951Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69628ab9b1f92d64a0ed72bd",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "tiktok",
+        "username": "ofusthecreator",
+        "email": "ofusthecreator@outlook.com",
+        "password": "a67d20074c389125090b031645d7ce20:90a01e830c9c2026e6a54f782ce8b5e8d8d49fd5a168ba00c3d2991e0cf0ae51",
+        "notes": "Social",
+        "createdAt": "2026-01-10T17:22:01.456Z",
+        "updatedAt": "2026-01-10T17:22:01.456Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69628c16b1f92d64a0ed72c1",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "tiktok",
+        "username": "Xeoxaz",
+        "email": "Xeoxaz@outlook.com",
+        "password": "d2ee62aee17b8d22fafc60b8b9517c77:c93a07655998219ab928236e4c940b06d3b9490d76edc37ae6669f68b1309a9c",
+        "notes": null,
+        "createdAt": "2026-01-10T17:27:50.857Z",
+        "updatedAt": "2026-01-10T17:27:50.857Z",
+        "searchCount": 1,
+        "copyCount": 1
+      },
+      {
+        "_id": "6965747db1f92d64a0ed72c8",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Spigot",
+        "username": "YaItsZack",
+        "email": "YaItsZack@Gmail.com",
+        "password": "48e3fc23d619822944a703c887681afb:073e8d211dc57c957468bd59b2ded6533a07eca2c9c7be123a1faf1c078dff32",
+        "notes": "Minecraft",
+        "createdAt": "2026-01-12T22:23:57.155Z",
+        "updatedAt": "2026-01-12T22:23:57.155Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696575efb1f92d64a0ed72cb",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Spigot",
+        "username": "Zambosoe",
+        "email": "Zambosoe@hotmail.com",
+        "password": "66c54b7e1a2ee18ed1a382d091a89d91:a46de0bd4cfb6bbf688bf1d19f5e2b917f165fa7c2333b3051310dc0fcb36132",
+        "notes": "Minecraft",
+        "createdAt": "2026-01-12T22:30:07.504Z",
+        "updatedAt": "2026-01-12T22:30:07.504Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "6965768fb1f92d64a0ed72ce",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Spigot",
+        "username": "Xeoxaz",
+        "email": "Xeoxaz@outlook.com",
+        "password": "92f7646b6ead08657d634e82d12e9a13:62b3671bad37147c8e93b3be2499ce7106e2bd535a2eff2754e188d8ccb765a0",
+        "notes": "Minecraft",
+        "createdAt": "2026-01-12T22:32:47.127Z",
+        "updatedAt": "2026-01-12T22:32:47.127Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696577d7b1f92d64a0ed72d1",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Gmail",
+        "username": "ApexLion7",
+        "email": "ApexLion7@gmail.com",
+        "password": "ea9cb04700e76c8b041c64ac5fb72a13:0a2774fd01fe3d2f44ed34922455235bc0c99d89c97d6a16cffd6e64e0b27918",
+        "notes": "Email",
+        "createdAt": "2026-01-12T22:38:15.165Z",
+        "updatedAt": "2026-01-12T22:38:15.165Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "696578b4b1f92d64a0ed72d4",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Spigot",
+        "username": "ApexLion",
+        "email": "ApexLion7@Gmail.com",
+        "password": "13b95cc185988c60a76b330fd5ccffde:2550b21399ff90642dd7640557a9c62c4f0d97523e178b488c990dbb51987b85",
+        "notes": "Minecraft",
+        "createdAt": "2026-01-12T22:41:56.627Z",
+        "updatedAt": "2026-01-12T22:41:56.627Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69657bd6b1f92d64a0ed72d8",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Outlook.com",
+        "username": "c0vid0",
+        "email": "c0vid0@outlook.com",
+        "password": "82df09d3589a627074f2469412b79481:d32e9e0be2a26101d4dc6a7b5a90c786",
+        "notes": "Email, Change Password 1/12/2026",
+        "createdAt": "2026-01-12T22:55:18.665Z",
+        "updatedAt": "2026-01-12T22:55:18.665Z",
+        "searchCount": 1,
+        "copyCount": 0
+      },
+      {
+        "_id": "69657d35b1f92d64a0ed72db",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Jagex",
+        "username": "c0vid0",
+        "email": "c0vid0@outlook.com",
+        "password": "b92e9c60e2f74526f0a65076c368c217:d59c9a62f450c8ee7876c263962c8d5ba8e7502a3c3d23ab524a8361ad3d02b1",
+        "notes": "Runescape",
+        "createdAt": "2026-01-12T23:01:09.132Z",
+        "updatedAt": "2026-01-12T23:01:09.132Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69658e82b1f92d64a0ed72e3",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Outlook.com",
+        "username": "c0vid1",
+        "email": "c0vid1@outlook.com",
+        "password": "fac241188ba69d0c341b876711011a56:343aaf89d1fc8176213bcfce36b5f717",
+        "notes": "Email, Change Password 1/13/2026",
+        "createdAt": "2026-01-13T00:14:58.564Z",
+        "updatedAt": "2026-01-13T00:14:58.564Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "6965986db1f92d64a0ed72e7",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Outlook.com",
+        "username": "annzrd",
+        "email": "annzrd@outlook.com",
+        "password": "109edbd69e71cb3a11038caa70aec32a:be7c3c8e9160f99988420e8f3df071136816f402fd4b91cce1efa38146194693",
+        "notes": "Email",
+        "createdAt": "2026-01-13T00:57:17.299Z",
+        "updatedAt": "2026-01-13T00:57:17.299Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69659963b1f92d64a0ed72ee",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "outlook",
+        "username": "xeoxaz",
+        "email": "xeoxaz@outlook.com",
+        "password": "4494479f7c3297e58935169af9a00c74:b8bc62de73020c5dad38e2b3724cb146ebee53890d055281890948707f4cc896",
+        "notes": "email",
+        "createdAt": "2026-01-13T01:01:23.638Z",
+        "updatedAt": "2026-01-13T01:01:23.638Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "69659ba5b1f92d64a0ed72f1",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "outlook.com",
+        "username": "ZackEcker",
+        "email": "ZackEcker@outlook.com",
+        "password": "17e2da3ce78f6f2d1e6715c754554789:8f9dff958e3b39fe94b52016f7b5d795e29192a81807f3a0ed4bc0eee024a799",
+        "notes": "Email",
+        "createdAt": "2026-01-13T01:11:01.243Z",
+        "updatedAt": "2026-01-13T01:11:01.243Z",
+        "searchCount": 1,
+        "copyCount": 1
+      },
+      {
+        "_id": "69659e55b1f92d64a0ed72f7",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Apple",
+        "username": "The1stsun",
+        "email": "The1stsun@hotmail.com",
+        "password": "11dbdb5a79e7125b5a23b599468e65e2:82e99676bcf18ebb4439bcc7d9e4ce4b8cc41cb08e37692ce2e3f09e799d1676",
+        "notes": null,
+        "createdAt": "2026-01-13T01:22:29.371Z",
+        "updatedAt": "2026-01-13T01:22:29.371Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "6965a25ab1f92d64a0ed72fb",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "dominos",
+        "username": "ZackEcker",
+        "email": "ZackEcker@outlook.com",
+        "password": "3edde04c0bc02ab4bb424a1b13342ab0:76cca74c0311d1930f3900330e1760b56fb09104a242ac96879c5cf8fe79f3e7",
+        "notes": null,
+        "createdAt": "2026-01-13T01:39:38.275Z",
+        "updatedAt": "2026-01-13T01:39:38.275Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "6965a355b1f92d64a0ed72fe",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Reddit",
+        "username": "YaItsZack",
+        "email": "YaItsZack@gmail.com",
+        "password": "2b134d45ad7b4ec130350e430629aef1:130b8528f1b950a67bdce3a562d60f5636f353aee495a6fde0a5dc48a53a3bb5",
+        "notes": null,
+        "createdAt": "2026-01-13T01:43:49.155Z",
+        "updatedAt": "2026-01-13T01:43:49.155Z",
+        "searchCount": 0,
+        "copyCount": 0
+      },
+      {
+        "_id": "6965a5bdb1f92d64a0ed7302",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "Outlook.com",
+        "username": "astonishingz",
+        "email": "astonishingz@outlook.com",
+        "password": "fcc04038c097cb19641794251d93080b:6f10b887a61c532c8c8f7d66cc0b247d",
+        "notes": "Email, Update password 2/12/2026",
+        "createdAt": "2026-01-13T01:54:05.029Z",
+        "updatedAt": "2026-01-13T01:54:05.029Z",
+        "searchCount": 2,
+        "copyCount": 2
+      },
+      {
+        "_id": "6968cf60dfa3b0b6f8da4dc7",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "website": "BandLab",
+        "username": "Xeoxaz",
+        "email": "Xeoxaz@outlook.com",
+        "password": "e29b3a12dc8a987f19e8592d624937bd:b9c2581b5cdce4cdf996c4c43b488c7f6260da691f596069159cfc962a5746e9",
+        "notes": "Music",
+        "createdAt": "2026-01-15T11:28:32.249Z",
+        "updatedAt": "2026-01-15T11:28:32.249Z",
+        "searchCount": 0,
         "copyCount": 0
       }
     ],
-    "totp": [],
+    "totp": [
+      {
+        "_id": "695f00d3023c9cef9759fbdd",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "label": "Discord",
+        "account": "Xeoxaz",
+        "secret": "6adb6987c65ceb76722be6934c6c6f7c:5b1fa11294eb9834248bfcd80964055a7d13a8e8449d80282f272020ea8c74aee42a635c93a03f1e53edab6a48945466",
+        "algorithm": "SHA1",
+        "digits": 6,
+        "period": 30,
+        "type": "TOTP",
+        "counter": null,
+        "createdAt": "2026-01-08T00:56:51.124Z",
+        "backupCodeHashes": [
+          "$2b$10$4Fi0QTZX92SM3K6z8Ftgv.wP1rU0qKw4O9Xr0.1l22U3ks7LOV9fS",
+          "$2b$10$DPWg3r/QJBYsB6qV82bJC.fqqKwRaNBGSijpLxXXatZ9FdchFtI4i",
+          "$2b$10$tEadCaTmx1zA7BFuJ59dIe4NDI5Gv5nBIBQ2qiYITnPjghoX.Ce7S",
+          "$2b$10$p31ul0wRq0cvKsiG0d02Vef2EabMKqrR7a0Fk4dvoC7/EWBxVM38q",
+          "$2b$10$be9gVgkn8IdJ3hWiNqjtRuwRLw7MEGs./2ArQF4bqJzlxZk2xrwwa",
+          "$2b$10$vbjwbneSOS8rfzILu.8E6.4BDEfBnk32pIHJjaDd7GVQ5HXFdU9lS",
+          "$2b$10$ZIZZ1yuWZvbEhgPQDl1Gwue7n0.3eI4NdiXf6alutayXThCm/uXe.",
+          "$2b$10$vGiqsbqFXW/c1OrtbC50y..vvHvTAO.GVofk.8LOJmccfEuj6ofnG",
+          "$2b$10$AUUXuqo2m/Y.MAmEpsvU/uj3C.Gueos4VYbcplJRoIFblemxJfbaW",
+          "$2b$10$1oM.P9ajBqUD8f1W6D.Oo.zTJ.nGuaWbP35LCkD3hApLUEQBZ/DKO"
+        ]
+      },
+      {
+        "_id": "695f0399023c9cef9759fbe1",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "label": "Github",
+        "account": "Xeoxaz",
+        "secret": "7ff16f366398a3f0c44777c9c8d0c4cd:e59b530fc38e13140b636408e65bd675bc3f22e607720352fbdede817d1c0a7c",
+        "algorithm": "SHA1",
+        "digits": 6,
+        "period": 30,
+        "type": "TOTP",
+        "counter": null,
+        "createdAt": "2026-01-08T01:08:41.325Z",
+        "backupCodeHashes": [
+          "$2b$10$62a5eLnnIOgLOMPUo6/TxuhQCu3cyOeYjj73Huez1UAskYKwsNNNy",
+          "$2b$10$TM4QI7lo529MhBnW8EESyuSMnrVUdMEhnbf7QCeIDen.wu/EFUuwq",
+          "$2b$10$Z2dOK2hjIMwLIfyRnydzduRZnzjyIIWJJXB8s9nwmyjbvVrZE7epu",
+          "$2b$10$xvWuWaaX94K2Eje2FEEPl.tfNON/WF/JN6o3zBAzYB88umhjbkApK",
+          "$2b$10$TrfFz7CMuDJkALIjeY6F2u1nQFpOJJ9yvXWf5j0jox9cXkwTnP0Wu",
+          "$2b$10$NuWx7Jr0wMGLV8cyLC7T1.S/zSn4lDptCRido5xGw16UJAWmo8EhG",
+          "$2b$10$cR3XTC/OfsahJzbUrtUsPOy5IK4WpDMxcAYEX3eJNKMGfpn4DyP2i",
+          "$2b$10$34WIMjHGoCO2Eo9tAg/gx.eBo2FFRkBJ.1RX6RmRtMKz706EtCyCS",
+          "$2b$10$iVNhRk6h1RCFO3936PxVyujHXuhI1gkL40jFuc7zz9JQI.kkdqz26",
+          "$2b$10$Cn0OrjnOPOhhw5GErocVW.e3rPaJeRgCrPvid5tlaw/V2.mW3tV5u"
+        ]
+      }
+    ],
     "users": [
       {
         "_id": "693fbfbc8b148e5f9ba480bf",
         "username": "Xeoxaz",
         "passwordHash": "$2b$10$JIQ0VEP9SFzAmUUyeyCkQuxe1pdrq6GFHZQK7LZvJK.low2PK6rje",
         "createdAt": "2025-12-15T07:58:52.376Z",
-        "lastLogin": "2026-01-07T21:06:21.198Z"
+        "lastLogin": "2026-02-03T16:49:13.025Z"
       },
       {
         "_id": "693ffa737425410a96265b13",
@@ -909,11 +1438,20 @@
         "createdAt": "2025-12-15T12:09:29.737Z"
       }
     ],
-    "sessions": []
+    "sessions": [
+      {
+        "_id": "698227090f1bc90dc7162255",
+        "sessionId": "473fbba1e9757b0ea90131d8acb89ab70b5ab17e7cdff29dbd0a0295c4787356",
+        "userId": "693fbfbc8b148e5f9ba480bf",
+        "username": "Xeoxaz",
+        "createdAt": "2026-02-03T16:49:13.027Z",
+        "expiresAt": "2026-02-03T16:54:13.027Z",
+        "lastAccessed": "2026-02-03T16:49:43.412Z"
+      }
+    ]
   },
   "metadata": {
-    "backupType": "pre-migration",
-    "migrationVersion": 3,
-    "description": "Automatic backup before migration to version 3"
+    "backupType": "manual",
+    "description": "Manual backup"
   }
 }

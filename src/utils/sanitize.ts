@@ -10,7 +10,8 @@ export function sanitizeString(input: string): string {
     .trim()
     .replace(/[<>]/g, '') // Remove angle brackets
     .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+=/gi, ''); // Remove event handlers
+    .replace(/on\w+=/gi, '') // Remove event handlers
+    .slice(0, 100); // Limit length to 100 characters
 }
 
 // Sanitize website name - less restrictive than sanitizeString

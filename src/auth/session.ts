@@ -250,6 +250,11 @@ export function createLogoutCookie(request?: Request): string {
   return `${SESSION_COOKIE_NAME}=; HttpOnly${secure}; SameSite=Strict; Max-Age=0; Path=/`;
 }
 
+// Clear session cache (for testing)
+export function clearSessionCache(): void {
+  sessionCache.clear();
+}
+
 // Hash password using bcrypt (secure password hashing)
 export async function hashPassword(password: string): Promise<string> {
   const saltRounds = 10; // Higher is more secure but slower

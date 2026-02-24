@@ -1120,7 +1120,7 @@ router.post("/login", async (request, params, query) => {
     resetRateLimit(request, 'login');
 
     // Create new session (regenerate session ID to prevent fixation)
-    const sessionId = await createSession(user._id!, user.username);
+    const sessionId = await createSession(user._id!.toString(), user.username);
     const cookie = createSessionCookie(sessionId, request);
 
     return new Response(null, {
@@ -1274,7 +1274,7 @@ router.post("/register", async (request, params, query) => {
     // Reset rate limit on successful registration
     resetRateLimit(request, 'register');
 
-    const sessionId = await createSession(user._id!, user.username);
+    const sessionId = await createSession(user._id!.toString(), user.username);
     const cookie = createSessionCookie(sessionId, request);
 
     return new Response(null, {

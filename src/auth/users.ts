@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb';
 import { logger } from '../utils/logger';
 
 export interface User {
-  _id?: string;
+  _id?: ObjectId | string;
   username: string;
   passwordHash: string;
   createdAt: Date;
@@ -129,8 +129,21 @@ export async function getUserById(userId: string): Promise<User | null> {
 
   try {
     const db = getDatabase();
-    const usersCollection = db.collection<User>('users');
-    return await usersCollection.findOne({ _id: new ObjectId(userId) });
+    const usersCollection = db.collection('users');
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    
+    if (!user) {
+      return null;
+    }
+    
+    // Convert ObjectId to string for consistency
+    return {
+      username: user.username,
+      passwordHash: user.passwordHash,
+      createdAt: user.createdAt,
+      lastLogin: user.lastLogin,
+      _id: user._id.toString()
+    } as User;
   } catch (error) {
     logger.error(`Failed to get user by ID ${userId}: ${error}`);
     return null;
