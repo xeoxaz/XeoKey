@@ -260,12 +260,36 @@ export async function prepareRestart(): Promise<{ success: boolean; error?: stri
 }
 
 /**
- * Trigger server restart - uses internal process manager only
+ * Check if running under systemd service
+ */
+function isSystemdService(): boolean {
+  return process.env.SYSTEMD_SERVICE === 'true' || 
+         process.env.INVOCATION_ID !== undefined ||
+         process.env.JOURNAL_STREAM !== undefined;
+}
+
+/**
+ * Trigger server restart - handles systemd, process manager, or manual restart
  */
 export async function triggerRestart(): Promise<void> {
   logger.info('🔄 Triggering server restart after update...');
 
   try {
+    // Check if running under systemd service
+    if (isSystemdService()) {
+      logger.info('Running under systemd service, requesting service restart...');
+      
+      // For systemd, we signal SIGHUP which should trigger a restart
+      // The service file should have ExecReload configured
+      process.kill(process.pid, 'SIGHUP');
+      
+      // Give systemd time to handle the restart
+      setTimeout(() => {
+        process.exit(0);
+      }, 2000);
+      return;
+    }
+
     // Check if we're running under internal process manager
     // The manager sets this environment variable
     if (process.env.XEOKEY_MANAGED === 'true') {
