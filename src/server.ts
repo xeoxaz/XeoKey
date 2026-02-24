@@ -1555,6 +1555,38 @@ router.post("/api/auto-re-encryption/configure", async (request, params, query) 
   }
 });
 
+// Re-Encryption Debug Routes
+// API endpoint to run re-encryption debug
+router.get("/api/re-encryption/debug", async (request, params, query) => {
+  try {
+    const { debugReEncryption, generateReEncryptionDebugReport } = await import('./utils/re-encryption-debug');
+    const debug = await debugReEncryption();
+    const htmlReport = generateReEncryptionDebugReport(debug);
+
+    return new Response(JSON.stringify({ 
+      debug,
+      htmlReport
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error running re-encryption debug: ${error}`);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Unknown error',
+      debug: null,
+      htmlReport: null
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+});
+
 // Encryption Diagnostics Routes
 // API endpoint to run encryption diagnostics
 router.get("/api/encryption/diagnostics", async (request, params, query) => {
@@ -3911,6 +3943,9 @@ router.get("/health", async (request, params, query) => {
               <button type="button" onclick="triggerReEncryption()" id="triggerBtn" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
                 ⚡ Trigger Now
               </button>
+              <button type="button" onclick="debugReEncryption()" style="background: #5d4d4d; color: #9db4d4; border: 1px solid #6d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                🔍 Debug
+              </button>
             </div>
           </div>
 
@@ -4032,6 +4067,53 @@ router.get("/health", async (request, params, query) => {
           } catch (error) {
             statusDiv.innerHTML = \`❌ Failed to start: \${error.message}\`;
             triggerBtn.disabled = false;
+          }
+        }
+
+        async function debugReEncryption() {
+          showResults('🔍 Running re-encryption debug...');
+          try {
+            const response = await fetch('/api/re-encryption/debug');
+            const data = await response.json();
+            
+            if (data.error) {
+              showResults(\`❌ Error: \${data.error}\`);
+            } else {
+              const debug = data.debug;
+              let output = \`🔍 Re-Encryption Debug Results\\n\\n\`;
+              
+              output += \`Current Key Information:\\n\`;
+              output += \`  Hash: \${debug.currentKeyInfo.hash}\\n\`;
+              output += \`  Length: \${debug.currentKeyInfo.length} bytes\\n\`;
+              output += \`  Environment: \${debug.currentKeyInfo.environment}\\n\\n\`;
+              
+              output += \`Test Results:\\n\`;
+              output += \`  Passwords: \${debug.passwords.decryptable}/\${debug.passwords.total} decryptable, \${debug.passwords.failed} failed\\n\`;
+              output += \`  Notes: \${debug.notes.decryptable}/\${debug.notes.total} decryptable, \${debug.notes.failed} failed\\n\`;
+              output += \`  TOTP: \${debug.totp.decryptable}/\${debug.totp.total} decryptable, \${debug.totp.failed} failed\\n\\n\`;
+              
+              const totalSuccess = debug.passwords.decryptable + debug.notes.decryptable + debug.totp.decryptable;
+              const totalFailed = debug.passwords.failed + debug.notes.failed + debug.totp.failed;
+              const totalItems = totalSuccess + totalFailed;
+              
+              output += \`Overall: \${totalSuccess}/\${totalItems} successful (\${((totalSuccess/totalItems)*100).toFixed(1)}%)\`;
+              
+              if (totalFailed > 0) {
+                output += \`\\n\\nSample Failures:\`;
+                const allFailures = [...debug.passwords.sampleFailed, ...debug.notes.sampleFailed, ...debug.totp.sampleFailed];
+                allFailures.slice(0, 5).forEach((failure, i) => {
+                  output += \`\\n  \${i + 1}. \${failure.id}: \${failure.error}\`;
+                });
+                
+                if (allFailures.length > 5) {
+                  output += \`\\n  ... and \${allFailures.length - 5} more\`;
+                }
+              }
+              
+              showResults(output);
+            }
+          } catch (error) {
+            showResults(\`❌ Failed to run debug: \${error.message}\`);
           }
         }
 
