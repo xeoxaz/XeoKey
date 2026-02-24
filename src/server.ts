@@ -3889,12 +3889,296 @@ router.get("/health", async (request, params, query) => {
             🔄 Run Health Check Now
           </button>
         </form>
-        ${integrityResult.checks.encryptionIntegrity.issues.length > 0 ? `
-          <a href="/passwords/recover" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.75rem 1.5rem; border-radius: 4px; text-decoration: none; display: inline-block; font-size: 1rem;">
-            🔑 Recover Passwords
-          </a>
-        ` : ''}
+        <button type="button" onclick="toggleDashboard()" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+          📊 Dashboard & Tools
+        </button>
       </div>
+
+      <!-- Dashboard & Tools Section (Hidden by default) -->
+      <div id="dashboardSection" style="display: none; margin-top: 2rem; padding: 1.5rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+        <h2 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">📊 System Dashboard & Management Tools</h2>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+          
+          <!-- Auto Re-Encryption Card -->
+          <div id="autoReEncryptionCard" style="padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">🔄 Auto Re-Encryption</h3>
+            <div id="reEncryptionStatus" style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">Loading...</div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button type="button" onclick="checkReEncryptionStatus()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                📊 Check Status
+              </button>
+              <button type="button" onclick="triggerReEncryption()" id="triggerBtn" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                ⚡ Trigger Now
+              </button>
+            </div>
+          </div>
+
+          <!-- Encryption Diagnostics Card -->
+          <div style="padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">🔐 Encryption Diagnostics</h3>
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">Analyze encryption key usage and detect issues</div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button type="button" onclick="runDiagnostics()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                🔍 Run Diagnostics
+              </button>
+              <button type="button" onclick="checkKeyInfo()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                🔑 Key Info
+              </button>
+            </div>
+          </div>
+
+          <!-- System Status Card -->
+          <div style="padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
+            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">⚙️ System Status</h3>
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">Check server and system health</div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button type="button" onclick="checkServerStatus()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                🖥️ Server Status
+              </button>
+              <button type="button" onclick="checkUpdateStatus()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                📦 Updates
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Results Display Area -->
+        <div id="dashboardResults" style="display: none; margin-top: 1.5rem; padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
+          <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">📋 Results</h3>
+          <div id="resultsContent" style="color: #888; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap;"></div>
+          <button type="button" onclick="closeResults()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-top: 1rem;">
+            ✖️ Close
+          </button>
+        </div>
+      </div>
+
+      <script>
+        function toggleDashboard() {
+          const section = document.getElementById('dashboardSection');
+          if (section.style.display === 'none') {
+            section.style.display = 'block';
+            // Auto-load re-encryption status when opened
+            checkReEncryptionStatus();
+          } else {
+            section.style.display = 'none';
+          }
+        }
+
+        async function checkReEncryptionStatus() {
+          const statusDiv = document.getElementById('reEncryptionStatus');
+          const triggerBtn = document.getElementById('triggerBtn');
+          
+          statusDiv.innerHTML = '🔄 Checking...';
+          triggerBtn.disabled = true;
+          
+          try {
+            const response = await fetch('/api/auto-re-encryption/status');
+            const data = await response.json();
+            
+            if (data.error) {
+              statusDiv.innerHTML = \`❌ Error: \${data.error}\`;
+            } else {
+              const status = data.status;
+              const fallbackUsage = status.fallbackUsage;
+              const percentage = fallbackUsage.totalEntries > 0 
+                ? (fallbackUsage.passwordsUsingFallback + fallbackUsage.notesUsingFallback + fallbackUsage.totpUsingFallback) / fallbackUsage.totalEntries * 100
+                : 0;
+              
+              let statusText = status.isRunning ? '🔄 Running...' : '✅ Idle';
+              let recommendation = data.recommendation || '';
+              
+              statusDiv.innerHTML = \`
+                <div style="margin-bottom: 0.5rem;">
+                  <strong>Status:</strong> \${statusText}<br>
+                  <strong>Fallback Usage:</strong> \${percentage.toFixed(1)}% (\${fallbackUsage.passwordsUsingFallback + fallbackUsage.notesUsingFallback + fallbackUsage.totpUsingFallback}/\${fallbackUsage.totalEntries})<br>
+                  <strong>Enabled:</strong> \${status.enabled ? 'Yes' : 'No'}
+                </div>
+                \${recommendation ? \`<div style="color: #9db4d4; font-size: 0.8rem; margin-top: 0.5rem;">💡 \${recommendation}</div>\` : ''}
+              \`;
+              
+              triggerBtn.disabled = status.isRunning;
+            }
+          } catch (error) {
+            statusDiv.innerHTML = \`❌ Failed to check status: \${error.message}\`;
+            triggerBtn.disabled = false;
+          }
+        }
+
+        async function triggerReEncryption() {
+          const statusDiv = document.getElementById('reEncryptionStatus');
+          const triggerBtn = document.getElementById('triggerBtn');
+          
+          if (!confirm('Start auto re-encryption now? This will migrate all entries using fallback keys to the current encryption key.')) {
+            return;
+          }
+          
+          statusDiv.innerHTML = '🔄 Starting re-encryption...';
+          triggerBtn.disabled = true;
+          
+          try {
+            const response = await fetch('/api/auto-re-encryption/trigger', { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+              statusDiv.innerHTML = \`✅ \${data.message}\`;
+              // Auto-refresh status after a delay
+              setTimeout(checkReEncryptionStatus, 2000);
+            } else {
+              statusDiv.innerHTML = \`❌ Failed: \${data.message}\`;
+              triggerBtn.disabled = false;
+            }
+          } catch (error) {
+            statusDiv.innerHTML = \`❌ Failed to start: \${error.message}\`;
+            triggerBtn.disabled = false;
+          }
+        }
+
+        async function runDiagnostics() {
+          showResults('🔍 Running encryption diagnostics...');
+          try {
+            const response = await fetch('/api/encryption/diagnostics');
+            const data = await response.json();
+            
+            if (data.error) {
+              showResults(\`❌ Error: \${data.error}\`);
+            } else {
+              const diagnostic = data.diagnostic;
+              let output = \`🔍 Encryption Diagnostics Results\\n\\n\`;
+              output += \`Key Hash: \${diagnostic.keyInfo.hash}\`;
+              output += \`\\nDefault Key: \${diagnostic.keyInfo.isDefaultKey ? 'YES ⚠️' : 'NO ✅'}\`;
+              output += \`\\n\\nPassword Entries:\`;
+              output += \`\\n  Total: \${diagnostic.passwordEntries.total}\`;
+              output += \`\\n  Success: \${diagnostic.passwordEntries.success}\`;
+              output += \`\\n  Failed: \${diagnostic.passwordEntries.failed}\`;
+              output += \`\\n  Success Rate: \${diagnostic.passwordEntries.successRate}%\`;
+              
+              output += \`\\n\\nNote Entries:\`;
+              output += \`\\n  Total: \${diagnostic.noteEntries.total}\`;
+              output += \`\\n  Success: \${diagnostic.noteEntries.success}\`;
+              output += \`\\n  Failed: \${diagnostic.noteEntries.failed}\`;
+              output += \`\\n  Success Rate: \${diagnostic.noteEntries.successRate}%\`;
+              
+              if (diagnostic.sampleErrors.length > 0) {
+                output += \`\\n\\nSample Errors:\`;
+                diagnostic.sampleErrors.slice(0, 5).forEach((error, i) => {
+                  output += \`\\n  \${i + 1}. \${error}\`;
+                });
+              }
+              
+              output += \`\\n\\nRecommendations:\`;
+              diagnostic.recommendations.forEach(rec => {
+                output += \`\\n  • \${rec}\`;
+              });
+              
+              showResults(output);
+            }
+          } catch (error) {
+            showResults(\`❌ Failed to run diagnostics: \${error.message}\`);
+          }
+        }
+
+        async function checkKeyInfo() {
+          showResults('🔑 Getting key information...');
+          try {
+            const response = await fetch('/api/encryption/key-info');
+            const data = await response.json();
+            
+            if (data.error) {
+              showResults(\`❌ Error: \${data.error}\`);
+            } else {
+              let output = \`🔑 Encryption Key Information\\n\\n\`;
+              output += \`Key Hash: \${data.hash}\`;
+              output += \`\\nKey Length: \${data.keyLength} bytes\`;
+              output += \`\\nAlgorithm: \${data.algorithm}\`;
+              output += \`\\nDefault Key: \${data.isDefaultKey ? 'YES ⚠️' : 'NO ✅'}\`;
+              output += \`\\nEnvironment: \${data.environment}\`;
+              output += \`\\nTimestamp: \${data.timestamp}\`;
+              
+              if (data.isDefaultKey) {
+                output += \`\\n\\n⚠️ WARNING: Using default encryption key!\`;
+                output += \`\\nSet ENCRYPTION_KEY environment variable for production.\`;
+              }
+              
+              showResults(output);
+            }
+          } catch (error) {
+            showResults(\`❌ Failed to get key info: \${error.message}\`);
+          }
+        }
+
+        async function checkServerStatus() {
+          showResults('🖥️ Checking server status...');
+          try {
+            const response = await fetch('/api/server/status');
+            const data = await response.json();
+            
+            let output = \`🖥️ Server Status\\n\\n\`;
+            output += \`Status: \${data.phase}\`;
+            output += \`\\nUptime: \${Math.floor(data.uptime / 60)} minutes\`;
+            output += \`\\nDatabase: \${data.database.connected ? 'Connected ✅' : 'Disconnected ❌'}\`;
+            output += \`\\nDatabase Healthy: \${data.database.healthy ? 'Yes ✅' : 'No ❌'}\`;
+            
+            if (data.database.lastHealthCheck) {
+              output += \`\\nLast DB Health Check: \${new Date(data.database.lastHealthCheck).toLocaleString()}\`;
+            }
+            
+            showResults(output);
+          } catch (error) {
+            showResults(\`❌ Failed to check server status: \${error.message}\`);
+          }
+        }
+
+        async function checkUpdateStatus() {
+          showResults('📦 Checking for updates...');
+          try {
+            const response = await fetch('/api/update/status');
+            const data = await response.json();
+            
+            let output = \`📦 Update Status\\n\\n\`;
+            output += \`Has Updates: \${data.hasUpdates ? 'Yes ✅' : 'No ✅'}\`;
+            output += \`\\nGit Repository: \${data.isGitRepo ? 'Yes ✅' : 'No ❌'}\`;
+            
+            if (data.hasUpdates && data.isGitRepo) {
+              output += \`\\n\\nAvailable Updates:\`;
+              if (data.commitMessages && data.commitMessages.length > 0) {
+                data.commitMessages.slice(0, 10).forEach((msg, i) => {
+                  output += \`\\n  \${i + 1}. \${msg}\`;
+                });
+              }
+            }
+            
+            if (data.error) {
+              output += \`\\n\\nError: \${data.error}\`;
+            }
+            
+            showResults(output);
+          } catch (error) {
+            showResults(\`❌ Failed to check update status: \${error.message}\`);
+          }
+        }
+
+        function showResults(content) {
+          const resultsDiv = document.getElementById('dashboardResults');
+          const resultsContent = document.getElementById('resultsContent');
+          
+          resultsContent.textContent = content;
+          resultsDiv.style.display = 'block';
+        }
+
+        function closeResults() {
+          document.getElementById('dashboardResults').style.display = 'none';
+        }
+
+        // Auto-check re-encryption status every 30 seconds when dashboard is open
+        setInterval(() => {
+          const section = document.getElementById('dashboardSection');
+          if (section.style.display !== 'none') {
+            checkReEncryptionStatus();
+          }
+        }, 30000);
+      </script>
     `, "Health Check - XeoKey", request);
   } catch (error) {
     logger.error(`Error running health check: ${error}`);
