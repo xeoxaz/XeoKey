@@ -849,7 +849,17 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   // Check for GitHub updates and patch notes
   let updateNotification = '';
   let patchNotesSection = '';
+  let gitStatusNotification = '';
+  
   try {
+    // Check Git status first
+    const { checkGitStatus, generateGitInstallPrompt } = await import('./utils/git-installer');
+    const gitStatus = await checkGitStatus();
+    
+    if (!gitStatus.installed) {
+      gitStatusNotification = generateGitInstallPrompt(gitStatus);
+    }
+    
     const { checkForUpdates, getPatchNotes } = await import('./utils/git-update');
     const updateStatus = await checkForUpdates();
     const patchNotes = await getPatchNotes(10);
@@ -937,12 +947,12 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   }
 
   // Build 3-column layout for desktop
-  const updateColumn = updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
+  const updateColumn = gitStatusNotification || (updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
     <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1rem; border-radius: 8px; height: fit-content;">
       <h3 style="margin-top: 0; color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.5rem;">System Status</h3>
       <p style="color: #7fb069; font-size: 0.85rem; margin: 0;">✓ Up to date</p>
     </div>
-  `;
+  `);
 
   const loginColumn = `
     <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1.5rem; border-radius: 8px; height: fit-content;">
@@ -1325,6 +1335,69 @@ router.get("/styles.css", async (request, params, query) => {
   } catch (error) {
     logger.error(`Error serving CSS: ${error}`);
     return createErrorResponse(500, "Error loading CSS file");
+  }
+});
+
+// Git Management Routes
+// API endpoint to check Git status
+router.get("/api/git-status", async (request, params, query) => {
+  try {
+    const { checkGitStatus } = await import('./utils/git-installer');
+    const status = await checkGitStatus();
+
+    return new Response(JSON.stringify(status), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error checking Git status: ${error}`);
+    return new Response(JSON.stringify({ installed: false, error: error.message || 'Unknown error' }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+});
+
+// API endpoint to install Git automatically
+router.post("/api/install-git", async (request, params, query) => {
+  try {
+    const { installGitAutomatically, canInstallGitAutomatically } = await import('./utils/git-installer');
+    
+    if (!canInstallGitAutomatically()) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Automatic installation is only supported on Linux. Please install Git manually.' 
+      }), {
+        headers: {
+          ...SECURITY_HEADERS,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
+    const result = await installGitAutomatically();
+
+    return new Response(JSON.stringify(result), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error installing Git: ${error}`);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message || 'Unknown error' 
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
   }
 });
 
