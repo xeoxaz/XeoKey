@@ -17,7 +17,7 @@ export interface NoteEntry {
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY || 'default-encryption-key-change-in-production';
   if (process.env.NODE_ENV === 'production' && key === 'default-encryption-key-change-in-production') {
-    throw new Error('ENCRYPTION_KEY environment variable must be set in production');
+    throw new Error('ENCRYPTION_KEY environment variable must be set in production. Please set a secure encryption key in your .env file or environment variables. Generate one with: openssl rand -base64 32');
   }
   // Generate 32-byte key for AES-256
   return crypto.createHash('sha256').update(key).digest();
