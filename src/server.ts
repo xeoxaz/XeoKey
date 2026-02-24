@@ -850,6 +850,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   let updateNotification = '';
   let patchNotesSection = '';
   let gitStatusNotification = '';
+  let encryptionDiagnosticNotification = '';
   
   try {
     // Check Git status first
@@ -858,6 +859,28 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     
     if (!gitStatus.installed) {
       gitStatusNotification = generateGitInstallPrompt(gitStatus);
+    }
+    
+    // Check for encryption issues
+    try {
+      const { runEncryptionDiagnostics, generateDiagnosticReport, isUsingDefaultKey } = await import('./utils/encryption-diagnostics');
+      
+      // Always show diagnostic if using default key in production
+      if (process.env.NODE_ENV === 'production' && isUsingDefaultKey()) {
+        const diagnostic = await runEncryptionDiagnostics();
+        encryptionDiagnosticNotification = generateDiagnosticReport(diagnostic);
+      } else {
+        // Run diagnostics and show if there are issues
+        const diagnostic = await runEncryptionDiagnostics();
+        const totalFailures = diagnostic.passwordEntries.failed + diagnostic.noteEntries.failed;
+        const totalEntries = diagnostic.passwordEntries.total + diagnostic.noteEntries.total;
+        
+        if (totalEntries > 0 && totalFailures / totalEntries > 0.1) {
+          encryptionDiagnosticNotification = generateDiagnosticReport(diagnostic);
+        }
+      }
+    } catch (error) {
+      logger.debug(`Encryption diagnostic check failed: ${error}`);
     }
     
     const { checkForUpdates, getPatchNotes } = await import('./utils/git-update');
@@ -947,7 +970,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   }
 
   // Build 3-column layout for desktop
-  const updateColumn = gitStatusNotification || (updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
+  const updateColumn = encryptionDiagnosticNotification || gitStatusNotification || (updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
     <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1rem; border-radius: 8px; height: fit-content;">
       <h3 style="margin-top: 0; color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.5rem;">System Status</h3>
       <p style="color: #7fb069; font-size: 0.85rem; margin: 0;">✓ Up to date</p>
@@ -1392,6 +1415,63 @@ router.post("/api/install-git", async (request, params, query) => {
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message || 'Unknown error' 
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+});
+
+// Encryption Diagnostics Routes
+// API endpoint to run encryption diagnostics
+router.get("/api/encryption/diagnostics", async (request, params, query) => {
+  try {
+    const { runEncryptionDiagnostics, generateDiagnosticReport } = await import('./utils/encryption-diagnostics');
+    const diagnostic = await runEncryptionDiagnostics();
+    const htmlReport = generateDiagnosticReport(diagnostic);
+
+    return new Response(JSON.stringify({ 
+      diagnostic,
+      htmlReport 
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error running encryption diagnostics: ${error}`);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Unknown error',
+      diagnostic: null,
+      htmlReport: null
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+});
+
+// API endpoint to get key information (safe, no actual key exposed)
+router.get("/api/encryption/key-info", async (request, params, query) => {
+  try {
+    const { getKeyInfo } = await import('./utils/encryption-diagnostics');
+    const keyInfo = getKeyInfo();
+
+    return new Response(JSON.stringify(keyInfo), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error getting key info: ${error}`);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Unknown error'
     }), {
       headers: {
         ...SECURITY_HEADERS,
