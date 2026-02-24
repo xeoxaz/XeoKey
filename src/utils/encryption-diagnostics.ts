@@ -278,11 +278,28 @@ export function isUsingDefaultKey(): boolean {
 /**
  * Get key information without exposing the actual key
  */
-export function getKeyInfo(): { isDefault: boolean; keyHash: string; keyLength: number } {
+export function getKeyInfo(): { 
+  isDefault: boolean; 
+  keyHash: string; 
+  keyLength: number; 
+  algorithm: string; 
+  environment: string; 
+  timestamp: string;
+} {
   const key = process.env.ENCRYPTION_KEY || 'default-encryption-key-change-in-production';
   const isDefault = key === 'default-encryption-key-change-in-production';
   const keyHash = crypto.createHash('sha256').update(key).digest('hex').substring(0, 16);
   const keyLength = key.length;
+  const algorithm = 'AES-256-CBC';
+  const environment = process.env.NODE_ENV || 'development';
+  const timestamp = new Date().toISOString();
 
-  return { isDefault, keyHash, keyLength };
+  return { 
+    isDefault, 
+    keyHash, 
+    keyLength, 
+    algorithm, 
+    environment, 
+    timestamp 
+  };
 }
