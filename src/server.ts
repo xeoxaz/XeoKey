@@ -851,6 +851,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   let patchNotesSection = '';
   let gitStatusNotification = '';
   let encryptionDiagnosticNotification = '';
+  let autoReEncryptionNotification = '';
   
   try {
     // Check Git status first
@@ -881,6 +882,20 @@ async function renderLoginForm(request: Request, username: string = '', error: s
       }
     } catch (error) {
       logger.debug(`Encryption diagnostic check failed: ${error}`);
+    }
+    
+    // Check for auto re-encryption status
+    let autoReEncryptionNotification = '';
+    try {
+      const { checkAutoReEncryption, generateAutoReEncryptionStatusHTML } = await import('./utils/auto-re-encryption');
+      const { shouldTrigger, status } = await checkAutoReEncryption();
+      
+      // Show auto re-encryption status if it's running or if it should trigger
+      if (status.isRunning || shouldTrigger) {
+        autoReEncryptionNotification = generateAutoReEncryptionStatusHTML();
+      }
+    } catch (error) {
+      logger.debug(`Auto re-encryption check failed: ${error}`);
     }
     
     const { checkForUpdates, getPatchNotes } = await import('./utils/git-update');
@@ -970,7 +985,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   }
 
   // Build 3-column layout for desktop
-  const updateColumn = encryptionDiagnosticNotification || gitStatusNotification || (updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
+  const updateColumn = autoReEncryptionNotification || encryptionDiagnosticNotification || gitStatusNotification || (updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
     <div style="background: #2d2d2d; border: 1px solid #3d3d3d; padding: 1rem; border-radius: 8px; height: fit-content;">
       <h3 style="margin-top: 0; color: #9db4d4; font-size: 0.9rem; margin-bottom: 0.5rem;">System Status</h3>
       <p style="color: #7fb069; font-size: 0.85rem; margin: 0;">✓ Up to date</p>
@@ -1415,6 +1430,122 @@ router.post("/api/install-git", async (request, params, query) => {
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message || 'Unknown error' 
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+});
+
+// Auto Re-encryption Routes
+// API endpoint to check auto re-encryption status
+router.get("/api/auto-re-encryption/status", async (request, params, query) => {
+  try {
+    const { checkAutoReEncryption, generateAutoReEncryptionStatusHTML } = await import('./utils/auto-re-encryption');
+    const { shouldTrigger, status, recommendation } = await checkAutoReEncryption();
+    const htmlReport = generateAutoReEncryptionStatusHTML();
+
+    return new Response(JSON.stringify({ 
+      shouldTrigger,
+      status,
+      recommendation,
+      htmlReport
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error checking auto re-encryption status: ${error}`);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Unknown error',
+      shouldTrigger: false,
+      status: null,
+      recommendation: 'Check failed',
+      htmlReport: null
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+});
+
+// API endpoint to trigger auto re-encryption
+router.post("/api/auto-re-encryption/trigger", async (request, params, query) => {
+  try {
+    const { performAutoReEncryption } = await import('./utils/auto-re-encryption');
+    const result = await performAutoReEncryption();
+
+    return new Response(JSON.stringify(result), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error triggering auto re-encryption: ${error}`);
+    return new Response(JSON.stringify({ 
+      success: false,
+      result: null,
+      message: error.message || 'Unknown error'
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+});
+
+// API endpoint to configure auto re-encryption
+router.post("/api/auto-re-encryption/configure", async (request, params, query) => {
+  try {
+    const body = await request.json() as {
+      enabled?: boolean;
+      threshold?: number;
+      batchSize?: number;
+      delayBetweenBatches?: number;
+      requireConfirmation?: boolean;
+    };
+    const { configureAutoReEncryption } = await import('./utils/auto-re-encryption');
+    
+    // Validate configuration
+    const config: Partial<{
+      enabled: boolean;
+      threshold: number;
+      batchSize: number;
+      delayBetweenBatches: number;
+      requireConfirmation: boolean;
+    }> = {};
+    
+    if (body.enabled !== undefined) config.enabled = Boolean(body.enabled);
+    if (body.threshold !== undefined) config.threshold = Number(body.threshold);
+    if (body.batchSize !== undefined) config.batchSize = Number(body.batchSize);
+    if (body.delayBetweenBatches !== undefined) config.delayBetweenBatches = Number(body.delayBetweenBatches);
+    if (body.requireConfirmation !== undefined) config.requireConfirmation = Boolean(body.requireConfirmation);
+
+    configureAutoReEncryption(config);
+
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'Auto re-encryption configuration updated',
+      config
+    }), {
+      headers: {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error configuring auto re-encryption: ${error}`);
+    return new Response(JSON.stringify({ 
+      success: false,
+      message: error.message || 'Unknown error'
     }), {
       headers: {
         ...SECURITY_HEADERS,
@@ -5252,6 +5383,15 @@ try {
 } catch (error) {
   logger.error('MongoDB connection failed. Server will continue without database.');
   logger.warn('Set MONGODB_URI environment variable to connect to MongoDB.');
+}
+
+// Initialize auto re-encryption scheduler
+try {
+  const { scheduleAutoReEncryptionCheck } = await import('./utils/auto-re-encryption');
+  scheduleAutoReEncryptionCheck();
+  logger.info('Auto re-encryption scheduler initialized');
+} catch (error) {
+  logger.error('Failed to initialize auto re-encryption scheduler');
 }
 
 // Graceful shutdown
