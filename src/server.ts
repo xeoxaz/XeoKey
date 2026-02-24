@@ -881,6 +881,13 @@ async function renderLoginForm(request: Request, username: string = '', error: s
             </div>
           </div>
           ${updatesList}
+          ${process.env.SYSTEMD_SERVICE === 'true' || process.env.INVOCATION_ID !== undefined ? `
+            <div style="background: #4d4d2d; border: 1px solid #5d5d3d; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.75rem;">
+              <p style="margin: 0; color: #d4d4a5; font-size: 0.8rem;">
+                ⚙️ <strong>SystemD Service Detected:</strong> Use <code style="background: #1d1d1d; padding: 0.125rem 0.25rem; border-radius: 2px;">sudo ./xeokey-update.sh</code> for reliable updates
+              </p>
+            </div>
+          ` : ''}
           <form method="POST" action="/update/pull-and-restart" id="updateForm" style="margin-top: 0.75rem;">
             ${csrfField}
             <button type="submit" style="width: 100%; background: #4d6d4d; color: #9db4d4; padding: 0.75rem; border: 1px solid #5d7d5d; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">

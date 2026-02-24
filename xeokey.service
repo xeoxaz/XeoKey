@@ -1,0 +1,39 @@
+[Unit]
+Description=XeoKey Password Manager
+Documentation=https://github.com/xeoxaz/XeoKey
+After=network.target mongodb.service
+Wants=mongodb.service
+
+[Service]
+Type=simple
+User=xeo
+Group=xeo
+WorkingDirectory=/home/xeo/XeoKey/src
+Environment=NODE_ENV=production
+Environment=SYSTEMD_SERVICE=true
+EnvironmentFile=/home/xeo/XeoKey/.env
+ExecStart=/usr/bin/bun run host.ts
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xeokey
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/xeo/XeoKey/logs /home/xeo/XeoKey/src/backups
+RemoveIPC=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Update handling - allow git operations
+ReadWritePaths=/home/xeo/XeoKey
+
+[Install]
+WantedBy=multi-user.target
