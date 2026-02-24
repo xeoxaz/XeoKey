@@ -6,6 +6,11 @@ import crypto from 'crypto';
 export interface EncryptionDiagnostic {
   currentKey: string;
   keyHash: string;
+  keyInfo: {
+    hash: string;
+    isDefaultKey: boolean;
+    keyLength: number;
+  };
   passwordEntries: {
     total: number;
     decryptable: number;
@@ -28,6 +33,11 @@ export async function runEncryptionDiagnostics(): Promise<EncryptionDiagnostic> 
   const diagnostic: EncryptionDiagnostic = {
     currentKey: process.env.ENCRYPTION_KEY || 'default-encryption-key-change-in-production',
     keyHash: '',
+    keyInfo: {
+      hash: '',
+      isDefaultKey: false,
+      keyLength: 0,
+    },
     passwordEntries: { total: 0, decryptable: 0, failed: 0, sampleErrors: [] },
     noteEntries: { total: 0, decryptable: 0, failed: 0, sampleErrors: [] },
     recommendations: [],
@@ -35,6 +45,13 @@ export async function runEncryptionDiagnostics(): Promise<EncryptionDiagnostic> 
 
   // Generate key hash for comparison (don't log the actual key)
   diagnostic.keyHash = crypto.createHash('sha256').update(diagnostic.currentKey).digest('hex').substring(0, 16);
+  
+  // Populate keyInfo object
+  diagnostic.keyInfo = {
+    hash: diagnostic.keyHash,
+    isDefaultKey: diagnostic.currentKey === 'default-encryption-key-change-in-production',
+    keyLength: diagnostic.currentKey.length,
+  };
 
   try {
     const db = getDatabase();
