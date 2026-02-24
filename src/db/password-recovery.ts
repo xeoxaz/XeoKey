@@ -42,39 +42,53 @@ function getEncryptionKey(masterKey?: string): Buffer {
 /**
  * Attempt to decrypt password with given key
  */
-function attemptDecrypt(encrypted: string, masterKey?: string): { success: boolean; password?: string; error?: string } {
+async function attemptDecrypt(encrypted: string, masterKey?: string): Promise<{ success: boolean; password?: string; error?: string }> {
   try {
-    const algorithm = 'aes-256-cbc';
-    const key = getEncryptionKey(masterKey);
+    // If masterKey is provided, use the old logic for master key recovery
+    if (masterKey) {
+      const algorithm = 'aes-256-cbc';
+      const key = crypto.createHash('sha256').update(masterKey).digest();
 
-    const parts = encrypted.split(':');
-    if (parts.length !== 2) {
-      return { success: false, error: 'Invalid encrypted password format (expected iv:data)' };
+      const parts = encrypted.split(':');
+      if (parts.length !== 2) {
+        return { success: false, error: 'Invalid encrypted password format (expected iv:data)' };
+      }
+
+      const iv = Buffer.from(parts[0], 'hex');
+      const encryptedData = parts[1];
+
+      // Validate IV is 16 bytes (32 hex characters)
+      if (iv.length !== 16) {
+        return { success: false, error: `Invalid IV length: ${iv.length} bytes (expected 16)` };
+      }
+
+      // Validate encrypted data is hex
+      if (!/^[0-9a-f]+$/i.test(encryptedData)) {
+        return { success: false, error: 'Invalid encrypted data format (not hex)' };
+      }
+
+      const decipher = crypto.createDecipheriv(algorithm, key, iv);
+      let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+
+      // Validate decrypted result is not empty
+      if (!decrypted || decrypted.trim() === '') {
+        return { success: false, error: 'Decryption succeeded but result is empty' };
+      }
+
+      return { success: true, password: decrypted };
+    } else {
+      // Use the new decryptPassword function with fallback support
+      const { decryptPassword } = await import('../models/password');
+      const decrypted = decryptPassword(encrypted);
+      
+      // Validate decrypted result is not empty
+      if (!decrypted || decrypted.trim() === '') {
+        return { success: false, error: 'Decryption succeeded but result is empty' };
+      }
+
+      return { success: true, password: decrypted };
     }
-
-    const iv = Buffer.from(parts[0], 'hex');
-    const encryptedData = parts[1];
-
-    // Validate IV is 16 bytes (32 hex characters)
-    if (iv.length !== 16) {
-      return { success: false, error: `Invalid IV length: ${iv.length} bytes (expected 16)` };
-    }
-
-    // Validate encrypted data is hex
-    if (!/^[0-9a-f]+$/i.test(encryptedData)) {
-      return { success: false, error: 'Invalid encrypted data format (not hex)' };
-    }
-
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
-    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    // Validate decrypted result is not empty
-    if (!decrypted || decrypted.trim() === '') {
-      return { success: false, error: 'Decryption succeeded but result is empty' };
-    }
-
-    return { success: true, password: decrypted };
   } catch (error: any) {
     const errorMessage = error.message || String(error);
     // Provide more specific error messages
@@ -140,7 +154,7 @@ export async function getUnrecoverablePasswords(userId: string): Promise<Passwor
     }
 
     // Try to decrypt with current key
-    const decryptResult = attemptDecrypt(encryptedPassword);
+    const decryptResult = await attemptDecrypt(encryptedPassword);
 
     recoveryEntries.push({
       entryId,
@@ -177,7 +191,7 @@ export async function recoverPasswordWithMasterKey(
       return { success: false, error: 'Password entry not found' };
     }
 
-    const result = attemptDecrypt(entry.password, masterKey);
+    const result = await attemptDecrypt(entry.password, masterKey);
     return result;
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -208,7 +222,7 @@ export async function recoverPasswordByIdentifier(
       return { success: false, error: 'Password entry has no encrypted password data' };
     }
 
-    const result = attemptDecrypt(entry.password, masterKey);
+    const result = await attemptDecrypt(entry.password, masterKey);
     if (result.success && result.password) {
       return {
         success: true,
@@ -351,7 +365,7 @@ export async function batchRecoverPasswords(
       }
 
       // Try to decrypt with master key
-      const decryptResult = attemptDecrypt(entry.encryptedPassword, masterKey);
+      const decryptResult = await attemptDecrypt(entry.encryptedPassword, masterKey);
 
       if (decryptResult.success && decryptResult.password) {
         // Try to repair

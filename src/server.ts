@@ -4003,10 +4003,10 @@ router.get("/passwords/recover", async (request, params, query) => {
 
       ${unrecoverable.filter(e => !e.canDecrypt).length > 0 ? `
         <div style="margin-bottom: 2rem;">
-          <h2 style="color: #d4a5a5;">Unrecoverable Passwords (${unrecoverable.filter(e => !e.canDecrypt).length})</h2>
+          <h2 style="color: #d4a5a5;">Passwords Requiring Recovery (${unrecoverable.filter(e => !e.canDecrypt).length})</h2>
           <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
-            These passwords cannot be decrypted with the current encryption key.
-            If you have the original master password or encryption key, you can attempt to recover them.
+            These passwords cannot be decrypted with the current encryption key, but may be recoverable using fallback keys or a master password.
+            The system will automatically attempt to decrypt using multiple encryption keys.
           </p>
           ${unrecoverableList}
         </div>
@@ -4024,15 +4024,16 @@ router.get("/passwords/recover", async (request, params, query) => {
 
       ${unrecoverable.length === 0 ? `
         <div style="padding: 2rem; text-align: center; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
-          <p style="color: #7fb069; font-size: 1.2rem;">✅ All passwords are recoverable!</p>
-          <p style="color: #888; margin-top: 0.5rem;">No password recovery needed.</p>
+          <p style="color: #7fb069; font-size: 1.2rem;">✅ All passwords are accessible!</p>
+          <p style="color: #888; margin-top: 0.5rem;">All passwords can be decrypted with current or fallback keys.</p>
         </div>
       ` : ''}
 
       <div style="margin-top: 2rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
         <h3 style="color: #9db4d4; margin-top: 0;">Batch Recovery</h3>
         <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
-          Attempt to recover all unrecoverable passwords at once using a master password.
+          Attempt to recover all passwords requiring recovery at once using a master password.
+          The system also automatically tries multiple encryption keys for recovery.
         </p>
         <form method="POST" action="/passwords/recover/batch">
           <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
