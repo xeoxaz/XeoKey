@@ -1,7 +1,8 @@
 import { getDatabase } from '../db/mongodb';
 import { ObjectId, Filter, UpdateFilter } from 'mongodb';
-import * as crypto from 'crypto';
+import crypto from 'crypto';
 import { passwordLogger } from '../utils/logger';
+import { logFallbackDecryption, logPrimaryDecryption } from '../utils/fallback-logger';
 import { debugLog } from '../utils/debug';
 
 export interface PasswordEntry {
@@ -70,7 +71,7 @@ export function encryptPassword(password: string): string {
 }
 
 // Decrypt password with fallback key support
-export function decryptPassword(encrypted: string): string {
+export async function decryptPassword(encrypted: string): Promise<string> {
   const algorithm = 'aes-256-cbc';
 
   const parts = encrypted.split(':');
@@ -87,6 +88,10 @@ export function decryptPassword(encrypted: string): string {
     const decipher = crypto.createDecipheriv(algorithm, key, iv);
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
+    
+    // Log successful primary key decryption
+    logPrimaryDecryption();
+    
     return decrypted;
   } catch (primaryError) {
     // Primary key failed, try fallback keys
@@ -101,7 +106,7 @@ export function decryptPassword(encrypted: string): string {
         decrypted += decipher.final('utf8');
         
         // Log successful fallback for monitoring
-        passwordLogger.warn(`Successfully decrypted password with fallback key ${i + 1}/${fallbackKeys.length}. Consider re-encrypting with current key.`);
+        logFallbackDecryption(i + 1, fallbackKeys.length);
         
         return decrypted;
       } catch (fallbackError) {

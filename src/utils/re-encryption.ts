@@ -71,10 +71,10 @@ async function reEncryptPasswords(db: any, result: ReEncryptionResult): Promise<
   for (const password of passwords) {
     try {
       // Decrypt using fallback system
-      const decryptedPassword = decryptPassword(password.password);
-      const decryptedUsername = password.username ? decryptPassword(password.username) : '';
-      const decryptedEmail = password.email ? decryptPassword(password.email) : '';
-      const decryptedNotes = password.notes ? decryptPassword(password.notes) : '';
+      const decryptedPassword = await decryptPassword(password.password);
+      const decryptedUsername = password.username ? await decryptPassword(password.username) : '';
+      const decryptedEmail = password.email ? await decryptPassword(password.email) : '';
+      const decryptedNotes = password.notes ? await decryptPassword(password.notes) : '';
 
       // Re-encrypt with current key
       const newEncryptedPassword = encryptPassword(decryptedPassword);
@@ -120,7 +120,7 @@ async function reEncryptNotes(db: any, result: ReEncryptionResult): Promise<void
   for (const note of notes) {
     try {
       // Decrypt using fallback system
-      const decryptedContent = decryptNoteContent(note.content);
+      const decryptedContent = await decryptNoteContent(note.content);
 
       // Re-encrypt with current key
       const newEncryptedContent = encryptNoteContent(decryptedContent);
@@ -162,7 +162,7 @@ async function reEncryptTotp(db: any, result: ReEncryptionResult): Promise<void>
       const { decrypt: decryptTotp, encrypt: encryptTotp } = await import('../models/totp');
 
       // Decrypt using fallback system
-      const decryptedSecret = decryptTotp(totp.secret);
+      const decryptedSecret = await decryptTotp(totp.secret);
 
       // Re-encrypt with current key
       const newEncryptedSecret = encryptTotp(decryptedSecret);

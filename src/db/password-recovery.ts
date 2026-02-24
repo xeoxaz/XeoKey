@@ -80,7 +80,7 @@ async function attemptDecrypt(encrypted: string, masterKey?: string): Promise<{ 
     } else {
       // Use the new decryptPassword function with fallback support
       const { decryptPassword } = await import('../models/password');
-      const decrypted = decryptPassword(encrypted);
+      const decrypted = await decryptPassword(encrypted);
       
       // Validate decrypted result is not empty
       if (!decrypted || decrypted.trim() === '') {
