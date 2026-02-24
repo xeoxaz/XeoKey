@@ -50,7 +50,7 @@ describe('Authentication Integration Tests', () => {
       expect(user).toBeDefined();
       expect(user.username).toBe(username);
       expect(user._id).toBeDefined();
-      expect(user.password).not.toBe(password); // Should be hashed
+      expect(user.passwordHash).not.toBe(password); // Should be hashed
     });
 
     it('should not create duplicate users', async () => {
@@ -102,7 +102,7 @@ describe('Authentication Integration Tests', () => {
       const password = 'testpassword123';
       const user = await createUser(username, password);
 
-      const sessionId = await createSession(user._id!, username);
+      const sessionId = await createSession(user._id!.toString(), username);
 
       expect(sessionId).toBeDefined();
       expect(sessionId.length).toBe(64); // 32 bytes = 64 hex characters
@@ -113,11 +113,11 @@ describe('Authentication Integration Tests', () => {
       const password = 'testpassword123';
       const user = await createUser(username, password);
 
-      const sessionId = await createSession(user._id!, username);
+      const sessionId = await createSession(user._id!.toString(), username);
       const session = await getSession(sessionId);
 
       expect(session).not.toBeNull();
-      expect(session?.userId).toBe(user._id);
+      expect(session?.userId).toBe(user._id!.toString());
       expect(session?.username).toBe(username);
     });
 
@@ -126,7 +126,7 @@ describe('Authentication Integration Tests', () => {
       const password = 'testpassword123';
       const user = await createUser(username, password);
 
-      const sessionId = await createSession(user._id!, username);
+      const sessionId = await createSession(user._id!.toString(), username);
       await deleteSession(sessionId);
 
       const session = await getSession(sessionId);

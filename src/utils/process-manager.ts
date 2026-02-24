@@ -1,9 +1,9 @@
 import { logger } from './logger';
-import { spawn, Process } from 'bun';
+import { spawn } from 'bun';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-let serverProcess: Process | null = null;
+let serverProcess: any = null;
 let isShuttingDown = false;
 let restartRequested = false;
 let consecutiveCrashes = 0;
@@ -53,7 +53,7 @@ export class ProcessManager {
         return false;
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       return data.status === 'ready' || data.status === 'running';
     } catch (error) {
       return false; // Server not responding
@@ -197,7 +197,7 @@ export class ProcessManager {
       );
 
       // Monitor process exit
-      serverProcess.exited.then((exitCode) => {
+      serverProcess.exited.then((exitCode: any) => {
         if (!isShuttingDown && !restartRequested) {
           consecutiveCrashes++;
           logger.error(`Server exited (code ${exitCode})`);

@@ -46,7 +46,7 @@ describe('Session Timer and Expiry Integration', () => {
     const user = await createUser(username, password);
 
     const before = Date.now();
-    const sessionId = await createSession(user._id!, username);
+    const sessionId = await createSession(user._id!.toString(), username);
     const after = Date.now();
 
     const session = await getSession(sessionId);
@@ -76,7 +76,7 @@ describe('Session Timer and Expiry Integration', () => {
     const password = 'testpassword123';
     const user = await createUser(username, password);
 
-    const sessionId = await createSession(user._id!, username);
+    const sessionId = await createSession(user._id!.toString(), username);
     const session = await getSession(sessionId);
     expect(session).not.toBeNull();
 
@@ -86,6 +86,10 @@ describe('Session Timer and Expiry Integration', () => {
       { sessionId },
       { $set: { expiresAt: new Date(Date.now() - 1000) } }
     );
+
+    // Clear session cache to force database read
+    const { clearSessionCache } = await import('../../auth/session');
+    clearSessionCache();
 
     const sessionAfter = await getSession(sessionId);
     expect(sessionAfter).toBeNull();

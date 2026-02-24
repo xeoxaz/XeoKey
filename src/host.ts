@@ -13,7 +13,7 @@
 
 import { ProcessManager, getProcessManager } from './utils/process-manager';
 import { logger } from './utils/logger';
-import { existsSync, watchFile, unlink } from 'fs';
+import { existsSync, watchFile, unlink, unwatchFile } from 'fs';
 import { writeFile as writeFileAsync } from 'fs/promises';
 import { join } from 'path';
 
@@ -95,8 +95,8 @@ async function main() {
 // Handle shutdown
 process.on('SIGINT', async () => {
   logger.info('\nShutting down process manager...');
-  if (restartWatcher) {
-    restartWatcher.close();
+  if (restartWatcher && RESTART_FLAG_FILE) {
+    unwatchFile(RESTART_FLAG_FILE);
   }
   await manager.stop();
   process.exit(0);
@@ -104,8 +104,8 @@ process.on('SIGINT', async () => {
 
 process.on('SIGTERM', async () => {
   logger.info('Shutting down process manager...');
-  if (restartWatcher) {
-    restartWatcher.close();
+  if (restartWatcher && RESTART_FLAG_FILE) {
+    unwatchFile(RESTART_FLAG_FILE);
   }
   await manager.stop();
   process.exit(0);

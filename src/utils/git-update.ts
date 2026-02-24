@@ -61,7 +61,7 @@ async function fetchRemote(): Promise<boolean> {
     const error = await new Response(proc.stderr).text();
 
     // git fetch doesn't output anything on success typically
-    if (error && !error.includes('Already up to date') && !error.trim() === '') {
+    if (error && !error.includes('Already up to date') && error.trim() !== '') {
       logger.warn(`Git fetch error: ${error}`);
       return false;
     }
@@ -110,64 +110,6 @@ async function getRemoteCommit(): Promise<string | null> {
   } catch (error: any) {
     logger.debug(`Error getting remote commit: ${error.message || error}`);
     return null;
-  }
-}
-
-/**
- * Get commit messages between two commits
- */
-async function getCommitMessages(fromCommit: string, toCommit: string): Promise<string[]> {
-  try {
-    const proc = spawn(['git', 'log', '--pretty=format:%s', `${fromCommit}..${toCommit}`], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-
-    const output = await new Response(proc.stdout).text();
-    const error = await new Response(proc.stderr).text();
-
-    if (error.trim() && !error.includes('not a git repository')) {
-      logger.debug(`Git log error: ${error}`);
-      return [];
-    }
-
-    // Split by newlines and filter empty strings
-    const messages = output.trim().split('\n').filter(msg => msg.trim() !== '');
-    return messages;
-  } catch (error: any) {
-    logger.debug(`Error getting commit messages: ${error.message || error}`);
-    return [];
-  }
-}
-
-/**
- * Get recent commit messages (patch notes) from the repository
- */
-export async function getPatchNotes(limit: number = 10): Promise<string[]> {
-  try {
-    if (!isGitRepository()) {
-      return [];
-    }
-
-    const proc = spawn(['git', 'log', '--pretty=format:%s', `-${limit}`], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-
-    const output = await new Response(proc.stdout).text();
-    const error = await new Response(proc.stderr).text();
-
-    if (error.trim()) {
-      logger.debug(`Git log error for patch notes: ${error}`);
-      return [];
-    }
-
-    // Split by newlines and filter empty strings
-    const messages = output.trim().split('\n').filter(msg => msg.trim() !== '');
-    return messages;
-  } catch (error: any) {
-    logger.debug(`Error getting patch notes: ${error.message || error}`);
-    return [];
   }
 }
 
