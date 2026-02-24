@@ -577,10 +577,26 @@ async function checkEncryptionIntegrity(): Promise<CheckResult> {
             // This avoids potential userId format mismatches in getPasswordEntry
             try {
               const { decryptPassword } = await import('../models/password');
-              const decrypted = decryptPassword(password.password);
-              if (!decrypted || decrypted.trim() === '') {
+              try {
+                const decrypted = await decryptPassword(password.password);
+                if (!decrypted || decrypted.trim() === '') {
+                  result.passed = false;
+                  decryptionFailures++;
+                  result.issues.push({
+                    severity: 'critical',
+                    collection: 'passwords',
+                    entryId: password._id,
+                    userId: userId,
+                    message: `Password ${password._id} cannot be decrypted (returned empty)`,
+                    suggestion: 'Password may have been encrypted with a different key. Try password recovery.',
+                  });
+                }
+                // If decrypted is truthy and non-empty, password decrypts successfully - no issue
+              } catch (decryptError: any) {
+                // Direct decryption failed - this is a real decryption error
                 result.passed = false;
                 decryptionFailures++;
+                dbLogger.warn(`Password decryption failed for ${password._id}: ${decryptError.message || decryptError}`);
                 result.issues.push({
                   severity: 'critical',
                   collection: 'passwords',

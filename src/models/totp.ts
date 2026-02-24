@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import * as crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { base32ToBuffer, generateTotpCode, verifyTotpCode, TotpAlgorithm, generateHotpCode, verifyHotpCode } from '../utils/totp';
+import { logFallbackDecryption, logPrimaryDecryption } from '../utils/fallback-logger';
 
 export interface TotpEntry {
   _id?: string;
@@ -66,7 +67,7 @@ export function encrypt(value: string): string {
   return iv.toString('hex') + ':' + encrypted;
 }
 
-export function decrypt(encrypted: string): string {
+export async function decrypt(encrypted: string): Promise<string> {
   const algorithm = 'aes-256-cbc';
   const parts = encrypted.split(':');
   if (parts.length !== 2) {
@@ -81,6 +82,10 @@ export function decrypt(encrypted: string): string {
     const decipher = crypto.createDecipheriv(algorithm, key, iv);
     let decrypted = decipher.update(data, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
+    
+    // Log successful primary key decryption
+    logPrimaryDecryption();
+    
     return decrypted;
   } catch (primaryError) {
     // Primary key failed, try fallback keys
@@ -95,7 +100,7 @@ export function decrypt(encrypted: string): string {
         decrypted += decipher.final('utf8');
         
         // Log successful fallback for monitoring
-        console.warn(`Successfully decrypted TOTP with fallback key ${i + 1}/${fallbackKeys.length}. Consider re-encrypting with current key.`);
+        logFallbackDecryption(i + 1, fallbackKeys.length);
         
         return decrypted;
       } catch (fallbackError) {
@@ -188,7 +193,7 @@ export async function deleteTotpEntry(entryId: string, userId: string): Promise<
 }
 
 export async function getCurrentTotpCode(entry: TotpEntry): Promise<string> {
-  const secretBase32 = decrypt(entry.secret);
+  const secretBase32 = await decrypt(entry.secret);
   if (entry.type === 'HOTP') {
     return generateHotpCode(secretBase32, entry.counter ?? 0, entry.digits, entry.algorithm);
   }
@@ -196,7 +201,7 @@ export async function getCurrentTotpCode(entry: TotpEntry): Promise<string> {
 }
 
 export async function verifyTotpOrBackup(entry: TotpEntry, code: string): Promise<{ ok: boolean; usedBackup?: boolean }> {
-  const secretBase32 = decrypt(entry.secret);
+  const secretBase32 = await decrypt(entry.secret);
   let ok = false;
   if (entry.type === 'HOTP') {
     // For HOTP use lookahead window of 5
