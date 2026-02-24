@@ -2,6 +2,7 @@ import { getDatabase } from '../db/mongodb';
 import { ObjectId, Filter, UpdateFilter } from 'mongodb';
 import crypto from 'crypto';
 import { passwordLogger } from '../utils/logger';
+import { logger } from '../utils/logger';
 import { logFallbackDecryption, logPrimaryDecryption } from '../utils/fallback-logger';
 import { debugLog } from '../utils/debug';
 
@@ -70,54 +71,127 @@ export function encryptPassword(password: string): string {
   return iv.toString('hex') + ':' + encrypted;
 }
 
-// Decrypt password with fallback key support
+// Decrypt password with fallback key support and multiple format handling
 export async function decryptPassword(encrypted: string): Promise<string> {
   const algorithm = 'aes-256-cbc';
 
-  const parts = encrypted.split(':');
-  if (parts.length !== 2) {
-    throw new Error('Invalid encrypted password format');
+  // Try different encryption formats
+  const formats = [
+    // Format 1: iv:data (current format)
+    () => {
+      const parts = encrypted.split(':');
+      if (parts.length !== 2) {
+        throw new Error('Invalid encrypted password format');
+      }
+      const iv = Buffer.from(parts[0], 'hex');
+      const encryptedData = parts[1];
+      return { iv, encryptedData, format: 'iv:data' };
+    },
+    // Format 2: legacy format without iv (old format)
+    () => {
+      // Try to decrypt directly without IV (legacy format)
+      if (encrypted.length < 32) {
+        throw new Error('Invalid encrypted password format');
+      }
+      // For legacy format, we might need to use a fixed IV or derive it
+      const iv = Buffer.from('00000000000000000000000000000000000', 'hex'); // 16 bytes of zeros
+      const encryptedData = encrypted;
+      return { iv, encryptedData, format: 'legacy' };
+    },
+    // Format 3: base64 encoded
+    () => {
+      try {
+        const decoded = Buffer.from(encrypted, 'base64').toString('utf8');
+        if (decoded.includes(':')) {
+          const parts = decoded.split(':');
+          if (parts.length === 2) {
+            const iv = Buffer.from(parts[0], 'hex');
+            const encryptedData = parts[1];
+            return { iv, encryptedData, format: 'base64:iv:data' };
+          }
+        }
+        throw new Error('Invalid base64 format');
+      } catch {
+        throw new Error('Invalid encrypted password format');
+      }
+    }
+  ];
+
+  let lastError: Error | null = null;
+
+  // Try primary key first with each format
+  for (const formatParser of formats) {
+    try {
+      const { iv, encryptedData, format } = formatParser();
+      
+      // Try primary key
+      try {
+        const key = getEncryptionKey();
+        const decipher = crypto.createDecipheriv(algorithm, key, iv);
+        let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        
+        // Validate decrypted result
+        if (!decrypted || decrypted.trim() === '') {
+          throw new Error('Decryption succeeded but result is empty');
+        }
+        
+        // Log successful format detection for monitoring
+        if (format !== 'iv:data') {
+          const { logPrimaryDecryption } = await import('../utils/fallback-logger');
+          logPrimaryDecryption();
+          logger.info(`Successfully decrypted password using ${format} format`);
+        }
+        
+        return decrypted;
+      } catch (primaryError: any) {
+        lastError = primaryError as Error;
+        // Continue trying fallback keys with this format
+      }
+    } catch (formatError) {
+      // Try next format
+      continue;
+    }
   }
 
-  const iv = Buffer.from(parts[0], 'hex');
-  const encryptedData = parts[1];
-
-  // Try primary key first
-  try {
-    const key = getEncryptionKey();
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
-    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    // Log successful primary key decryption
-    logPrimaryDecryption();
-    
-    return decrypted;
-  } catch (primaryError) {
-    // Primary key failed, try fallback keys
-    const fallbackKeys = getAllEncryptionKeys();
-    
-    // Skip the first key since we already tried it
-    for (let i = 1; i < fallbackKeys.length; i++) {
+  // If we get here, try fallback keys with the last tried format
+  const fallbackKeys = getAllEncryptionKeys();
+  
+  // Skip the first key since we already tried it
+  for (let i = 1; i < fallbackKeys.length; i++) {
+    // Try each format with fallback keys
+    for (const formatParser of formats) {
       try {
+        const { iv, encryptedData, format } = formatParser();
+        
         const key = fallbackKeys[i];
         const decipher = crypto.createDecipheriv(algorithm, key, iv);
         let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
         
+        // Validate decrypted result
+        if (!decrypted || decrypted.trim() === '') {
+          throw new Error('Decryption succeeded but result is empty');
+        }
+        
         // Log successful fallback for monitoring
+        const { logFallbackDecryption } = await import('../utils/fallback-logger');
         logFallbackDecryption(i + 1, fallbackKeys.length);
+        
+        if (format !== 'iv:data') {
+          logger.info(`Successfully decrypted password using fallback key ${i + 1}/${fallbackKeys.length} with ${format} format`);
+        }
         
         return decrypted;
       } catch (fallbackError) {
-        // Continue trying other keys
+        // Continue trying other formats
         continue;
       }
     }
-    
-    // All keys failed, throw the original error
-    throw primaryError;
   }
+  
+  // All keys failed, throw the last error
+  throw lastError || new Error('Unable to decrypt password with any key or format');
 }
 
 // Create a new password entry
