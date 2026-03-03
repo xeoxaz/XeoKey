@@ -34,3 +34,7 @@ build/
 
 # Bun
 .bun/
+
+# Runtime backup artifacts
+src/backups/*.json
+src/backups/**/backup_*.json
