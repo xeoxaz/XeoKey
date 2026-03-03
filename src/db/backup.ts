@@ -34,6 +34,54 @@ export interface RestoreResult {
   error?: string;
 }
 
+const DATE_FIELD_NAMES = new Set([
+  'createdAt',
+  'updatedAt',
+  'timestamp',
+  'expiresAt',
+  'lastUsedAt',
+  'lastUpdated'
+]);
+
+function looksLikeIsoDate(value: string): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  // ISO-like date check (e.g. 2026-03-03T03:44:44.000Z)
+  const isoLike = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value);
+  return isoLike && !Number.isNaN(Date.parse(value));
+}
+
+function restoreSerializedValue(value: any, key?: string): any {
+  if (Array.isArray(value)) {
+    return value.map(item => restoreSerializedValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const restoredObj: any = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      restoredObj[childKey] = restoreSerializedValue(childValue, childKey);
+    }
+    return restoredObj;
+  }
+
+  if (typeof value === 'string') {
+    if (ObjectId.isValid(value) && value.length === 24) {
+      try {
+        return new ObjectId(value);
+      } catch {
+      }
+    }
+
+    if (key && DATE_FIELD_NAMES.has(key) && looksLikeIsoDate(value)) {
+      return new Date(value);
+    }
+  }
+
+  return value;
+}
+
 // Get backup directory path
 function getBackupDirectory(): string {
   const backupDir = process.env.BACKUP_DIR || path.join(process.cwd(), 'backups');
@@ -292,27 +340,8 @@ export async function restoreBackup(backupId: string): Promise<RestoreResult> {
           continue;
         }
 
-        // Convert string IDs back to ObjectIds
-        const restoredDocs = docsArray.map(doc => {
-          const restored: any = { ...doc };
-          if (restored._id && typeof restored._id === 'string' && ObjectId.isValid(restored._id)) {
-            restored._id = new ObjectId(restored._id);
-          }
-          // Convert other ObjectId fields if needed
-          for (const key in restored) {
-            if (typeof restored[key] === 'string' && ObjectId.isValid(restored[key])) {
-              // Only convert if it looks like an ObjectId (24 hex chars)
-              if (restored[key].length === 24) {
-                try {
-                  restored[key] = new ObjectId(restored[key]);
-                } catch {
-                  // Not an ObjectId, keep as string
-                }
-              }
-            }
-          }
-          return restored;
-        });
+        // Convert serialized IDs/dates back to native types
+        const restoredDocs = docsArray.map(doc => restoreSerializedValue(doc));
 
         // Clear existing collection and insert backup data
         await collection.deleteMany({});

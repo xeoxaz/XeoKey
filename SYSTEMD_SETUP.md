@@ -32,19 +32,20 @@
 ```bash
 # Create xeokey user (if not exists)
 sudo useradd -r -s /bin/false xeokey
-sudo usermod -d /home/xeo/XeoKey xeokey
+sudo usermod -d /home/xeo/xeokey xeokey
 
 # Set ownership
-sudo chown -R xeokey:xeokey /home/xeo/XeoKey
-chmod 750 /home/xeo/XeoKey
+sudo chown -R xeokey:xeokey /home/xeo/xeokey
+chmod 750 /home/xeo/xeokey
 ```
 
 ### Environment Variables
-Create `/home/xeo/XeoKey/.env`:
+Create `/home/xeo/xeokey/src/.env`:
 ```env
 NODE_ENV=production
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://localhost:27017/xeokeys
+MONGODB_DB_NAME=xeokeys
 SESSION_SECRET=your-secure-session-secret-32-chars-minimum
 ENCRYPTION_KEY=your-secure-encryption-key-generate-with-openssl
 LOG_LEVEL=info
@@ -71,7 +72,7 @@ echo "🔄 Updating XeoKey..."
 sudo systemctl stop xeokey
 
 # Navigate to project directory
-cd /home/xeo/XeoKey
+cd /home/xeo/xeokey
 
 # Pull latest changes
 git pull origin master
@@ -94,7 +95,7 @@ sudo chmod +x /usr/local/bin/xeokey-update
 ```bash
 # Update commands
 sudo systemctl stop xeokey
-cd /home/xeo/XeoKey
+cd /home/xeo/xeokey
 git pull origin master
 cd src && bun install
 sudo systemctl start xeokey
@@ -150,11 +151,11 @@ sudo systemd-analyze verify xeokey.service
 ### Permission Issues
 ```bash
 # Fix ownership
-sudo chown -R xeokey:xeokey /home/xeo/XeoKey
+sudo chown -R xeokey:xeokey /home/xeo/xeokey
 
 # Fix permissions
-sudo chmod 750 /home/xeo/XeoKey
-sudo chmod 640 /home/xeo/XeoKey/.env
+sudo chmod 750 /home/xeo/xeokey
+sudo chmod 640 /home/xeo/xeokey/src/.env
 ```
 
 ### Update Feature Issues
@@ -167,8 +168,8 @@ sudo /usr/local/bin/xeokey-update
 
 1. **Environment File Security**:
    ```bash
-   sudo chmod 640 /home/xeo/XeoKey/.env
-   sudo chown root:xeokey /home/xeo/XeoKey/.env
+   sudo chmod 640 /home/xeo/xeokey/src/.env
+   sudo chown root:xeokey /home/xeo/xeokey/src/.env
    ```
 
 2. **Service Isolation**: The service file includes security restrictions:
@@ -185,7 +186,7 @@ To make the web update feature work with systemd, modify the process manager:
 ```javascript
 // In utils/process-manager.ts, add systemd detection
 function isSystemdService(): boolean {
-  return process.env.SYSTEMD_SERVICE === 'true' || 
+  return process.env.SYSTEMD_SERVICE === 'true' ||
          process.env.INVOCATION_ID !== undefined;
 }
 

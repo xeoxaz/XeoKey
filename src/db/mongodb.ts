@@ -24,6 +24,38 @@ function getMongoUri(): string {
   return uri;
 }
 
+// Resolve MongoDB database name from env override, URI path, or fallback default
+function getMongoDatabaseName(uri: string): { dbName: string; source: 'env' | 'uri' | 'default-fallback' } {
+  const envDbName = process.env.MONGODB_DB_NAME || process.env.MONGO_DB_NAME;
+  if (envDbName && envDbName.trim()) {
+    return { dbName: envDbName.trim(), source: 'env' };
+  }
+
+  try {
+    // Robust URI path extraction for MongoDB URI formats, including
+    // comma-separated hosts in replica set connection strings.
+    const schemeIndex = uri.indexOf('://');
+    if (schemeIndex !== -1) {
+      const authorityStart = schemeIndex + 3;
+      const pathStart = uri.indexOf('/', authorityStart);
+
+      if (pathStart !== -1) {
+        const afterSlash = uri.slice(pathStart + 1);
+        const pathOnly = afterSlash.split('?')[0]?.split('#')[0] ?? '';
+        const candidate = pathOnly.split('/')[0]?.trim() ?? '';
+
+        if (candidate) {
+          return { dbName: decodeURIComponent(candidate), source: 'uri' };
+        }
+      }
+    }
+  } catch {
+    // Ignore parse failures and use default
+  }
+
+  return { dbName: 'XeoKey', source: 'default-fallback' };
+}
+
 // Connect to MongoDB
 export async function connectMongoDB(): Promise<Db> {
   if (db) {
@@ -32,7 +64,7 @@ export async function connectMongoDB(): Promise<Db> {
 
   try {
     const uri = getMongoUri();
-    const dbName = 'XeoKey';
+    const { dbName, source } = getMongoDatabaseName(uri);
 
     // Don't log full URI (might contain credentials)
     const uriDisplay = uri.includes('@')
@@ -46,6 +78,10 @@ export async function connectMongoDB(): Promise<Db> {
 
     db = client.db(dbName);
     dbLogger.info(`Using database: ${dbName}`);
+    if (source === 'default-fallback') {
+      dbLogger.warn('Database name was not found in env or URI path. Falling back to default database: XeoKey');
+      dbLogger.warn('Set MONGODB_DB_NAME or use MONGODB_URI with /<database-name> to avoid ambiguity.');
+    }
 
     // Test the connection
     await db.admin().ping();

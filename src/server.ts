@@ -852,20 +852,20 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   let gitStatusNotification = '';
   let encryptionDiagnosticNotification = '';
   let autoReEncryptionNotification = '';
-  
+
   try {
     // Check Git status first
     const { checkGitStatus, generateGitInstallPrompt } = await import('./utils/git-installer');
     const gitStatus = await checkGitStatus();
-    
+
     if (!gitStatus.installed) {
       gitStatusNotification = generateGitInstallPrompt(gitStatus);
     }
-    
+
     // Check for encryption issues
     try {
       const { runEncryptionDiagnostics, generateDiagnosticReport, isUsingDefaultKey } = await import('./utils/encryption-diagnostics');
-      
+
       // Always show diagnostic if using default key in production
       if (process.env.NODE_ENV === 'production' && isUsingDefaultKey()) {
         const diagnostic = await runEncryptionDiagnostics();
@@ -875,7 +875,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
         const diagnostic = await runEncryptionDiagnostics();
         const totalFailures = diagnostic.passwordEntries.failed + diagnostic.noteEntries.failed;
         const totalEntries = diagnostic.passwordEntries.total + diagnostic.noteEntries.total;
-        
+
         if (totalEntries > 0 && totalFailures / totalEntries > 0.1) {
           encryptionDiagnosticNotification = generateDiagnosticReport(diagnostic);
         }
@@ -883,13 +883,13 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     } catch (error) {
       logger.debug(`Encryption diagnostic check failed: ${error}`);
     }
-    
+
     // Check for auto re-encryption status
     let autoReEncryptionNotification = '';
     try {
       const { checkAutoReEncryption, generateAutoReEncryptionStatusHTML } = await import('./utils/auto-re-encryption');
       const { shouldTrigger, status } = await checkAutoReEncryption();
-      
+
       // Show auto re-encryption status if it's running or if it should trigger
       if (status.isRunning || shouldTrigger) {
         autoReEncryptionNotification = generateAutoReEncryptionStatusHTML();
@@ -897,7 +897,7 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     } catch (error) {
       logger.debug(`Auto re-encryption check failed: ${error}`);
     }
-    
+
     const { checkForUpdates, getPatchNotes } = await import('./utils/git-update');
     const updateStatus = await checkForUpdates();
     const patchNotes = await getPatchNotes(10);
@@ -1404,11 +1404,11 @@ router.get("/api/git-status", async (request, params, query) => {
 router.post("/api/install-git", async (request, params, query) => {
   try {
     const { installGitAutomatically, canInstallGitAutomatically } = await import('./utils/git-installer');
-    
+
     if (!canInstallGitAutomatically()) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Automatic installation is only supported on Linux. Please install Git manually.' 
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Automatic installation is only supported on Linux. Please install Git manually.'
       }), {
         headers: {
           ...SECURITY_HEADERS,
@@ -1427,9 +1427,9 @@ router.post("/api/install-git", async (request, params, query) => {
     });
   } catch (error: any) {
     logger.error(`Error installing Git: ${error}`);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: error.message || 'Unknown error' 
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message || 'Unknown error'
     }), {
       headers: {
         ...SECURITY_HEADERS,
@@ -1447,7 +1447,7 @@ router.get("/api/auto-re-encryption/status", async (request, params, query) => {
     const { shouldTrigger, status, recommendation } = await checkAutoReEncryption();
     const htmlReport = generateAutoReEncryptionStatusHTML();
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       shouldTrigger,
       status,
       recommendation,
@@ -1460,7 +1460,7 @@ router.get("/api/auto-re-encryption/status", async (request, params, query) => {
     });
   } catch (error: any) {
     logger.error(`Error checking auto re-encryption status: ${error}`);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error.message || 'Unknown error',
       shouldTrigger: false,
       status: null,
@@ -1489,7 +1489,7 @@ router.post("/api/auto-re-encryption/trigger", async (request, params, query) =>
     });
   } catch (error: any) {
     logger.error(`Error triggering auto re-encryption: ${error}`);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: false,
       result: null,
       message: error.message || 'Unknown error'
@@ -1513,7 +1513,7 @@ router.post("/api/auto-re-encryption/configure", async (request, params, query) 
       requireConfirmation?: boolean;
     };
     const { configureAutoReEncryption } = await import('./utils/auto-re-encryption');
-    
+
     // Validate configuration
     const config: Partial<{
       enabled: boolean;
@@ -1522,7 +1522,7 @@ router.post("/api/auto-re-encryption/configure", async (request, params, query) 
       delayBetweenBatches: number;
       requireConfirmation: boolean;
     }> = {};
-    
+
     if (body.enabled !== undefined) config.enabled = Boolean(body.enabled);
     if (body.threshold !== undefined) config.threshold = Number(body.threshold);
     if (body.batchSize !== undefined) config.batchSize = Number(body.batchSize);
@@ -1531,7 +1531,7 @@ router.post("/api/auto-re-encryption/configure", async (request, params, query) 
 
     configureAutoReEncryption(config);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: true,
       message: 'Auto re-encryption configuration updated',
       config
@@ -1543,7 +1543,7 @@ router.post("/api/auto-re-encryption/configure", async (request, params, query) 
     });
   } catch (error: any) {
     logger.error(`Error configuring auto re-encryption: ${error}`);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: false,
       message: error.message || 'Unknown error'
     }), {
@@ -1563,7 +1563,7 @@ router.get("/api/re-encryption/debug", async (request, params, query) => {
     const debug = await debugReEncryption();
     const htmlReport = generateReEncryptionDebugReport(debug);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       debug,
       htmlReport
     }), {
@@ -1574,7 +1574,7 @@ router.get("/api/re-encryption/debug", async (request, params, query) => {
     });
   } catch (error: any) {
     logger.error(`Error running re-encryption debug: ${error}`);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error.message || 'Unknown error',
       debug: null,
       htmlReport: null
@@ -1595,9 +1595,9 @@ router.get("/api/encryption/diagnostics", async (request, params, query) => {
     const diagnostic = await runEncryptionDiagnostics();
     const htmlReport = generateDiagnosticReport(diagnostic);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       diagnostic,
-      htmlReport 
+      htmlReport
     }), {
       headers: {
         ...SECURITY_HEADERS,
@@ -1606,7 +1606,7 @@ router.get("/api/encryption/diagnostics", async (request, params, query) => {
     });
   } catch (error: any) {
     logger.error(`Error running encryption diagnostics: ${error}`);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error.message || 'Unknown error',
       diagnostic: null,
       htmlReport: null
@@ -1633,7 +1633,7 @@ router.get("/api/encryption/key-info", async (request, params, query) => {
     });
   } catch (error: any) {
     logger.error(`Error getting key info: ${error}`);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error.message || 'Unknown error'
     }), {
       headers: {
@@ -2313,7 +2313,7 @@ router.get("/", async (request, params, query) => {
                   <div>
                     <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">${escapeHtml(p.website)}</div>
                     ${p.username ? `<div style="font-size: 0.85rem; color: #b0b0b0;">${escapeHtml(p.username)}</div>` : ''}
-                    <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Added ${p.createdAt.toLocaleDateString()}</div>
+                    <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Added ${new Date(p.createdAt).toLocaleDateString()}</div>
                   </div>
                   <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: #888;">
                     <span>👁️ ${p.searchCount || 0}</span>
@@ -3137,7 +3137,7 @@ router.get("/notes", async (request, params, query) => {
       const createdDate = new Date(note.createdAt).toLocaleDateString();
       const updatedDate = new Date(note.updatedAt).toLocaleDateString();
       const preview = note.content.length > 100 ? note.content.substring(0, 100) + '...' : note.content;
-      
+
       return `
         <div class="note-item" style="background: #2d2d2d; padding: 1rem; border-radius: 6px; border: 1px solid #3d3d3d; margin-bottom: 0.75rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
@@ -3173,11 +3173,11 @@ router.get("/notes", async (request, params, query) => {
         document.getElementById('noteSearch').addEventListener('input', function(e) {
           const searchTerm = e.target.value.toLowerCase();
           const notes = document.querySelectorAll('.note-item');
-          
+
           notes.forEach(note => {
             const title = note.querySelector('h3').textContent.toLowerCase();
             const content = note.querySelector('p').textContent.toLowerCase();
-            
+
             if (title.includes(searchTerm) || content.includes(searchTerm)) {
               note.style.display = 'block';
             } else {
@@ -3251,17 +3251,17 @@ router.get("/notes/add", async (request, params, query) => {
     <h1>Add New Note</h1>
     <form method="POST" action="/notes/add" style="max-width: 600px;">
       <input type="hidden" name="csrf_token" value="${csrfToken}">
-      
+
       <div style="margin-bottom: 1rem;">
         <label for="title" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Title</label>
         <input type="text" id="title" name="title" required style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
       </div>
-      
+
       <div style="margin-bottom: 1.5rem;">
         <label for="content" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Content</label>
         <textarea id="content" name="content" required rows="15" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem; resize: vertical; font-family: inherit; line-height: 1.5;"></textarea>
       </div>
-      
+
       <div style="display: flex; gap: 1rem; align-items: center;">
         <button type="submit" style="background: #4d7d4d; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">Save Note</button>
         <a href="/notes" style="color: #9db4d4; text-decoration: none;">Cancel</a>
@@ -3371,17 +3371,17 @@ router.get("/notes/:id/edit", async (request, params, query) => {
       <h1>Edit Note</h1>
       <form method="POST" action="/notes/${params.id}/update" style="max-width: 600px;">
         <input type="hidden" name="csrf_token" value="${csrfToken}">
-        
+
         <div style="margin-bottom: 1rem;">
           <label for="title" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Title</label>
           <input type="text" id="title" name="title" required value="${escapeHtml(note.title)}" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem;">
         </div>
-        
+
         <div style="margin-bottom: 1.5rem;">
           <label for="content" style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 500;">Content</label>
           <textarea id="content" name="content" required rows="15" style="width: 100%; padding: 0.75rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 1rem; resize: vertical; font-family: inherit; line-height: 1.5;">${escapeHtml(decryptedContent)}</textarea>
         </div>
-        
+
         <div style="display: flex; gap: 1rem; align-items: center;">
           <button type="submit" style="background: #4d7d4d; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">Update Note</button>
           <a href="/notes" style="color: #9db4d4; text-decoration: none;">Cancel</a>
@@ -3929,9 +3929,9 @@ router.get("/health", async (request, params, query) => {
       <!-- Dashboard & Tools Section (Hidden by default) -->
       <div id="dashboardSection" style="display: none; margin-top: 2rem; padding: 1.5rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
         <h2 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">📊 System Dashboard & Management Tools</h2>
-        
+
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-          
+
           <!-- Auto Re-Encryption Card -->
           <div id="autoReEncryptionCard" style="padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">🔄 Auto Re-Encryption</h3>
@@ -4004,26 +4004,26 @@ router.get("/health", async (request, params, query) => {
         async function checkReEncryptionStatus() {
           const statusDiv = document.getElementById('reEncryptionStatus');
           const triggerBtn = document.getElementById('triggerBtn');
-          
+
           statusDiv.innerHTML = '🔄 Checking...';
           triggerBtn.disabled = true;
-          
+
           try {
             const response = await fetch('/api/auto-re-encryption/status');
             const data = await response.json();
-            
+
             if (data.error) {
               statusDiv.innerHTML = \`❌ Error: \${data.error}\`;
             } else {
               const status = data.status;
               const fallbackUsage = status.fallbackUsage;
-              const percentage = fallbackUsage.totalEntries > 0 
+              const percentage = fallbackUsage.totalEntries > 0
                 ? (fallbackUsage.passwordsUsingFallback + fallbackUsage.notesUsingFallback + fallbackUsage.totpUsingFallback) / fallbackUsage.totalEntries * 100
                 : 0;
-              
+
               let statusText = status.isRunning ? '🔄 Running...' : '✅ Idle';
               let recommendation = data.recommendation || '';
-              
+
               statusDiv.innerHTML = \`
                 <div style="margin-bottom: 0.5rem;">
                   <strong>Status:</strong> \${statusText}<br>
@@ -4032,7 +4032,7 @@ router.get("/health", async (request, params, query) => {
                 </div>
                 \${recommendation ? \`<div style="color: #9db4d4; font-size: 0.8rem; margin-top: 0.5rem;">💡 \${recommendation}</div>\` : ''}
               \`;
-              
+
               triggerBtn.disabled = status.isRunning;
             }
           } catch (error) {
@@ -4044,18 +4044,18 @@ router.get("/health", async (request, params, query) => {
         async function triggerReEncryption() {
           const statusDiv = document.getElementById('reEncryptionStatus');
           const triggerBtn = document.getElementById('triggerBtn');
-          
+
           if (!confirm('Start auto re-encryption now? This will migrate all entries using fallback keys to the current encryption key.')) {
             return;
           }
-          
+
           statusDiv.innerHTML = '🔄 Starting re-encryption...';
           triggerBtn.disabled = true;
-          
+
           try {
             const response = await fetch('/api/auto-re-encryption/trigger', { method: 'POST' });
             const data = await response.json();
-            
+
             if (data.success) {
               statusDiv.innerHTML = \`✅ \${data.message}\`;
               // Auto-refresh status after a delay
@@ -4075,41 +4075,41 @@ router.get("/health", async (request, params, query) => {
           try {
             const response = await fetch('/api/re-encryption/debug');
             const data = await response.json();
-            
+
             if (data.error) {
               showResults(\`❌ Error: \${data.error}\`);
             } else {
               const debug = data.debug;
               let output = \`🔍 Re-Encryption Debug Results\\n\\n\`;
-              
+
               output += \`Current Key Information:\\n\`;
               output += \`  Hash: \${debug.currentKeyInfo.hash}\\n\`;
               output += \`  Length: \${debug.currentKeyInfo.length} bytes\\n\`;
               output += \`  Environment: \${debug.currentKeyInfo.environment}\\n\\n\`;
-              
+
               output += \`Test Results:\\n\`;
               output += \`  Passwords: \${debug.passwords.decryptable}/\${debug.passwords.total} decryptable, \${debug.passwords.failed} failed\\n\`;
               output += \`  Notes: \${debug.notes.decryptable}/\${debug.notes.total} decryptable, \${debug.notes.failed} failed\\n\`;
               output += \`  TOTP: \${debug.totp.decryptable}/\${debug.totp.total} decryptable, \${debug.totp.failed} failed\\n\\n\`;
-              
+
               const totalSuccess = debug.passwords.decryptable + debug.notes.decryptable + debug.totp.decryptable;
               const totalFailed = debug.passwords.failed + debug.notes.failed + debug.totp.failed;
               const totalItems = totalSuccess + totalFailed;
-              
+
               output += \`Overall: \${totalSuccess}/\${totalItems} successful (\${((totalSuccess/totalItems)*100).toFixed(1)}%)\`;
-              
+
               if (totalFailed > 0) {
                 output += \`\\n\\nSample Failures:\`;
                 const allFailures = [...debug.passwords.sampleFailed, ...debug.notes.sampleFailed, ...debug.totp.sampleFailed];
                 allFailures.slice(0, 5).forEach((failure, i) => {
                   output += \`\\n  \${i + 1}. \${failure.id}: \${failure.error}\`;
                 });
-                
+
                 if (allFailures.length > 5) {
                   output += \`\\n  ... and \${allFailures.length - 5} more\`;
                 }
               }
-              
+
               showResults(output);
             }
           } catch (error) {
@@ -4122,7 +4122,7 @@ router.get("/health", async (request, params, query) => {
           try {
             const response = await fetch('/api/encryption/diagnostics');
             const data = await response.json();
-            
+
             if (data.error) {
               showResults(\`❌ Error: \${data.error}\`);
             } else {
@@ -4135,25 +4135,25 @@ router.get("/health", async (request, params, query) => {
               output += \`\\n  Success: \${diagnostic.passwordEntries.success}\`;
               output += \`\\n  Failed: \${diagnostic.passwordEntries.failed}\`;
               output += \`\\n  Success Rate: \${diagnostic.passwordEntries.successRate}%\`;
-              
+
               output += \`\\n\\nNote Entries:\`;
               output += \`\\n  Total: \${diagnostic.noteEntries.total}\`;
               output += \`\\n  Success: \${diagnostic.noteEntries.success}\`;
               output += \`\\n  Failed: \${diagnostic.noteEntries.failed}\`;
               output += \`\\n  Success Rate: \${diagnostic.noteEntries.successRate}%\`;
-              
+
               if (diagnostic.sampleErrors.length > 0) {
                 output += \`\\n\\nSample Errors:\`;
                 diagnostic.sampleErrors.slice(0, 5).forEach((error, i) => {
                   output += \`\\n  \${i + 1}. \${error}\`;
                 });
               }
-              
+
               output += \`\\n\\nRecommendations:\`;
               diagnostic.recommendations.forEach(rec => {
                 output += \`\\n  • \${rec}\`;
               });
-              
+
               showResults(output);
             }
           } catch (error) {
@@ -4166,7 +4166,7 @@ router.get("/health", async (request, params, query) => {
           try {
             const response = await fetch('/api/encryption/key-info');
             const data = await response.json();
-            
+
             if (data.error) {
               showResults(\`❌ Error: \${data.error}\`);
             } else {
@@ -4177,12 +4177,12 @@ router.get("/health", async (request, params, query) => {
               output += \`\\nDefault Key: \${data.isDefaultKey ? 'YES ⚠️' : 'NO ✅'}\`;
               output += \`\\nEnvironment: \${data.environment}\`;
               output += \`\\nTimestamp: \${data.timestamp}\`;
-              
+
               if (data.isDefaultKey) {
                 output += \`\\n\\n⚠️ WARNING: Using default encryption key!\`;
                 output += \`\\nSet ENCRYPTION_KEY environment variable for production.\`;
               }
-              
+
               showResults(output);
             }
           } catch (error) {
@@ -4195,17 +4195,17 @@ router.get("/health", async (request, params, query) => {
           try {
             const response = await fetch('/api/server/status');
             const data = await response.json();
-            
+
             let output = \`🖥️ Server Status\\n\\n\`;
             output += \`Status: \${data.phase}\`;
             output += \`\\nUptime: \${Math.floor(data.uptime / 60)} minutes\`;
             output += \`\\nDatabase: \${data.database.connected ? 'Connected ✅' : 'Disconnected ❌'}\`;
             output += \`\\nDatabase Healthy: \${data.database.healthy ? 'Yes ✅' : 'No ❌'}\`;
-            
+
             if (data.database.lastHealthCheck) {
               output += \`\\nLast DB Health Check: \${new Date(data.database.lastHealthCheck).toLocaleString()}\`;
             }
-            
+
             showResults(output);
           } catch (error) {
             showResults(\`❌ Failed to check server status: \${error.message}\`);
@@ -4217,11 +4217,11 @@ router.get("/health", async (request, params, query) => {
           try {
             const response = await fetch('/api/update/status');
             const data = await response.json();
-            
+
             let output = \`📦 Update Status\\n\\n\`;
             output += \`Has Updates: \${data.hasUpdates ? 'Yes ✅' : 'No ✅'}\`;
             output += \`\\nGit Repository: \${data.isGitRepo ? 'Yes ✅' : 'No ❌'}\`;
-            
+
             if (data.hasUpdates && data.isGitRepo) {
               output += \`\\n\\nAvailable Updates:\`;
               if (data.commitMessages && data.commitMessages.length > 0) {
@@ -4230,11 +4230,11 @@ router.get("/health", async (request, params, query) => {
                 });
               }
             }
-            
+
             if (data.error) {
               output += \`\\n\\nError: \${data.error}\`;
             }
-            
+
             showResults(output);
           } catch (error) {
             showResults(\`❌ Failed to check update status: \${error.message}\`);
@@ -4244,7 +4244,7 @@ router.get("/health", async (request, params, query) => {
         function showResults(content) {
           const resultsDiv = document.getElementById('dashboardResults');
           const resultsContent = document.getElementById('resultsContent');
-          
+
           resultsContent.textContent = content;
           resultsDiv.style.display = 'block';
         }
@@ -5093,8 +5093,8 @@ router.get("/passwords/:id", async (request, params, query) => {
               </div>
             ` : ''}
             <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #3d3d3d; color: #888; font-size: 0.85rem;">
-              Created: ${entry.createdAt.toLocaleString()}<br>
-              Updated: ${entry.updatedAt.toLocaleString()}
+              Created: ${new Date(entry.createdAt).toLocaleString()}<br>
+              Updated: ${new Date(entry.updatedAt).toLocaleString()}
             </div>
             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #3d3d3d; display: flex; gap: 1.5rem; font-size: 0.85rem; color: #b0b0b0;">
               <div>
