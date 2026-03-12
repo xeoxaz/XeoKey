@@ -44,8 +44,8 @@ Create `/home/xeo/xeokey/src/.env`:
 ```env
 NODE_ENV=production
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/xeokeys
-MONGODB_DB_NAME=xeokeys
+MONGODB_URI=mongodb://localhost:27017/XeoKey
+MONGODB_DB_NAME=XeoKey
 SESSION_SECRET=your-secure-session-secret-32-chars-minimum
 ENCRYPTION_KEY=your-secure-encryption-key-generate-with-openssl
 LOG_LEVEL=info
