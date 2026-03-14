@@ -263,26 +263,26 @@ export async function prepareRestart(): Promise<{ success: boolean; error?: stri
  * Check if running under systemd service
  */
 function isSystemdService(): boolean {
-  return process.env.SYSTEMD_SERVICE === 'true' || 
+  return process.env.SYSTEMD_SERVICE === 'true' ||
          process.env.INVOCATION_ID !== undefined ||
          process.env.JOURNAL_STREAM !== undefined;
 }
 
 /**
- * Trigger server restart - handles systemd, process manager, or manual restart
+ * Trigger server restart - handles systemd or manual restart
  */
 export async function triggerRestart(): Promise<void> {
-  logger.info('🔄 Triggering server restart after update...');
+  logger.info('Triggering server restart after update...');
 
   try {
     // Check if running under systemd service
     if (isSystemdService()) {
       logger.info('Running under systemd service, requesting service restart...');
-      
+
       // For systemd, we signal SIGHUP which should trigger a restart
       // The service file should have ExecReload configured
       process.kill(process.pid, 'SIGHUP');
-      
+
       // Give systemd time to handle the restart
       setTimeout(() => {
         process.exit(0);
@@ -290,54 +290,15 @@ export async function triggerRestart(): Promise<void> {
       return;
     }
 
-    // Check if we're running under internal process manager
-    // The manager sets this environment variable
-    if (process.env.XEOKEY_MANAGED === 'true') {
-      logger.info('Running under process manager, signaling restart...');
-      // Write a restart flag file that the manager watches
-      const { writeFile } = await import('fs/promises');
-      const { join } = await import('path');
-
-      // Determine project root - if we're in src/, go up one level
-      let projectRoot = process.cwd();
-      if (projectRoot.endsWith('src') || projectRoot.endsWith('src\\') || projectRoot.endsWith('src/')) {
-        projectRoot = join(projectRoot, '..');
-      }
-
-      const restartFlag = join(projectRoot, '.restart-requested');
-      await writeFile(restartFlag, Date.now().toString(), 'utf-8');
-      logger.info('Restart flag set, manager will handle restart');
-      // Exit gracefully - manager will restart us
-      setTimeout(() => {
-        process.exit(0);
-      }, 1000);
-      return;
-    }
-
-    // Try internal process manager
-    try {
-      const { restartWithProcessManager } = await import('./process-manager');
-      const result = await restartWithProcessManager();
-      if (result.success) {
-        logger.info('Process manager restart successful');
-        return;
-      } else {
-        logger.error(`Process manager restart failed: ${result.error}`);
-      }
-    } catch (error: any) {
-      logger.error(`Process manager not available: ${error.message || error}`);
-    }
-
-    // If process manager not available, just exit
-    // User should start the host manager manually
-    logger.warn('Process manager not available. Please restart manually using: bun run host');
+    // Non-systemd mode: exit and let operator restart the service manually.
+    logger.warn('Service restart must be handled manually in non-systemd mode.');
     logger.info('Exiting...');
     setTimeout(() => {
       process.exit(0);
     }, 1000);
   } catch (error: any) {
     logger.error(`Error triggering restart: ${error.message || error}`);
-    logger.info('Please restart manually using: bun run host');
+    logger.info('Please restart manually.');
     setTimeout(() => {
       process.exit(0);
     }, 1000);

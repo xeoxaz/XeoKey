@@ -33,15 +33,29 @@ export function getEncryptionKey(): Buffer {
 // Get all possible encryption keys for fallback attempts
 function getAllEncryptionKeys(): Buffer[] {
   const keys: Buffer[] = [];
-  
+  const seen = new Set<string>();
+
+  const addKey = (rawKey?: string): void => {
+    if (!rawKey || rawKey.trim() === '') {
+      return;
+    }
+
+    const keyBuffer = crypto.createHash('sha256').update(rawKey).digest();
+    const keyHash = keyBuffer.toString('hex');
+    if (!seen.has(keyHash)) {
+      seen.add(keyHash);
+      keys.push(keyBuffer);
+    }
+  };
+
   // Primary key (from environment)
   if (process.env.ENCRYPTION_KEY) {
-    keys.push(crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY).digest());
+    addKey(process.env.ENCRYPTION_KEY);
   }
-  
+
   // Default key (for recovery of data encrypted with default)
-  keys.push(crypto.createHash('sha256').update('default-encryption-key-change-in-production').digest());
-  
+  addKey('default-encryption-key-change-in-production');
+
   // Common development keys (for recovery scenarios)
   const commonKeys = [
     'test-encryption-key-for-development-use-only-change-in-production',
@@ -49,11 +63,25 @@ function getAllEncryptionKeys(): Buffer[] {
     'xeokey-test-key',
     'development-key-only',
   ];
-  
+
   for (const commonKey of commonKeys) {
-    keys.push(crypto.createHash('sha256').update(commonKey).digest());
+    addKey(commonKey);
   }
-  
+
+  // Additional historical keys supplied by operators.
+  // Format: ENCRYPTION_FALLBACK_KEYS="oldkey1,oldkey2,oldkey3"
+  const envFallbackKeys = process.env.ENCRYPTION_FALLBACK_KEYS;
+  if (envFallbackKeys) {
+    const parsedKeys = envFallbackKeys
+      .split(/[\n,;]+/)
+      .map((key) => key.trim())
+      .filter((key) => key.length > 0);
+
+    for (const fallbackKey of parsedKeys) {
+      addKey(fallbackKey);
+    }
+  }
+
   return keys;
 }
 
@@ -123,26 +151,26 @@ export async function decryptPassword(encrypted: string): Promise<string> {
   for (const formatParser of formats) {
     try {
       const { iv, encryptedData, format } = formatParser();
-      
+
       // Try primary key
       try {
         const key = getEncryptionKey();
         const decipher = crypto.createDecipheriv(algorithm, key, iv);
         let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
-        
+
         // Validate decrypted result
         if (!decrypted || decrypted.trim() === '') {
           throw new Error('Decryption succeeded but result is empty');
         }
-        
+
         // Log successful format detection for monitoring
         if (format !== 'iv:data') {
           const { logPrimaryDecryption } = await import('../utils/fallback-logger');
           logPrimaryDecryption();
           logger.info(`Successfully decrypted password using ${format} format`);
         }
-        
+
         return decrypted;
       } catch (primaryError: any) {
         lastError = primaryError as Error;
@@ -156,32 +184,32 @@ export async function decryptPassword(encrypted: string): Promise<string> {
 
   // If we get here, try fallback keys with the last tried format
   const fallbackKeys = getAllEncryptionKeys();
-  
+
   // Skip the first key since we already tried it
   for (let i = 1; i < fallbackKeys.length; i++) {
     // Try each format with fallback keys
     for (const formatParser of formats) {
       try {
         const { iv, encryptedData, format } = formatParser();
-        
+
         const key = fallbackKeys[i];
         const decipher = crypto.createDecipheriv(algorithm, key, iv);
         let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
-        
+
         // Validate decrypted result
         if (!decrypted || decrypted.trim() === '') {
           throw new Error('Decryption succeeded but result is empty');
         }
-        
+
         // Log successful fallback for monitoring
         const { logFallbackDecryption } = await import('../utils/fallback-logger');
         logFallbackDecryption(i + 1, fallbackKeys.length);
-        
+
         if (format !== 'iv:data') {
           logger.info(`Successfully decrypted password using fallback key ${i + 1}/${fallbackKeys.length} with ${format} format`);
         }
-        
+
         return decrypted;
       } catch (fallbackError) {
         // Continue trying other formats
@@ -189,7 +217,7 @@ export async function decryptPassword(encrypted: string): Promise<string> {
       }
     }
   }
-  
+
   // All keys failed, throw the last error
   throw lastError || new Error('Unable to decrypt password with any key or format');
 }

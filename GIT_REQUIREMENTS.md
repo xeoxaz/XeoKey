@@ -25,7 +25,6 @@ The update feature in XeoKey relies on Git for several critical operations:
 
 ### Components That Use Git
 - **Web Interface**: Update checking and patch notes display
-- **Process Manager**: Automatic updates during restart
 - **SystemD Service**: Update script for production deployments
 - **CLI Tools**: Manual update commands
 

@@ -11,8 +11,7 @@ let lastRestartTime = 0;
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
- * Internal Process Manager
- * Manages the server process lifecycle without requiring PM2
+ * Legacy host supervisor for server lifecycle management.
  */
 export class ProcessManager {
   private serverPath: string;
@@ -173,7 +172,6 @@ export class ProcessManager {
         stderr: 'pipe',
         env: {
           ...process.env,
-          XEOKEY_MANAGED: 'true', // Signal that we're running under process manager
         },
       });
 
@@ -365,7 +363,7 @@ export class ProcessManager {
 let processManager: ProcessManager | null = null;
 
 /**
- * Get or create the process manager instance
+ * Get or create the host supervisor instance.
  */
 export function getProcessManager(): ProcessManager {
   if (!processManager) {
@@ -375,7 +373,7 @@ export function getProcessManager(): ProcessManager {
 }
 
 /**
- * Start server using internal process manager
+ * Start server using the legacy host supervisor.
  */
 export async function startWithProcessManager(): Promise<{ success: boolean; error?: string }> {
   const manager = getProcessManager();
@@ -383,7 +381,7 @@ export async function startWithProcessManager(): Promise<{ success: boolean; err
 }
 
 /**
- * Restart server using internal process manager
+ * Restart server using the legacy host supervisor.
  */
 export async function restartWithProcessManager(pullUpdates: boolean = false): Promise<{ success: boolean; error?: string }> {
   const manager = getProcessManager();
@@ -391,7 +389,7 @@ export async function restartWithProcessManager(pullUpdates: boolean = false): P
 }
 
 /**
- * Stop server using internal process manager
+ * Stop server using the legacy host supervisor.
  */
 export async function stopWithProcessManager(): Promise<{ success: boolean; error?: string }> {
   const manager = getProcessManager();

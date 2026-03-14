@@ -27,15 +27,29 @@ export function getEncryptionKey(): Buffer {
 // Get all possible encryption keys for fallback attempts
 function getAllEncryptionKeys(): Buffer[] {
   const keys: Buffer[] = [];
-  
+  const seen = new Set<string>();
+
+  const addKey = (rawKey?: string): void => {
+    if (!rawKey || rawKey.trim() === '') {
+      return;
+    }
+
+    const keyBuffer = crypto.createHash('sha256').update(rawKey).digest();
+    const keyHash = keyBuffer.toString('hex');
+    if (!seen.has(keyHash)) {
+      seen.add(keyHash);
+      keys.push(keyBuffer);
+    }
+  };
+
   // Primary key (from environment)
   if (process.env.ENCRYPTION_KEY) {
-    keys.push(crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY).digest());
+    addKey(process.env.ENCRYPTION_KEY);
   }
-  
+
   // Default key (for recovery of data encrypted with default)
-  keys.push(crypto.createHash('sha256').update('default-encryption-key-change-in-production').digest());
-  
+  addKey('default-encryption-key-change-in-production');
+
   // Common development keys (for recovery scenarios)
   const commonKeys = [
     'test-encryption-key-for-development-use-only-change-in-production',
@@ -43,11 +57,25 @@ function getAllEncryptionKeys(): Buffer[] {
     'xeokey-test-key',
     'development-key-only',
   ];
-  
+
   for (const commonKey of commonKeys) {
-    keys.push(crypto.createHash('sha256').update(commonKey).digest());
+    addKey(commonKey);
   }
-  
+
+  // Additional historical keys supplied by operators.
+  // Format: ENCRYPTION_FALLBACK_KEYS="oldkey1,oldkey2,oldkey3"
+  const envFallbackKeys = process.env.ENCRYPTION_FALLBACK_KEYS;
+  if (envFallbackKeys) {
+    const parsedKeys = envFallbackKeys
+      .split(/[\n,;]+/)
+      .map((key) => key.trim())
+      .filter((key) => key.length > 0);
+
+    for (const fallbackKey of parsedKeys) {
+      addKey(fallbackKey);
+    }
+  }
+
   return keys;
 }
 
@@ -83,15 +111,15 @@ export async function decryptNoteContent(encrypted: string): Promise<string> {
     const decipher = crypto.createDecipheriv(algorithm, key, iv);
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     // Log successful primary key decryption
     logPrimaryDecryption();
-    
+
     return decrypted;
   } catch (primaryError) {
     // Primary key failed, try fallback keys
     const fallbackKeys = getAllEncryptionKeys();
-    
+
     // Skip the first key since we already tried it
     for (let i = 1; i < fallbackKeys.length; i++) {
       try {
@@ -99,17 +127,17 @@ export async function decryptNoteContent(encrypted: string): Promise<string> {
         const decipher = crypto.createDecipheriv(algorithm, key, iv);
         let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
-        
+
         // Log successful fallback for monitoring
         logFallbackDecryption(i + 1, fallbackKeys.length);
-        
+
         return decrypted;
       } catch (fallbackError) {
         // Continue trying other keys
         continue;
       }
     }
-    
+
     // All keys failed, throw the original error
     throw primaryError;
   }

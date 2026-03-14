@@ -299,16 +299,6 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
     // Remove session timer bar
     header = header.replace(/<div id="sessionTimer"[\s\S]*?<\/div>\s*/m, '');
   } else {
-    // Add notification badge to Dashboard link
-    const dashboardBadge = issueCount > 0
-      ? `<span style="background: #d4a5a5; color: #1d1d1d; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; margin-left: 0.5rem;">${issueCount}</span>`
-      : `<span style="color: #7fb069; margin-left: 0.5rem; font-size: 1rem;">✓</span>`;
-
-    header = header.replace(
-      '<a href="/">Dashboard</a>',
-      `<a href="/" style="display: flex; align-items: center;">Dashboard${dashboardBadge}</a>`
-    );
-
     // Add login/logout menu items for logged in users
     const authMenu = `<div class="nav-item dropdown">
         <button type="button">${sanitizeString(session.username)}</button>
@@ -374,33 +364,34 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
       // Ignore errors when getting unrecoverable password count for header
     }
 
-    // Insert TOTP, Backups, Health, Password Issues and auth menu into nav-actions section
-    const totpMenu = `<div class="nav-item dropdown">
-        <button type="button">TOTP</button>
+    const vaultMenu = `<div class="nav-item dropdown">
+        <button type="button">Vault</button>
         <div class="dropdown-menu">
-          <a href="/totp">All TOTP (${totpCount})</a>
-          <a href="/totp/add">Add TOTP</a>
+          <a href="/passwords">Passwords (${passwordCount})</a>
+          <a href="/notes">Notes</a>
+          <a href="/totp">TOTP (${totpCount})</a>
         </div>
       </div>`;
-    const backupsMenu = `<div class="nav-item dropdown">
-        <button type="button">Backups</button>
+    const operationsMenu = `<div class="nav-item dropdown">
+        <button type="button">Operations${unrecoverableCount > 0 ? ` <span class="nav-badge">${unrecoverableCount}</span>` : ''}</button>
         <div class="dropdown-menu">
-          <a href="/backups">All Backups (${backupCount})</a>
+          <a href="/health">System Health</a>
+          <a href="/health#password-issues">Password Issues${unrecoverableCount > 0 ? ` (${unrecoverableCount})` : ''}</a>
+          <a href="/backups">Backups (${backupCount})</a>
         </div>
       </div>`;
-    const healthMenu = `<div class="nav-item dropdown">
-        <button type="button">Health</button>
-        <div class="dropdown-menu">
-          <a href="/health">Health Check</a>
+
+    // Replace the primary nav with a simpler operator-focused layout.
+    const navMainContent = `<div class="nav-main">
+        <div class="nav-item">
+          <a href="/">Dashboard</a>
         </div>
+        ${vaultMenu}
+        ${operationsMenu}
       </div>`;
-    const passwordIssuesMenu = `<div class="nav-item dropdown">
-        <button type="button">Password Issues${unrecoverableCount > 0 ? ` <span class="nav-badge">${unrecoverableCount}</span>` : ''}</button>
-        <div class="dropdown-menu">
-          <a href="/passwords/recover">Password Recovery${unrecoverableCount > 0 ? ` (${unrecoverableCount})` : ''}</a>
-        </div>
-      </div>`;
-    const navActionsContent = totpMenu + backupsMenu + healthMenu + passwordIssuesMenu + authMenu;
+    header = header.replace(/<div class="nav-main">[\s\S]*?<\/div>\s*<div class="nav-actions">/, `${navMainContent}\n      <div class="nav-actions">`);
+
+    const navActionsContent = authMenu;
     // Replace the nav-actions placeholder - use a more flexible regex to handle whitespace variations
     // Try multiple replacement strategies
     const navActionsRegex = /<div class="nav-actions">[\s\S]*?<\/div>/;
@@ -439,15 +430,15 @@ async function getFooter(session: { username: string; userId: string } | null = 
       </a>
       <a href="/passwords" class="bottom-nav-item">
         <span class="bottom-nav-icon">🔑</span>
-        <span class="bottom-nav-label">Passwords</span>
+        <span class="bottom-nav-label">Vault</span>
       </a>
-      <a href="/totp" class="bottom-nav-item">
-        <span class="bottom-nav-icon">⏱️</span>
-        <span class="bottom-nav-label">TOTP</span>
+      <a href="/health" class="bottom-nav-item">
+        <span class="bottom-nav-icon">⚙️</span>
+        <span class="bottom-nav-label">Ops</span>
       </a>
-      <a href="/passwords/add" class="bottom-nav-item">
-        <span class="bottom-nav-icon">➕</span>
-        <span class="bottom-nav-label">Add</span>
+      <a href="/backups" class="bottom-nav-item">
+        <span class="bottom-nav-icon">💾</span>
+        <span class="bottom-nav-label">Backups</span>
       </a>
       <a href="/logout" class="bottom-nav-item">
         <span class="bottom-nav-icon">🚪</span>
@@ -2190,17 +2181,6 @@ router.get("/", async (request, params, query) => {
           </div>
         </div>
       </a>
-      ${!(globalThis as any).processManagerAvailable ? `
-        <div style="display: block; background: #2d3d4d; padding: 1rem; border-radius: 6px; border: 1px solid #3d4d5d; color: #e0e0e0;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span style="font-size: 1.5rem;">⚙️</span>
-            <div>
-              <div style="font-weight: bold; color: #9db4d4; margin-bottom: 0.25rem;">Process Manager</div>
-              <div style="color: #888; font-size: 0.8rem;">Run "bun run host" for auto-management</div>
-            </div>
-          </div>
-        </div>
-      ` : ''}
     </div>
 
     <!-- System Status Row -->
@@ -3773,6 +3753,112 @@ router.post("/backups/:id/delete", async (request, params, query) => {
 });
 
 // Health Check and Integrity Routes
+async function buildPasswordIssuesPanel(session: { sessionId: string; userId: string }): Promise<string> {
+  const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
+  const unrecoverable = await getUnrecoverablePasswords(userIdString);
+
+  const unrecoverableList = unrecoverable
+    .filter(e => !e.canDecrypt)
+    .map(entry => {
+      const identifier = encodeURIComponent(JSON.stringify({
+        website: entry.website,
+        username: entry.username || '',
+        email: entry.email || ''
+      }));
+
+      return `
+        <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+            <div style="flex: 1;">
+              <h3 style="margin: 0; color: #9db4d4; font-size: 1.1rem;">${escapeHtml(entry.website)}</h3>
+              ${entry.username ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;"><strong>Username:</strong> ${escapeHtml(entry.username)}</p>` : ''}
+              ${entry.email ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;"><strong>Email:</strong> ${escapeHtml(entry.email)}</p>` : ''}
+              ${entry.decryptionError ? `<p style="color: #d4a5a5; margin: 0.5rem 0 0 0; font-size: 0.85rem;">${escapeHtml(entry.decryptionError)}</p>` : ''}
+            </div>
+            <span style="background: #6d2d2d; color: #d4a5a5; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #7d3d3d; white-space: nowrap;">Cannot Decrypt</span>
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #3d3d3d;">
+            <form method="POST" action="/passwords/recover/by-identifier" style="flex: 1; min-width: 250px;">
+              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+              <input type="hidden" name="identifier" value="${identifier}">
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="password" name="masterKey" placeholder="Master password or key" autocomplete="off"
+                      style="flex: 1; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
+                <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                  Try Recovery
+                </button>
+              </div>
+            </form>
+            <form method="POST" action="/passwords/delete/by-identifier" style="display: inline-block;">
+              <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+              <input type="hidden" name="identifier" value="${identifier}">
+              <button type="submit" onclick="return confirm('Are you sure you want to delete this password entry? This cannot be undone.');"
+                      style="background: #6d2d2d; color: #d4a5a5; border: 1px solid #7d3d3d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                Delete Entry
+              </button>
+            </form>
+          </div>
+          <div style="color: #666; font-size: 0.75rem; margin-top: 0.5rem; font-family: monospace;">
+            ID: ${escapeHtml(entry.entryId)}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  const recoverableCount = unrecoverable.filter(e => e.canDecrypt).length;
+  const unrecoverableCount = unrecoverable.filter(e => !e.canDecrypt).length;
+
+  return `
+    <div id="password-issues" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #3d3d3d;">
+      <h2 style="color: #9db4d4; margin-bottom: 0.5rem;">Password Issues</h2>
+      <p style="color: #888; margin-bottom: 1rem;">
+        Recover entries that no longer decrypt with the current key. This section is fused into Operations for easier maintenance.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="background: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px; padding: 0.75rem;">
+          <div style="color: #888; font-size: 0.85rem;">Needs Recovery</div>
+          <div style="color: #d4a5a5; font-size: 1.2rem; font-weight: bold;">${unrecoverableCount}</div>
+        </div>
+        <div style="background: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px; padding: 0.75rem;">
+          <div style="color: #888; font-size: 0.85rem;">Recoverable</div>
+          <div style="color: #7fb069; font-size: 1.2rem; font-weight: bold;">${recoverableCount}</div>
+        </div>
+      </div>
+
+      ${unrecoverableCount > 0 ? `
+        <div style="margin-bottom: 1.25rem;">
+          ${unrecoverableList}
+        </div>
+      ` : `
+        <div style="padding: 1rem; text-align: center; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d; margin-bottom: 1rem;">
+          <p style="color: #7fb069; font-size: 1.1rem; margin: 0;">All password entries are accessible.</p>
+        </div>
+      `}
+
+      <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
+        <h3 style="color: #9db4d4; margin-top: 0;">Batch Recovery</h3>
+        <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
+          Try recovering all affected entries in one pass with the original key.
+        </p>
+        <form method="POST" action="/passwords/recover/batch">
+          <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
+          <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 260px;">
+              <label style="display: block; color: #888; font-size: 0.9rem; margin-bottom: 0.25rem;">Master Password / Encryption Key:</label>
+              <input type="password" name="masterKey" placeholder="Enter master password or original key" autocomplete="off"
+                     style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
+            </div>
+            <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+              Recover All
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
 router.get("/health", async (request, params, query) => {
   const session = await attachSession(request);
   if (!session) {
@@ -3805,7 +3891,7 @@ router.get("/health", async (request, params, query) => {
       : lastCheck.result;
 
     const statusColor = integrityResult.success ? '#7fb069' : '#d4a5a5';
-    const statusText = integrityResult.success ? '✅ Healthy' : '⚠️ Issues Detected';
+    const statusText = integrityResult.success ? 'Healthy' : 'Issues Detected';
 
     const issuesList = [
       ...integrityResult.checks.userIdFormat.issues,
@@ -3832,18 +3918,20 @@ router.get("/health", async (request, params, query) => {
               ${issue.collection ? `<div style="color: #888; font-size: 0.9rem;">Collection: ${escapeHtml(String(issue.collection || ''))}</div>` : ''}
               ${issue.entryId ? `<div style="color: #888; font-size: 0.9rem;">Entry ID: ${escapeHtml(String(issue.entryId || ''))}</div>` : ''}
               ${issue.userId ? `<div style="color: #888; font-size: 0.9rem;">User ID: ${escapeHtml(String(issue.userId || ''))}</div>` : ''}
-              ${issue.suggestion ? `<div style="color: #9db4d4; font-size: 0.9rem; margin-top: 0.25rem;">💡 ${escapeHtml(String(issue.suggestion || ''))}</div>` : ''}
+              ${issue.suggestion ? `<div style="color: #9db4d4; font-size: 0.9rem; margin-top: 0.25rem;">Note: ${escapeHtml(String(issue.suggestion || ''))}</div>` : ''}
             </div>
           </div>
         </div>
       `;
     }).join('');
 
+    const passwordIssuesPanel = await buildPasswordIssuesPanel(session);
+
     return renderPage(`
       <h1>System Health & Integrity</h1>
       <div style="margin-bottom: 1.5rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
         <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-          <div style="font-size: 2rem; color: ${statusColor};">${integrityResult.success ? '✅' : '⚠️'}</div>
+          <div style="font-size: 1rem; color: ${statusColor}; font-weight: bold;">${integrityResult.success ? 'OK' : 'ISSUES'}</div>
           <div>
             <h2 style="margin: 0; color: ${statusColor};">${statusText}</h2>
             <p style="color: #888; margin: 0.25rem 0; font-size: 0.9rem;">
@@ -3873,35 +3961,35 @@ router.get("/health", async (request, params, query) => {
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">UserId Format</div>
             <div style="color: ${integrityResult.checks.userIdFormat.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
-              ${integrityResult.checks.userIdFormat.passed ? '✅ Pass' : '❌ Fail'}
+              ${integrityResult.checks.userIdFormat.passed ? 'Pass' : 'Fail'}
             </div>
             <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.userIdFormat.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Password Accessibility</div>
             <div style="color: ${integrityResult.checks.passwordAccessibility.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
-              ${integrityResult.checks.passwordAccessibility.passed ? '✅ Pass' : '❌ Fail'}
+              ${integrityResult.checks.passwordAccessibility.passed ? 'Pass' : 'Fail'}
             </div>
             <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.passwordAccessibility.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Data Consistency</div>
             <div style="color: ${integrityResult.checks.dataConsistency.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
-              ${integrityResult.checks.dataConsistency.passed ? '✅ Pass' : '❌ Fail'}
+              ${integrityResult.checks.dataConsistency.passed ? 'Pass' : 'Fail'}
             </div>
             <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.dataConsistency.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Orphaned Entries</div>
             <div style="color: ${integrityResult.checks.orphanedEntries.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
-              ${integrityResult.checks.orphanedEntries.passed ? '✅ Pass' : '❌ Fail'}
+              ${integrityResult.checks.orphanedEntries.passed ? 'Pass' : 'Fail'}
             </div>
             <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.orphanedEntries.details || ''))}</div>
           </div>
           <div style="padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Encryption Integrity</div>
             <div style="color: ${integrityResult.checks.encryptionIntegrity.passed ? '#7fb069' : '#d4a5a5'}; font-weight: bold;">
-              ${integrityResult.checks.encryptionIntegrity.passed ? '✅ Pass' : '❌ Fail'}
+              ${integrityResult.checks.encryptionIntegrity.passed ? 'Pass' : 'Fail'}
             </div>
             <div style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">${escapeHtml(String(integrityResult.checks.encryptionIntegrity.details || ''))}</div>
           </div>
@@ -3918,61 +4006,61 @@ router.get("/health", async (request, params, query) => {
       <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
         <form method="GET" action="/health?refresh=1" style="display: inline;">
           <button type="submit" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
-            🔄 Run Health Check Now
+            Run Health Check Now
           </button>
         </form>
         <button type="button" onclick="toggleDashboard()" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
-          📊 Dashboard & Tools
+          Dashboard and Tools
         </button>
       </div>
 
       <!-- Dashboard & Tools Section (Hidden by default) -->
       <div id="dashboardSection" style="display: none; margin-top: 2rem; padding: 1.5rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
-        <h2 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">📊 System Dashboard & Management Tools</h2>
+        <h2 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">System Dashboard and Management Tools</h2>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
 
           <!-- Auto Re-Encryption Card -->
           <div id="autoReEncryptionCard" style="padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
-            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">🔄 Auto Re-Encryption</h3>
+            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">Auto Re-Encryption</h3>
             <div id="reEncryptionStatus" style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">Loading...</div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
               <button type="button" onclick="checkReEncryptionStatus()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                📊 Check Status
+                Check Status
               </button>
               <button type="button" onclick="triggerReEncryption()" id="triggerBtn" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                ⚡ Trigger Now
+                Trigger Now
               </button>
               <button type="button" onclick="debugReEncryption()" style="background: #5d4d4d; color: #9db4d4; border: 1px solid #6d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                🔍 Debug
+                Debug
               </button>
             </div>
           </div>
 
           <!-- Encryption Diagnostics Card -->
           <div style="padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
-            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">🔐 Encryption Diagnostics</h3>
+            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">Encryption Diagnostics</h3>
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">Analyze encryption key usage and detect issues</div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
               <button type="button" onclick="runDiagnostics()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                🔍 Run Diagnostics
+                Run Diagnostics
               </button>
               <button type="button" onclick="checkKeyInfo()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                🔑 Key Info
+                Key Info
               </button>
             </div>
           </div>
 
           <!-- System Status Card -->
           <div style="padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
-            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">⚙️ System Status</h3>
+            <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">System Status</h3>
             <div style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">Check server and system health</div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
               <button type="button" onclick="checkServerStatus()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                🖥️ Server Status
+                Server Status
               </button>
               <button type="button" onclick="checkUpdateStatus()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                📦 Updates
+                Updates
               </button>
             </div>
           </div>
@@ -3981,10 +4069,10 @@ router.get("/health", async (request, params, query) => {
 
         <!-- Results Display Area -->
         <div id="dashboardResults" style="display: none; margin-top: 1.5rem; padding: 1rem; background: #1d1d1d; border-radius: 8px; border: 1px solid #3d3d3d;">
-          <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">📋 Results</h3>
+          <h3 style="color: #9db4d4; margin-top: 0; margin-bottom: 1rem;">Results</h3>
           <div id="resultsContent" style="color: #888; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap;"></div>
           <button type="button" onclick="closeResults()" style="background: #3d4d5d; color: #9db4d4; border: 1px solid #4d5d6d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-top: 1rem;">
-            ✖️ Close
+            Close
           </button>
         </div>
       </div>
@@ -4005,7 +4093,7 @@ router.get("/health", async (request, params, query) => {
           const statusDiv = document.getElementById('reEncryptionStatus');
           const triggerBtn = document.getElementById('triggerBtn');
 
-          statusDiv.innerHTML = '🔄 Checking...';
+          statusDiv.innerHTML = 'Checking...';
           triggerBtn.disabled = true;
 
           try {
@@ -4013,7 +4101,7 @@ router.get("/health", async (request, params, query) => {
             const data = await response.json();
 
             if (data.error) {
-              statusDiv.innerHTML = \`❌ Error: \${data.error}\`;
+              statusDiv.innerHTML = \`Error: \${data.error}\`;
             } else {
               const status = data.status;
               const fallbackUsage = status.fallbackUsage;
@@ -4021,7 +4109,7 @@ router.get("/health", async (request, params, query) => {
                 ? (fallbackUsage.passwordsUsingFallback + fallbackUsage.notesUsingFallback + fallbackUsage.totpUsingFallback) / fallbackUsage.totalEntries * 100
                 : 0;
 
-              let statusText = status.isRunning ? '🔄 Running...' : '✅ Idle';
+              let statusText = status.isRunning ? 'Running...' : 'Idle';
               let recommendation = data.recommendation || '';
 
               statusDiv.innerHTML = \`
@@ -4030,13 +4118,13 @@ router.get("/health", async (request, params, query) => {
                   <strong>Fallback Usage:</strong> \${percentage.toFixed(1)}% (\${fallbackUsage.passwordsUsingFallback + fallbackUsage.notesUsingFallback + fallbackUsage.totpUsingFallback}/\${fallbackUsage.totalEntries})<br>
                   <strong>Enabled:</strong> \${status.enabled ? 'Yes' : 'No'}
                 </div>
-                \${recommendation ? \`<div style="color: #9db4d4; font-size: 0.8rem; margin-top: 0.5rem;">💡 \${recommendation}</div>\` : ''}
+                \${recommendation ? \`<div style="color: #9db4d4; font-size: 0.8rem; margin-top: 0.5rem;">Note: \${recommendation}</div>\` : ''}
               \`;
 
               triggerBtn.disabled = status.isRunning;
             }
           } catch (error) {
-            statusDiv.innerHTML = \`❌ Failed to check status: \${error.message}\`;
+            statusDiv.innerHTML = \`Failed to check status: \${error.message}\`;
             triggerBtn.disabled = false;
           }
         }
@@ -4049,7 +4137,7 @@ router.get("/health", async (request, params, query) => {
             return;
           }
 
-          statusDiv.innerHTML = '🔄 Starting re-encryption...';
+          statusDiv.innerHTML = 'Starting re-encryption...';
           triggerBtn.disabled = true;
 
           try {
@@ -4057,30 +4145,30 @@ router.get("/health", async (request, params, query) => {
             const data = await response.json();
 
             if (data.success) {
-              statusDiv.innerHTML = \`✅ \${data.message}\`;
+              statusDiv.innerHTML = \`\${data.message}\`;
               // Auto-refresh status after a delay
               setTimeout(checkReEncryptionStatus, 2000);
             } else {
-              statusDiv.innerHTML = \`❌ Failed: \${data.message}\`;
+              statusDiv.innerHTML = \`Failed: \${data.message}\`;
               triggerBtn.disabled = false;
             }
           } catch (error) {
-            statusDiv.innerHTML = \`❌ Failed to start: \${error.message}\`;
+            statusDiv.innerHTML = \`Failed to start: \${error.message}\`;
             triggerBtn.disabled = false;
           }
         }
 
         async function debugReEncryption() {
-          showResults('🔍 Running re-encryption debug...');
+          showResults('Running re-encryption debug...');
           try {
             const response = await fetch('/api/re-encryption/debug');
             const data = await response.json();
 
             if (data.error) {
-              showResults(\`❌ Error: \${data.error}\`);
+              showResults(\`Error: \${data.error}\`);
             } else {
               const debug = data.debug;
-              let output = \`🔍 Re-Encryption Debug Results\\n\\n\`;
+              let output = \`Re-Encryption Debug Results\\n\\n\`;
 
               output += \`Current Key Information:\\n\`;
               output += \`  Hash: \${debug.currentKeyInfo.hash}\\n\`;
@@ -4113,23 +4201,23 @@ router.get("/health", async (request, params, query) => {
               showResults(output);
             }
           } catch (error) {
-            showResults(\`❌ Failed to run debug: \${error.message}\`);
+            showResults(\`Failed to run debug: \${error.message}\`);
           }
         }
 
         async function runDiagnostics() {
-          showResults('🔍 Running encryption diagnostics...');
+          showResults('Running encryption diagnostics...');
           try {
             const response = await fetch('/api/encryption/diagnostics');
             const data = await response.json();
 
             if (data.error) {
-              showResults(\`❌ Error: \${data.error}\`);
+              showResults(\`Error: \${data.error}\`);
             } else {
               const diagnostic = data.diagnostic;
-              let output = \`🔍 Encryption Diagnostics Results\\n\\n\`;
+              let output = \`Encryption Diagnostics Results\\n\\n\`;
               output += \`Key Hash: \${diagnostic.keyInfo.hash}\`;
-              output += \`\\nDefault Key: \${diagnostic.keyInfo.isDefaultKey ? 'YES ⚠️' : 'NO ✅'}\`;
+              output += \`\\nDefault Key: \${diagnostic.keyInfo.isDefaultKey ? 'YES' : 'NO'}\`;
               output += \`\\n\\nPassword Entries:\`;
               output += \`\\n  Total: \${diagnostic.passwordEntries.total}\`;
               output += \`\\n  Success: \${diagnostic.passwordEntries.success}\`;
@@ -4157,50 +4245,50 @@ router.get("/health", async (request, params, query) => {
               showResults(output);
             }
           } catch (error) {
-            showResults(\`❌ Failed to run diagnostics: \${error.message}\`);
+            showResults(\`Failed to run diagnostics: \${error.message}\`);
           }
         }
 
         async function checkKeyInfo() {
-          showResults('🔑 Getting key information...');
+          showResults('Getting key information...');
           try {
             const response = await fetch('/api/encryption/key-info');
             const data = await response.json();
 
             if (data.error) {
-              showResults(\`❌ Error: \${data.error}\`);
+              showResults(\`Error: \${data.error}\`);
             } else {
-              let output = \`🔑 Encryption Key Information\\n\\n\`;
+              let output = \`Encryption Key Information\\n\\n\`;
               output += \`Key Hash: \${data.hash}\`;
               output += \`\\nKey Length: \${data.keyLength} bytes\`;
               output += \`\\nAlgorithm: \${data.algorithm}\`;
-              output += \`\\nDefault Key: \${data.isDefaultKey ? 'YES ⚠️' : 'NO ✅'}\`;
+              output += \`\\nDefault Key: \${data.isDefaultKey ? 'YES' : 'NO'}\`;
               output += \`\\nEnvironment: \${data.environment}\`;
               output += \`\\nTimestamp: \${data.timestamp}\`;
 
               if (data.isDefaultKey) {
-                output += \`\\n\\n⚠️ WARNING: Using default encryption key!\`;
+                output += \`\\n\\nWARNING: Using default encryption key!\`;
                 output += \`\\nSet ENCRYPTION_KEY environment variable for production.\`;
               }
 
               showResults(output);
             }
           } catch (error) {
-            showResults(\`❌ Failed to get key info: \${error.message}\`);
+            showResults(\`Failed to get key info: \${error.message}\`);
           }
         }
 
         async function checkServerStatus() {
-          showResults('🖥️ Checking server status...');
+          showResults('Checking server status...');
           try {
             const response = await fetch('/api/server/status');
             const data = await response.json();
 
-            let output = \`🖥️ Server Status\\n\\n\`;
+            let output = \`Server Status\\n\\n\`;
             output += \`Status: \${data.phase}\`;
             output += \`\\nUptime: \${Math.floor(data.uptime / 60)} minutes\`;
-            output += \`\\nDatabase: \${data.database.connected ? 'Connected ✅' : 'Disconnected ❌'}\`;
-            output += \`\\nDatabase Healthy: \${data.database.healthy ? 'Yes ✅' : 'No ❌'}\`;
+            output += \`\\nDatabase: \${data.database.connected ? 'Connected' : 'Disconnected'}\`;
+            output += \`\\nDatabase Healthy: \${data.database.healthy ? 'Yes' : 'No'}\`;
 
             if (data.database.lastHealthCheck) {
               output += \`\\nLast DB Health Check: \${new Date(data.database.lastHealthCheck).toLocaleString()}\`;
@@ -4208,19 +4296,19 @@ router.get("/health", async (request, params, query) => {
 
             showResults(output);
           } catch (error) {
-            showResults(\`❌ Failed to check server status: \${error.message}\`);
+            showResults(\`Failed to check server status: \${error.message}\`);
           }
         }
 
         async function checkUpdateStatus() {
-          showResults('📦 Checking for updates...');
+          showResults('Checking for updates...');
           try {
             const response = await fetch('/api/update/status');
             const data = await response.json();
 
-            let output = \`📦 Update Status\\n\\n\`;
-            output += \`Has Updates: \${data.hasUpdates ? 'Yes ✅' : 'No ✅'}\`;
-            output += \`\\nGit Repository: \${data.isGitRepo ? 'Yes ✅' : 'No ❌'}\`;
+            let output = \`Update Status\\n\\n\`;
+            output += \`Has Updates: \${data.hasUpdates ? 'Yes' : 'No'}\`;
+            output += \`\\nGit Repository: \${data.isGitRepo ? 'Yes' : 'No'}\`;
 
             if (data.hasUpdates && data.isGitRepo) {
               output += \`\\n\\nAvailable Updates:\`;
@@ -4237,7 +4325,7 @@ router.get("/health", async (request, params, query) => {
 
             showResults(output);
           } catch (error) {
-            showResults(\`❌ Failed to check update status: \${error.message}\`);
+            showResults(\`Failed to check update status: \${error.message}\`);
           }
         }
 
@@ -4261,6 +4349,8 @@ router.get("/health", async (request, params, query) => {
           }
         }, 30000);
       </script>
+
+      ${passwordIssuesPanel}
     `, "Health Check - XeoKey", request);
   } catch (error) {
     logger.error(`Error running health check: ${error}`);
@@ -4284,145 +4374,13 @@ router.get("/passwords/recover", async (request, params, query) => {
     });
   }
 
-  if (!isConnected()) {
-    return renderPage(`
-      <h1>Password Recovery</h1>
-      <p style="color: #d4a5a5;">Database not available.</p>
-    `, "Password Recovery - XeoKey", request);
-  }
-
-  try {
-    const userIdString = typeof session.userId === 'string' ? session.userId : (session.userId as any).toString();
-    const unrecoverable = await getUnrecoverablePasswords(userIdString);
-
-    const unrecoverableList = unrecoverable
-      .filter(e => !e.canDecrypt)
-      .map(entry => {
-        // Encode identifier for URL
-        const identifier = encodeURIComponent(JSON.stringify({
-          website: entry.website,
-          username: entry.username || '',
-          email: entry.email || ''
-        }));
-
-        return `
-          <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
-              <div style="flex: 1;">
-                <h3 style="margin: 0; color: #9db4d4; font-size: 1.1rem;">${escapeHtml(entry.website)}</h3>
-                ${entry.username ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;"><strong>Username:</strong> ${escapeHtml(entry.username)}</p>` : ''}
-                ${entry.email ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;"><strong>Email:</strong> ${escapeHtml(entry.email)}</p>` : ''}
-                ${entry.decryptionError ? `<p style="color: #d4a5a5; margin: 0.5rem 0 0 0; font-size: 0.85rem;">⚠️ ${escapeHtml(entry.decryptionError)}</p>` : ''}
-              </div>
-              <span style="background: #6d2d2d; color: #d4a5a5; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #7d3d3d; white-space: nowrap;">Cannot Decrypt</span>
-            </div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #3d3d3d;">
-              <form method="POST" action="/passwords/recover/by-identifier" style="flex: 1; min-width: 250px;">
-                <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
-                <input type="hidden" name="identifier" value="${identifier}">
-                <div style="display: flex; gap: 0.5rem;">
-                  <input type="password" name="masterKey" placeholder="Master password or key" autocomplete="off"
-                         style="flex: 1; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
-                  <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                    Try Recovery
-                  </button>
-                </div>
-              </form>
-              <form method="POST" action="/passwords/delete/by-identifier" style="display: inline-block;">
-                <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
-                <input type="hidden" name="identifier" value="${identifier}">
-                <button type="submit" onclick="return confirm('Are you sure you want to delete this password entry? This cannot be undone.');"
-                        style="background: #6d2d2d; color: #d4a5a5; border: 1px solid #7d3d3d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                  Delete Entry
-                </button>
-              </form>
-            </div>
-            <div style="color: #666; font-size: 0.75rem; margin-top: 0.5rem; font-family: monospace;">
-              ID: ${escapeHtml(entry.entryId)}
-            </div>
-          </div>
-        `;
-      }).join('');
-
-    const recoverableList = unrecoverable
-      .filter(e => e.canDecrypt)
-      .map(entry => {
-        return `
-          <div style="border: 1px solid #3d3d3d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2d2d2d;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div>
-                <h3 style="margin: 0; color: #9db4d4;">${escapeHtml(entry.website)}</h3>
-                ${entry.username ? `<p style="color: #b0b0b0; margin: 0.25rem 0; font-size: 0.9rem;">Username: ${escapeHtml(entry.username)}</p>` : ''}
-              </div>
-              <span style="background: #2d4a2d; color: #7fb069; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #3d5d3d;">✅ Recoverable</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-    return renderPage(`
-      <h1>Password Recovery</h1>
-      <p style="color: #888; margin-bottom: 1.5rem;">
-        If passwords cannot be decrypted, you can attempt to recover them using a master password or encryption key.
-        This is useful if the encryption key has changed or passwords were encrypted with a different key.
-      </p>
-
-      ${unrecoverable.filter(e => !e.canDecrypt).length > 0 ? `
-        <div style="margin-bottom: 2rem;">
-          <h2 style="color: #d4a5a5;">Passwords Requiring Recovery (${unrecoverable.filter(e => !e.canDecrypt).length})</h2>
-          <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
-            These passwords cannot be decrypted with the current encryption key, but may be recoverable using fallback keys or a master password.
-            The system will automatically attempt to decrypt using multiple encryption keys.
-          </p>
-          ${unrecoverableList}
-        </div>
-      ` : ''}
-
-      ${unrecoverable.filter(e => e.canDecrypt).length > 0 ? `
-        <div style="margin-bottom: 2rem;">
-          <h2 style="color: #7fb069;">Recoverable Passwords (${unrecoverable.filter(e => e.canDecrypt).length})</h2>
-          <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
-            These passwords can be decrypted successfully.
-          </p>
-          ${recoverableList}
-        </div>
-      ` : ''}
-
-      ${unrecoverable.length === 0 ? `
-        <div style="padding: 2rem; text-align: center; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
-          <p style="color: #7fb069; font-size: 1.2rem;">✅ All passwords are accessible!</p>
-          <p style="color: #888; margin-top: 0.5rem;">All passwords can be decrypted with current or fallback keys.</p>
-        </div>
-      ` : ''}
-
-      <div style="margin-top: 2rem; padding: 1rem; background: #2d2d2d; border-radius: 8px; border: 1px solid #3d3d3d;">
-        <h3 style="color: #9db4d4; margin-top: 0;">Batch Recovery</h3>
-        <p style="color: #888; font-size: 0.9rem; margin-bottom: 1rem;">
-          Attempt to recover all passwords requiring recovery at once using a master password.
-          The system also automatically tries multiple encryption keys for recovery.
-        </p>
-        <form method="POST" action="/passwords/recover/batch">
-          <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
-          <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
-            <div style="flex: 1;">
-              <label style="display: block; color: #888; font-size: 0.9rem; margin-bottom: 0.25rem;">Master Password / Encryption Key:</label>
-              <input type="password" name="masterKey" placeholder="Enter master password or encryption key" autocomplete="off"
-                     style="width: 100%; padding: 0.5rem; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #e0e0e0; font-size: 0.9rem; box-sizing: border-box;" required>
-            </div>
-            <button type="submit" style="background: #4d6d4d; color: #9db4d4; border: 1px solid #5d7d5d; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-              Recover All
-            </button>
-          </div>
-        </form>
-      </div>
-    `, "Password Recovery - XeoKey", request);
-  } catch (error) {
-    logger.error(`Error loading password recovery: ${error}`);
-    return renderPage(`
-      <h1>Password Recovery</h1>
-      <p style="color: #d4a5a5;">Error loading password recovery.</p>
-    `, "Password Recovery - XeoKey", request);
-  }
+  return new Response(null, {
+    status: 302,
+    headers: {
+      ...SECURITY_HEADERS,
+      Location: '/health#password-issues',
+    },
+  });
 });
 
 router.post("/passwords/recover/:id", async (request, params, query) => {
@@ -4455,7 +4413,7 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
       return renderPage(`
         <h1>Recovery Failed</h1>
         <p style="color: #d4a5a5;">Master password is required.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Recovery Failed - XeoKey", request);
     }
 
@@ -4498,7 +4456,7 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
             <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Recovered Password:</p>
             <p style="color: #9db4d4; font-family: monospace; font-size: 1.1rem; word-break: break-all;">${escapeHtml(result.decryptedPassword)}</p>
           </div>
-          <p><a href="/passwords/${entryId}" style="color: #9db4d4;">View Password Entry</a> | <a href="/passwords/recover" style="color: #9db4d4;">Back to Recovery</a></p>
+          <p><a href="/passwords/${entryId}" style="color: #9db4d4;">View Password Entry</a> | <a href="/health#password-issues" style="color: #9db4d4;">Back to Operations</a></p>
         `, "Password Recovered - XeoKey", request);
       } else {
         return renderPage(`
@@ -4508,7 +4466,7 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
             <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Decrypted Password:</p>
             <p style="color: #9db4d4; font-family: monospace; font-size: 1.1rem; word-break: break-all;">${escapeHtml(result.decryptedPassword)}</p>
           </div>
-          <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+          <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
         `, "Recovery Partial - XeoKey", request);
       }
     } else {
@@ -4532,7 +4490,7 @@ router.post("/passwords/recover/:id", async (request, params, query) => {
           </div>
         ` : ''}
         <p style="color: #888; font-size: 0.9rem;">No backup was created because no database changes were made.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Recovery Failed - XeoKey", request);
     }
   } catch (error: any) {
@@ -4572,7 +4530,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
       return renderPage(`
         <h1>Recovery Failed</h1>
         <p style="color: #d4a5a5;">Master password is required.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Recovery Failed - XeoKey", request);
     }
 
@@ -4580,7 +4538,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
       return renderPage(`
         <h1>Recovery Failed</h1>
         <p style="color: #d4a5a5;">Invalid identifier.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Recovery Failed - XeoKey", request);
     }
 
@@ -4591,7 +4549,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
       return renderPage(`
         <h1>Recovery Failed</h1>
         <p style="color: #d4a5a5;">Invalid identifier format.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Recovery Failed - XeoKey", request);
     }
 
@@ -4651,7 +4609,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
           </div>
           <p><strong>Website:</strong> ${escapeHtml(identifier.website)}${identifier.username ? ` | <strong>Username:</strong> ${escapeHtml(identifier.username)}` : ''}${identifier.email ? ` | <strong>Email:</strong> ${escapeHtml(identifier.email)}` : ''}</p>
           <p>${repairResult.repairedCount} ${repairResult.repairedCount === 1 ? 'entry' : 'entries'} ${repairResult.repairedCount === 1 ? 'was' : 'were'} repaired.</p>
-          <p><a href="/passwords/recover" style="color: #9db4d4;">Back to Recovery</a></p>
+          <p><a href="/health#password-issues" style="color: #9db4d4;">Back to Operations</a></p>
         `, "Password Recovered - XeoKey", request);
       } else {
         return renderPage(`
@@ -4661,7 +4619,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
             <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">Decrypted Password:</p>
             <p style="color: #9db4d4; font-family: monospace; font-size: 1.1rem; word-break: break-all;">${escapeHtml(result.decryptedPassword)}</p>
           </div>
-          <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+          <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
         `, "Recovery Partial - XeoKey", request);
       }
     } else {
@@ -4685,7 +4643,7 @@ router.post("/passwords/recover/by-identifier", async (request, params, query) =
           </div>
         ` : ''}
         <p style="color: #888; font-size: 0.9rem;">No backup was created because no database changes were made.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Recovery Failed - XeoKey", request);
     }
   } catch (error: any) {
@@ -4724,7 +4682,7 @@ router.post("/passwords/delete/by-identifier", async (request, params, query) =>
       return renderPage(`
         <h1>Delete Failed</h1>
         <p style="color: #d4a5a5;">Invalid identifier.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Delete Failed - XeoKey", request);
     }
 
@@ -4735,7 +4693,7 @@ router.post("/passwords/delete/by-identifier", async (request, params, query) =>
       return renderPage(`
         <h1>Delete Failed</h1>
         <p style="color: #d4a5a5;">Invalid identifier format.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Delete Failed - XeoKey", request);
     }
 
@@ -4780,13 +4738,13 @@ router.post("/passwords/delete/by-identifier", async (request, params, query) =>
         <p style="color: #7fb069;">✅ Password entry deleted successfully!</p>
         <p><strong>Website:</strong> ${escapeHtml(identifier.website)}${identifier.username ? ` | <strong>Username:</strong> ${escapeHtml(identifier.username)}` : ''}${identifier.email ? ` | <strong>Email:</strong> ${escapeHtml(identifier.email)}` : ''}</p>
         <p>${result.deletedCount} ${result.deletedCount === 1 ? 'entry' : 'entries'} ${result.deletedCount === 1 ? 'was' : 'were'} deleted.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Password Entry Deleted - XeoKey", request);
     } else {
       return renderPage(`
         <h1>Delete Failed</h1>
         <p style="color: #d4a5a5;">Failed to delete password entry: ${escapeHtml(result.error || 'No matching entries found')}</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Delete Failed - XeoKey", request);
     }
   } catch (error: any) {
@@ -4824,7 +4782,7 @@ router.post("/passwords/recover/batch", async (request, params, query) => {
       return renderPage(`
         <h1>Batch Recovery Failed</h1>
         <p style="color: #d4a5a5;">Master password is required.</p>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Batch Recovery Failed - XeoKey", request);
     }
 
@@ -4841,7 +4799,7 @@ router.post("/passwords/recover/batch", async (request, params, query) => {
           <p style="color: #7fb069; margin: 0;">✅ No unrecoverable passwords detected. Nothing was changed.</p>
           <p style="color: #888; margin: 0.25rem 0 0 0; font-size: 0.9rem;">Recovered: 0 • Failed: 0 • Total needing recovery: 0</p>
         </div>
-        <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+        <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
       `, "Batch Recovery Results - XeoKey", request);
     }
 
@@ -4899,7 +4857,7 @@ router.post("/passwords/recover/batch", async (request, params, query) => {
         ${result.error ? `<p style="color: #888;">Error: ${escapeHtml(result.error)}</p>` : ''}
       `}
 
-      <p><a href="/passwords/recover" style="color: #9db4d4;">← Back to Recovery</a></p>
+      <p><a href="/health#password-issues" style="color: #9db4d4;">← Back to Operations</a></p>
     `, "Batch Recovery Results - XeoKey", request);
   } catch (error: any) {
     logger.error(`Error in batch recovery: ${error}`);
@@ -5725,15 +5683,6 @@ let dbConnectTime: number | null = null;
 // Make available globally for API endpoint
 (globalThis as any).serverStartTime = serverStartTime;
 (globalThis as any).dbConnectTime = dbConnectTime;
-
-// Check if running under process manager
-if (process.env.XEOKEY_MANAGED === 'true') {
-  logger.info('✅ Running under process manager');
-  (globalThis as any).processManagerAvailable = true;
-} else {
-  logger.info('ℹ️  Not running under process manager. Use "bun run host" for automatic management.');
-  (globalThis as any).processManagerAvailable = false;
-}
 
 // Initialize templates before starting server
 await loadTemplates();

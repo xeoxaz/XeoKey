@@ -80,17 +80,17 @@ Or use the provided batch file on Windows:
 Start.bat
 ```
 
-### Production Mode (with Process Manager - Recommended):
+### Production Mode (Recommended):
 ```bash
-bun run host
+bun run start
 ```
 
 Or use the provided batch file on Windows:
 ```bash
-Start-Host.bat
+Start.bat
 ```
 
-The process manager provides automatic restarts, health monitoring, and crash recovery. See [HOST_README.md](HOST_README.md) for details.
+For service supervision and automatic restarts in production, use systemd. See [../SYSTEMD_SETUP.md](../SYSTEMD_SETUP.md).
 
 The server will start on `http://localhost:3000` by default (or the port specified in `PORT` environment variable).
 

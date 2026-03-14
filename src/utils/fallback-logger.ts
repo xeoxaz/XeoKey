@@ -10,9 +10,14 @@ export interface FallbackStats {
 
 class FallbackLogger {
   private stats: FallbackStats;
-  private reportInterval: number = 60000; // 1 minute
+  private reportInterval: number = 0; // disabled by default to avoid log spam
   private reportTimer: NodeJS.Timeout | null = null;
   private isStarted: boolean = false;
+  private recoveryInProgress: boolean = false;
+  private lastRecoveryAttempt: Date | null = null;
+  private recoveryCooldownMs: number = 15 * 60 * 1000; // 15 minutes
+  private recoveryMinFallbackEvents: number = 25;
+  private hasShownFallbackNotice: boolean = false;
 
   constructor() {
     this.stats = {
@@ -29,17 +34,26 @@ class FallbackLogger {
    */
   start(reportIntervalMs?: number): void {
     if (this.isStarted) return;
-    
+
     this.isStarted = true;
-    if (reportIntervalMs) {
+    if (typeof reportIntervalMs === 'number') {
       this.reportInterval = reportIntervalMs;
     }
-    
-    this.reportTimer = setInterval(() => {
-      this.reportStats();
-    }, this.reportInterval);
-    
-    logger.info('Fallback logger started (reports every minute)');
+
+    // Allow explicit runtime override for detailed interval reporting.
+    const envInterval = Number(process.env.XEOKEY_FALLBACK_REPORT_INTERVAL_MS || '');
+    if (!Number.isNaN(envInterval) && envInterval >= 0) {
+      this.reportInterval = envInterval;
+    }
+
+    if (this.reportInterval > 0) {
+      this.reportTimer = setInterval(() => {
+        this.reportStats();
+      }, this.reportInterval);
+      logger.info(`Fallback logger started (reports every ${Math.round(this.reportInterval / 1000)}s)`);
+    } else {
+      logger.info('Fallback logger started (interval reports disabled; auto recovery active)');
+    }
   }
 
   /**
@@ -51,9 +65,11 @@ class FallbackLogger {
       this.reportTimer = null;
     }
     this.isStarted = false;
-    
-    // Final report
-    this.reportStats(true);
+
+    // Emit final report only when interval reporting is enabled.
+    if (this.reportInterval > 0) {
+      this.reportStats(true);
+    }
     logger.info('Fallback logger stopped');
   }
 
@@ -63,16 +79,17 @@ class FallbackLogger {
   logFallbackDecryption(keyIndex: number, totalKeys: number): void {
     this.stats.totalDecryptions++;
     this.stats.fallbackDecryptions++;
-    
+
     // Track which key was used
     const currentCount = this.stats.keyUsage.get(keyIndex) || 0;
     this.stats.keyUsage.set(keyIndex, currentCount + 1);
-    
-    // Only log if this is the first fallback or if we haven't logged in a while
-    const timeSinceLastReport = Date.now() - this.stats.lastReport.getTime();
-    if (this.stats.fallbackDecryptions === 1 || timeSinceLastReport > this.reportInterval * 2) {
-      this.reportStats();
+
+    if (!this.hasShownFallbackNotice) {
+      this.hasShownFallbackNotice = true;
+      logger.warn(`Fallback key decryption detected (key ${keyIndex}/${Math.max(totalKeys, keyIndex)}). Auto recovery service is enabled.`);
     }
+
+    this.maybeTriggerAutoRecovery();
   }
 
   /**
@@ -94,18 +111,18 @@ class FallbackLogger {
    * Generate a summary report
    */
   private generateSummary(): string {
-    const fallbackPercentage = this.stats.totalDecryptions > 0 
+    const fallbackPercentage = this.stats.totalDecryptions > 0
       ? (this.stats.fallbackDecryptions / this.stats.totalDecryptions * 100).toFixed(1)
       : '0.0';
-    
+
     const runtime = Date.now() - this.stats.startTime.getTime();
     const runtimeMinutes = Math.floor(runtime / 60000);
-    
-    let summary = `🔑 Fallback Key Usage Report:\n`;
+
+    let summary = `Fallback Key Usage Report:\n`;
     summary += `   Runtime: ${runtimeMinutes} minute${runtimeMinutes !== 1 ? 's' : ''}\n`;
     summary += `   Total Decryptions: ${this.stats.totalDecryptions}\n`;
     summary += `   Fallback Decryptions: ${this.stats.fallbackDecryptions} (${fallbackPercentage}%)\n`;
-    
+
     if (this.stats.keyUsage.size > 0) {
       summary += `   Key Usage:\n`;
       const sortedKeys = Array.from(this.stats.keyUsage.entries()).sort((a, b) => a[0] - b[0]);
@@ -114,11 +131,11 @@ class FallbackLogger {
         summary += `     ${keyName}: ${count} time${count !== 1 ? 's' : ''}\n`;
       }
     }
-    
+
     if (this.stats.fallbackDecryptions > 0) {
-      summary += `   💡 Consider running auto re-encryption to migrate to current key\n`;
+      summary += `   Auto recovery service is handling migration attempts\n`;
     }
-    
+
     return summary;
   }
 
@@ -126,18 +143,22 @@ class FallbackLogger {
    * Report current stats
    */
   private reportStats(isFinal: boolean = false): void {
+    if (this.reportInterval <= 0 && !isFinal) {
+      return;
+    }
+
     if (this.stats.fallbackDecryptions === 0 && !isFinal) {
       return; // Don't report if no fallback usage
     }
-    
+
     const summary = this.generateSummary();
-    
+
     if (isFinal) {
       logger.info(`\n${summary}`);
     } else {
       logger.info(summary);
     }
-    
+
     // Reset stats for next interval (but keep cumulative counts)
     this.stats.lastReport = new Date();
   }
@@ -153,6 +174,56 @@ class FallbackLogger {
       lastReport: new Date(),
       startTime: new Date(),
     };
+    this.hasShownFallbackNotice = false;
+  }
+
+  /**
+   * Trigger auto recovery when fallback decryptions are sustained/high.
+   */
+  private maybeTriggerAutoRecovery(): void {
+    if (this.recoveryInProgress) {
+      return;
+    }
+
+    const now = Date.now();
+    if (this.lastRecoveryAttempt && (now - this.lastRecoveryAttempt.getTime()) < this.recoveryCooldownMs) {
+      return;
+    }
+
+    const fallbackRate = this.stats.totalDecryptions > 0
+      ? this.stats.fallbackDecryptions / this.stats.totalDecryptions
+      : 0;
+
+    const shouldTrigger =
+      this.stats.fallbackDecryptions >= this.recoveryMinFallbackEvents ||
+      (this.stats.totalDecryptions >= 20 && fallbackRate >= 0.5);
+
+    if (!shouldTrigger) {
+      return;
+    }
+
+    this.recoveryInProgress = true;
+    this.lastRecoveryAttempt = new Date();
+
+    void this.runAutoRecovery();
+  }
+
+  private async runAutoRecovery(): Promise<void> {
+    try {
+      logger.info('Auto recovery service: starting automatic re-encryption attempt');
+      const { performAutoReEncryption } = await import('./auto-re-encryption');
+      const result = await performAutoReEncryption();
+
+      if (result.success) {
+        logger.info('Auto recovery service: re-encryption completed successfully');
+      } else {
+        logger.warn(`Auto recovery service: ${result.message}`);
+      }
+    } catch (error: any) {
+      logger.error(`Auto recovery service failed: ${error.message || error}`);
+    } finally {
+      this.recoveryInProgress = false;
+    }
   }
 }
 
@@ -186,6 +257,5 @@ export function resetFallbackStats(): void {
 
 // Auto-start the logger when module is imported
 if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  // Start with 1-minute intervals
-  fallbackLogger.start(60000);
+  fallbackLogger.start();
 }

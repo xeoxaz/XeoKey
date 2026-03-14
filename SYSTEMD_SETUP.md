@@ -181,26 +181,7 @@ sudo /usr/local/bin/xeokey-update
 
 ## Integration with Web Interface
 
-To make the web update feature work with systemd, modify the process manager:
-
-```javascript
-// In utils/process-manager.ts, add systemd detection
-function isSystemdService(): boolean {
-  return process.env.SYSTEMD_SERVICE === 'true' ||
-         process.env.INVOCATION_ID !== undefined;
-}
-
-// Update triggerRestart to handle systemd
-export async function triggerRestart(): Promise<void> {
-  if (isSystemdService()) {
-    logger.info('Running under systemd, requesting service restart...');
-    // Signal systemd to restart the service
-    process.kill(process.pid, 'SIGHUP');
-    return;
-  }
-  // ... existing restart logic
-}
-```
+The web update flow already supports systemd-aware restart handling. No process-manager integration is required.
 
 ## Monitoring
 

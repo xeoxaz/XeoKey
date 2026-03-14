@@ -121,12 +121,9 @@ Enable MongoDB encryption at rest for sensitive data.
    bun run start
    ```
 
-4. **Use process manager** (recommended):
+4. **Configure service supervision** (recommended):
    ```bash
-   # Using built-in process manager (recommended)
-   bun run host
-
-   # Or using systemd (Linux)
+   # Use systemd on Linux for automatic restart and boot startup
    # Create /etc/systemd/system/xeokey.service
    ```
 
@@ -171,39 +168,10 @@ Not recommended for this application (requires persistent server).
 2. Install Bun
 3. Clone repository
 4. Set environment variables
-5. Use process manager (built-in manager or systemd)
+5. Configure systemd service
 6. Configure reverse proxy
 
 ## Process Management
-
-### Using Built-in Process Manager (Recommended)
-
-XeoKey includes a built-in process manager that handles automatic restarts, health monitoring, and crash recovery. This is the recommended method for production deployment.
-
-```bash
-# Start with process manager (from project root)
-bun run host
-
-# Or from src/ directory
-cd src
-bun run host
-```
-
-**Features:**
-- ✅ Automatic restart on crashes
-- ✅ Health check monitoring (every 30 seconds)
-- ✅ Startup verification
-- ✅ Crash recovery with exponential backoff
-- ✅ Git pull integration for updates
-- ✅ No external dependencies required
-
-**Windows:**
-```bash
-# Use the batch file
-Start-Host.bat
-```
-
-See [Process Manager Documentation](https://github.com/xeoxaz/XeoKey/blob/master/src/HOST_README.md) for detailed documentation.
 
 ### Using systemd (Linux)
 
@@ -399,12 +367,11 @@ See the [Troubleshooting Guide](./TROUBLESHOOTING.md) for common deployment issu
 
 3. **Restart server:**
    ```bash
-   # If using process manager, it will auto-restart on update
-   # Or manually restart:
-   bun run host
-
    # If using systemd:
    sudo systemctl restart xeokey
+
+   # If running directly:
+   bun run start
    ```
 
 ## Additional Resources

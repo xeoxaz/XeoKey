@@ -67,7 +67,7 @@ export async function checkAutoReEncryption(): Promise<{
   try {
     // Check fallback key usage
     const fallbackUsage = await checkFallbackKeyUsage();
-    const percentage = fallbackUsage.totalEntries > 0 
+    const percentage = fallbackUsage.totalEntries > 0
       ? (fallbackUsage.passwordsUsingFallback + fallbackUsage.notesUsingFallback + fallbackUsage.totpUsingFallback) / fallbackUsage.totalEntries * 100
       : 0;
 
@@ -80,7 +80,7 @@ export async function checkAutoReEncryption(): Promise<{
 
     // Determine if re-encryption should be triggered
     const shouldTrigger = percentage >= DEFAULT_CONFIG.threshold;
-    
+
     let recommendation = '';
     if (shouldTrigger) {
       recommendation = `Auto re-encryption recommended: ${percentage.toFixed(1)}% of entries use fallback keys (threshold: ${DEFAULT_CONFIG.threshold}%)`;
@@ -122,11 +122,11 @@ export async function performAutoReEncryption(): Promise<{
 
   try {
     autoReEncryptionStatus.isRunning = true;
-    logger.info('🔄 Starting automatic re-encryption...');
+    logger.info('Starting automatic re-encryption...');
 
     // Check fallback usage first
     const fallbackUsage = await checkFallbackKeyUsage();
-    const percentage = fallbackUsage.totalEntries > 0 
+    const percentage = fallbackUsage.totalEntries > 0
       ? (fallbackUsage.passwordsUsingFallback + fallbackUsage.notesUsingFallback + fallbackUsage.totpUsingFallback) / fallbackUsage.totalEntries * 100
       : 0;
 
@@ -159,14 +159,14 @@ export async function performAutoReEncryption(): Promise<{
     autoReEncryptionStatus.isRunning = false;
 
     if (totalFailed === 0) {
-      logger.info(`✅ Auto re-encryption completed successfully: ${totalSuccess}/${totalItems} items re-encrypted`);
+      logger.info(`Auto re-encryption completed successfully: ${totalSuccess}/${totalItems} items re-encrypted`);
       return {
         success: true,
         result,
         message: `Successfully re-encrypted ${totalSuccess} items with current encryption key`,
       };
     } else {
-      logger.warn(`⚠️ Auto re-encryption completed with ${totalFailed} failures out of ${totalItems} items`);
+      logger.warn(`Auto re-encryption completed with ${totalFailed} failures out of ${totalItems} items`);
       return {
         success: false,
         result,
@@ -209,9 +209,9 @@ export function scheduleAutoReEncryptionCheck(): void {
   setInterval(async () => {
     try {
       const { shouldTrigger, recommendation } = await checkAutoReEncryption();
-      
+
       if (shouldTrigger && !DEFAULT_CONFIG.requireConfirmation) {
-        logger.info('🔄 Auto re-encryption threshold reached, starting automatic re-encryption...');
+        logger.info('Auto re-encryption threshold reached, starting automatic re-encryption...');
         await performAutoReEncryption();
       } else {
         logger.debug(`Auto re-encryption check: ${recommendation}`);
@@ -229,11 +229,11 @@ export function scheduleAutoReEncryptionCheck(): void {
  */
 export function generateAutoReEncryptionStatusHTML(): string {
   const { fallbackUsage, isRunning, lastReEncryption } = autoReEncryptionStatus;
-  
+
   return `
     <div style="background: #1d1d1d; border: 1px solid #3d3d3d; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
       <h3 style="margin-top: 0; color: #9db4d4; font-size: 1rem;">🔄 Auto Re-Encryption Status</h3>
-      
+
       <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
         <span style="color: ${isRunning ? '#d4a5a5' : '#7fb069'}; font-size: 0.8rem;">
           ${isRunning ? '⏳ Running' : '✅ Idle'}
@@ -279,11 +279,11 @@ export function generateAutoReEncryptionStatusHTML(): string {
           const button = event.target;
           button.disabled = true;
           button.textContent = 'Starting...';
-          
+
           try {
             const response = await fetch('/api/auto-re-encryption/trigger', { method: 'POST' });
             const result = await response.json();
-            
+
             if (result.success) {
               button.textContent = 'Completed Successfully';
               button.style.background = '#4d7d4d';

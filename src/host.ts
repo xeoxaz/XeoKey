@@ -2,13 +2,10 @@
 /**
  * XeoKey Host/Manager Process
  *
- * This is the main entry point that manages the server process lifecycle.
- * Run this instead of server.ts directly to get automatic process management.
+ * Optional host wrapper for managing the server process lifecycle.
  *
  * Usage:
  *   bun run host.ts
- *   or
- *   bun src/host.ts
  */
 
 import { ProcessManager, getProcessManager } from './utils/process-manager';
@@ -29,9 +26,9 @@ function getProjectRoot(): string {
 const projectRoot = getProjectRoot();
 const RESTART_FLAG_FILE = join(projectRoot, '.restart-requested');
 
-logger.info('🚀 Process Manager starting...');
+logger.info('Host wrapper starting...');
 
-// Create process manager
+// Create host wrapper controller
 const manager = getProcessManager();
 
 // Watch for restart requests
@@ -82,7 +79,7 @@ async function main() {
     // Setup restart watcher
     setupRestartWatcher();
 
-    logger.info('✅ Process Manager ready');
+    logger.info('Host wrapper ready');
 
     // Keep the process alive
     // The manager will handle server restarts automatically
@@ -94,7 +91,7 @@ async function main() {
 
 // Handle shutdown
 process.on('SIGINT', async () => {
-  logger.info('\nShutting down process manager...');
+  logger.info('\nShutting down host wrapper...');
   if (restartWatcher && RESTART_FLAG_FILE) {
     unwatchFile(RESTART_FLAG_FILE);
   }
@@ -103,7 +100,7 @@ process.on('SIGINT', async () => {
 });
 
 process.on('SIGTERM', async () => {
-  logger.info('Shutting down process manager...');
+  logger.info('Shutting down host wrapper...');
   if (restartWatcher && RESTART_FLAG_FILE) {
     unwatchFile(RESTART_FLAG_FILE);
   }

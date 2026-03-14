@@ -16,7 +16,7 @@ This means your XeoKey server is running in production mode but using the defaul
    ```bash
    # Change this line:
    ENCRYPTION_KEY=default-encryption-key-change-in-production
-   
+
    # To something like this:
    ENCRYPTION_KEY=XeoKey-Dev-Key-2024-Change-In-Production-Use-Strong-Key
    ```
@@ -25,9 +25,6 @@ This means your XeoKey server is running in production mode but using the defaul
    ```bash
    # If using direct start:
    ./Start.bat
-   
-   # Or if using process manager:
-   ./Start-Host.bat
    ```
 
 ### Production Setup (Required for Live Deployment)
@@ -36,7 +33,7 @@ This means your XeoKey server is running in production mode but using the defaul
    ```bash
    # Using OpenSSL (recommended):
    openssl rand -base64 32
-   
+
    # Or use any secure random string generator
    # Must be at least 32 characters long
    ```
@@ -47,7 +44,7 @@ This means your XeoKey server is running in production mode but using the defaul
    export NODE_ENV=production
    export ENCRYPTION_KEY="your-generated-secure-key-here"
    export SESSION_SECRET="your-secure-session-secret-32-chars-minimum"
-   
+
    # Option 2: Production .env file
    cp .env.example .env.production
    # Edit .env.production with your secure keys

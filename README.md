@@ -76,12 +76,12 @@ bun run dev
 bun run start
 ```
 
-### Production Mode (with Process Manager - Recommended):
+### Production Mode (Recommended):
 ```bash
-bun run host
+bun run start
 ```
 
-The process manager provides automatic restarts, health monitoring, and crash recovery. See [HOST_README.md](src/HOST_README.md) for details.
+For service supervision and automatic restarts in production, use systemd. See [SYSTEMD_SETUP.md](SYSTEMD_SETUP.md).
 
 **Note:** All commands can be run from the root directory. The scripts automatically work with the `src` directory.
 
@@ -249,7 +249,7 @@ This will:
 
 1. Set `NODE_ENV=production`
 2. Set all required environment variables
-3. Run `bun run host` (recommended) or `bun run start` (direct)
+3. Run `bun run start`
 
 ## Troubleshooting
 

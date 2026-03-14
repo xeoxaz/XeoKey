@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { encryptPassword, decryptPassword } from '../models/password';
 import { encryptNoteContent, decryptNoteContent } from '../models/notes';
 
+const MAX_DETAILED_REENCRYPTION_ERROR_LOGS = 3;
+
 export interface ReEncryptionResult {
   passwords: {
     total: number;
@@ -42,10 +44,10 @@ export async function reEncryptAllData(): Promise<ReEncryptionResult> {
 
     // Re-encrypt passwords
     await reEncryptPasswords(db, result);
-    
+
     // Re-encrypt notes
     await reEncryptNotes(db, result);
-    
+
     // Re-encrypt TOTP secrets
     await reEncryptTotp(db, result);
 
@@ -103,8 +105,16 @@ async function reEncryptPasswords(db: any, result: ReEncryptionResult): Promise<
       result.passwords.failed++;
       const errorMsg = `Password ${password._id}: ${error.message || error}`;
       result.passwords.errors.push(errorMsg);
-      logger.error(`Re-encryption failed for password ${password._id}: ${error.message || error}`);
+      if (result.passwords.failed <= MAX_DETAILED_REENCRYPTION_ERROR_LOGS) {
+        logger.warn(`Re-encryption failed for password ${password._id}: ${error.message || error}`);
+      } else if (result.passwords.failed === MAX_DETAILED_REENCRYPTION_ERROR_LOGS + 1) {
+        logger.warn('Additional password re-encryption failures are being summarized only');
+      }
     }
+  }
+
+  if (result.passwords.failed > MAX_DETAILED_REENCRYPTION_ERROR_LOGS) {
+    logger.warn(`Password re-encryption summary: ${result.passwords.failed} total failures (${MAX_DETAILED_REENCRYPTION_ERROR_LOGS} detailed, ${result.passwords.failed - MAX_DETAILED_REENCRYPTION_ERROR_LOGS} summarized)`);
   }
 }
 
@@ -128,7 +138,7 @@ async function reEncryptNotes(db: any, result: ReEncryptionResult): Promise<void
       // Update the database
       await notesCollection.updateOne(
         { _id: note._id },
-        { 
+        {
           $set: {
             content: newEncryptedContent,
             updatedAt: new Date(),
@@ -142,8 +152,16 @@ async function reEncryptNotes(db: any, result: ReEncryptionResult): Promise<void
       result.notes.failed++;
       const errorMsg = `Note ${note._id}: ${error.message || error}`;
       result.notes.errors.push(errorMsg);
-      logger.error(`Re-encryption failed for note ${note._id}: ${error.message || error}`);
+      if (result.notes.failed <= MAX_DETAILED_REENCRYPTION_ERROR_LOGS) {
+        logger.warn(`Re-encryption failed for note ${note._id}: ${error.message || error}`);
+      } else if (result.notes.failed === MAX_DETAILED_REENCRYPTION_ERROR_LOGS + 1) {
+        logger.warn('Additional note re-encryption failures are being summarized only');
+      }
     }
+  }
+
+  if (result.notes.failed > MAX_DETAILED_REENCRYPTION_ERROR_LOGS) {
+    logger.warn(`Note re-encryption summary: ${result.notes.failed} total failures (${MAX_DETAILED_REENCRYPTION_ERROR_LOGS} detailed, ${result.notes.failed - MAX_DETAILED_REENCRYPTION_ERROR_LOGS} summarized)`);
   }
 }
 
@@ -170,7 +188,7 @@ async function reEncryptTotp(db: any, result: ReEncryptionResult): Promise<void>
       // Update the database
       await totpCollection.updateOne(
         { _id: totp._id },
-        { 
+        {
           $set: {
             secret: newEncryptedSecret,
             lastUsedAt: new Date(),
@@ -184,8 +202,16 @@ async function reEncryptTotp(db: any, result: ReEncryptionResult): Promise<void>
       result.totp.failed++;
       const errorMsg = `TOTP ${totp._id}: ${error.message || error}`;
       result.totp.errors.push(errorMsg);
-      logger.error(`Re-encryption failed for TOTP ${totp._id}: ${error.message || error}`);
+      if (result.totp.failed <= MAX_DETAILED_REENCRYPTION_ERROR_LOGS) {
+        logger.warn(`Re-encryption failed for TOTP ${totp._id}: ${error.message || error}`);
+      } else if (result.totp.failed === MAX_DETAILED_REENCRYPTION_ERROR_LOGS + 1) {
+        logger.warn('Additional TOTP re-encryption failures are being summarized only');
+      }
     }
+  }
+
+  if (result.totp.failed > MAX_DETAILED_REENCRYPTION_ERROR_LOGS) {
+    logger.warn(`TOTP re-encryption summary: ${result.totp.failed} total failures (${MAX_DETAILED_REENCRYPTION_ERROR_LOGS} detailed, ${result.totp.failed - MAX_DETAILED_REENCRYPTION_ERROR_LOGS} summarized)`);
   }
 }
 
@@ -211,14 +237,14 @@ export async function checkFallbackKeyUsage(): Promise<{
     // Check passwords
     const passwordsCollection = db.collection('passwords');
     const passwords = await passwordsCollection.find({}).limit(50).toArray();
-    
+
     for (const password of passwords) {
       try {
         // Try to decrypt with primary key only
         const { getEncryptionKey } = await import('../models/password');
         const key = getEncryptionKey();
         const algorithm = 'aes-256-cbc';
-        
+
         const parts = password.password.split(':');
         if (parts.length === 2) {
           const iv = Buffer.from(parts[0], 'hex');
@@ -238,13 +264,13 @@ export async function checkFallbackKeyUsage(): Promise<{
     // Check notes
     const notesCollection = db.collection('notes');
     const notes = await notesCollection.find({}).limit(50).toArray();
-    
+
     for (const note of notes) {
       try {
         const { getEncryptionKey } = await import('../models/notes');
         const key = getEncryptionKey();
         const algorithm = 'aes-256-cbc';
-        
+
         const parts = note.content.split(':');
         if (parts.length === 2) {
           const iv = Buffer.from(parts[0], 'hex');
@@ -263,13 +289,13 @@ export async function checkFallbackKeyUsage(): Promise<{
     // Check TOTP
     const totpCollection = db.collection('totp');
     const totpEntries = await totpCollection.find({}).limit(50).toArray();
-    
+
     for (const totp of totpEntries) {
       try {
         const { getEncryptionKey } = await import('../models/totp');
         const key = getEncryptionKey();
         const algorithm = 'aes-256-cbc';
-        
+
         const parts = totp.secret.split(':');
         if (parts.length === 2) {
           const iv = Buffer.from(parts[0], 'hex');
@@ -303,7 +329,7 @@ export function generateReEncryptionReport(result: ReEncryptionResult): string {
   return `
     <div style="background: #1d1d1d; border: 1px solid #3d3d3d; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
       <h3 style="margin-top: 0; color: #9db4d4; font-size: 1.1rem;">🔄 Re-encryption Results</h3>
-      
+
       <div style="margin-bottom: 1rem;">
         <h4 style="margin: 0 0 0.5rem 0; color: #9db4d4; font-size: 0.9rem;">Overall Status</h4>
         <div style="display: flex; gap: 1rem; font-size: 0.8rem;">
