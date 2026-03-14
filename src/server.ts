@@ -4215,24 +4215,34 @@ router.get("/health", async (request, params, query) => {
               showResults(\`Error: \${data.error}\`);
             } else {
               const diagnostic = data.diagnostic;
+              const passwordSuccess = diagnostic.passwordEntries.decryptable || 0;
+              const noteSuccess = diagnostic.noteEntries.decryptable || 0;
+              const passwordTotal = diagnostic.passwordEntries.total || 0;
+              const noteTotal = diagnostic.noteEntries.total || 0;
+              const passwordRate = passwordTotal > 0 ? ((passwordSuccess / passwordTotal) * 100).toFixed(1) : '0.0';
+              const noteRate = noteTotal > 0 ? ((noteSuccess / noteTotal) * 100).toFixed(1) : '0.0';
+              const sampleErrors = [
+                ...(diagnostic.passwordEntries.sampleErrors || []),
+                ...(diagnostic.noteEntries.sampleErrors || []),
+              ];
               let output = \`Encryption Diagnostics Results\\n\\n\`;
               output += \`Key Hash: \${diagnostic.keyInfo.hash}\`;
               output += \`\\nDefault Key: \${diagnostic.keyInfo.isDefaultKey ? 'YES' : 'NO'}\`;
               output += \`\\n\\nPassword Entries:\`;
               output += \`\\n  Total: \${diagnostic.passwordEntries.total}\`;
-              output += \`\\n  Success: \${diagnostic.passwordEntries.success}\`;
+              output += \`\\n  Success: \${passwordSuccess}\`;
               output += \`\\n  Failed: \${diagnostic.passwordEntries.failed}\`;
-              output += \`\\n  Success Rate: \${diagnostic.passwordEntries.successRate}%\`;
+              output += \`\\n  Success Rate: \${passwordRate}%\`;
 
               output += \`\\n\\nNote Entries:\`;
               output += \`\\n  Total: \${diagnostic.noteEntries.total}\`;
-              output += \`\\n  Success: \${diagnostic.noteEntries.success}\`;
+              output += \`\\n  Success: \${noteSuccess}\`;
               output += \`\\n  Failed: \${diagnostic.noteEntries.failed}\`;
-              output += \`\\n  Success Rate: \${diagnostic.noteEntries.successRate}%\`;
+              output += \`\\n  Success Rate: \${noteRate}%\`;
 
-              if (diagnostic.sampleErrors.length > 0) {
+              if (sampleErrors.length > 0) {
                 output += \`\\n\\nSample Errors:\`;
-                diagnostic.sampleErrors.slice(0, 5).forEach((error, i) => {
+                sampleErrors.slice(0, 5).forEach((error, i) => {
                   output += \`\\n  \${i + 1}. \${error}\`;
                 });
               }
@@ -4259,14 +4269,14 @@ router.get("/health", async (request, params, query) => {
               showResults(\`Error: \${data.error}\`);
             } else {
               let output = \`Encryption Key Information\\n\\n\`;
-              output += \`Key Hash: \${data.hash}\`;
+              output += \`Key Hash: \${data.keyHash}\`;
               output += \`\\nKey Length: \${data.keyLength} bytes\`;
               output += \`\\nAlgorithm: \${data.algorithm}\`;
-              output += \`\\nDefault Key: \${data.isDefaultKey ? 'YES' : 'NO'}\`;
+              output += \`\\nDefault Key: \${data.isDefault ? 'YES' : 'NO'}\`;
               output += \`\\nEnvironment: \${data.environment}\`;
               output += \`\\nTimestamp: \${data.timestamp}\`;
 
-              if (data.isDefaultKey) {
+              if (data.isDefault) {
                 output += \`\\n\\nWARNING: Using default encryption key!\`;
                 output += \`\\nSet ENCRYPTION_KEY environment variable for production.\`;
               }
