@@ -14,6 +14,10 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
 - 📝 **File Logging** - Comprehensive built-in logging system
 - ⚡ **Fast Performance** - Built with Bun runtime for optimal speed
 
+## Dashboard Preview
+
+![XeoKey Dashboard](screenshots/dashboard.png)
+
 ## Prerequisites
 
 - **[Bun](https://bun.sh)** - JavaScript runtime (v1.3.4 or later)

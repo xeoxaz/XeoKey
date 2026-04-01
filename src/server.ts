@@ -854,7 +854,7 @@ function escapeHtml(text: string | undefined | null | any): string {
 
 // Helper function to render login form with errors
 async function renderLoginForm(request: Request, username: string = '', error: string = '', csrfToken: string = ''): Promise<string> {
-  const errorHtml = error ? `<div style="color: var(--color-error); font-size: 0.9rem; margin-bottom: 1rem; padding: 0.5rem; background: var(--color-bg-secondary); border: 1px solid var(--color-error); border-radius: 4px;">${escapeHtml(error)}</div>` : '';
+  const errorHtml = error ? `<div class="flash-error">${escapeHtml(error)}</div>` : '';
   const usernameValue = username ? ` value="${escapeHtml(username)}"` : '';
   const csrfField = csrfToken ? `<input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">` : '';
 
@@ -920,21 +920,21 @@ async function renderLoginForm(request: Request, username: string = '', error: s
       const commitMessages = updateStatus.commitMessages || [];
 
       const updatesList = commitMessages.length > 0 ? `
-        <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border);">
-          <p style="color: var(--color-text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: bold;">What's new (${commitMessages.length} ${commitMessages.length === 1 ? 'commit' : 'commits'}):</p>
-          <ul style="color: var(--color-text-secondary); font-size: 0.8rem; margin: 0; padding-left: 1.25rem; max-height: 200px; overflow-y: auto;">
-            ${commitMessages.map(msg => `<li style="margin-bottom: 0.25rem;">${escapeHtml(msg)}</li>`).join('')}
+        <div class="update-commits">
+          <p class="update-commits-label">What's new (${commitMessages.length} ${commitMessages.length === 1 ? 'commit' : 'commits'}):</p>
+          <ul class="update-commits-list">
+            ${commitMessages.map(msg => `<li class="update-commit-item">${escapeHtml(msg)}</li>`).join('')}
           </ul>
         </div>
       ` : '';
 
       updateNotification = `
-        <div id="updateNotification" style="background: var(--color-bg-secondary); border: 1px solid var(--color-border); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto;">
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
-            <div style="font-size: 1.5rem;">🔄</div>
-            <div style="flex: 1;">
-              <h3 style="margin: 0; color: var(--color-success); font-size: 1rem;">Update Available</h3>
-              <p style="margin: 0.25rem 0 0 0; color: var(--color-text-secondary); font-size: 0.85rem;">
+        <div id="updateNotification" class="update-card">
+          <div class="update-card-header">
+            <div class="update-card-icon">🔄</div>
+            <div class="update-card-body">
+              <h3 class="update-card-title">Update Available</h3>
+              <p class="update-card-meta">
                 Current: <code style="background: var(--color-bg-primary); padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(currentShort)}</code> →
                 Remote: <code style="background: var(--color-bg-primary); padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(remoteShort)}</code>
               </p>
@@ -948,9 +948,9 @@ async function renderLoginForm(request: Request, username: string = '', error: s
               </p>
             </div>
           ` : ''}
-          <form method="POST" action="/update/pull-and-restart" id="updateForm" style="margin-top: 0.75rem;">
+          <form method="POST" action="/update/pull-and-restart" id="updateForm">
             ${csrfField}
-            <button type="submit" style="width: 100%; background: var(--color-bg-tertiary); color: var(--color-accent-light); padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">
+            <button type="submit" class="update-pull-btn">
               Pull & Restart Server
             </button>
           </form>
@@ -977,14 +977,14 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     if (patchNotes.length > 0) {
       patchNotesSection = `
         <div>
-          <h3 style="margin-top: 0; color: var(--color-accent-light); font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+          <h3 class="news-section-title">
             <span>📰</span>
             <span>Recent Updates</span>
           </h3>
-          <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 500px; overflow-y: auto; overflow-x: hidden; padding-right: 0.5rem;">
+          <div class="news-feed">
             ${patchNotes.map((msg) => `
-              <div style="background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: 6px; padding: 0.875rem; transition: border-color 0.2s;">
-                <p style="color: var(--color-text-primary); font-size: 0.85rem; margin: 0; line-height: 1.4;">${escapeHtml(msg)}</p>
+              <div class="news-item">
+                <p class="news-item-text">${escapeHtml(msg)}</p>
               </div>
             `).join('')}
           </div>
@@ -998,47 +998,47 @@ async function renderLoginForm(request: Request, username: string = '', error: s
 
   // Build 3-column layout for desktop
   const updateColumn = autoReEncryptionNotification || encryptionDiagnosticNotification || gitStatusNotification || (updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
-    <div style="background: var(--color-bg-secondary); border: 1px solid var(--color-border); padding: 1rem; border-radius: 8px; height: fit-content;">
-      <h3 style="margin-top: 0; color: var(--color-accent-light); font-size: 0.9rem; margin-bottom: 0.5rem;">System Status</h3>
+    <div class="auth-card compact">
+      <h3 class="auth-section-title">System Status</h3>
       <p style="color: var(--color-success); font-size: 0.85rem; margin: 0;">✓ Up to date</p>
     </div>
   `);
 
   const loginColumn = `
-    <div style="background: var(--color-bg-secondary); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; height: fit-content;">
-      <h1 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--color-accent-light);">Login</h1>
+    <div class="auth-card">
+      <h1 class="auth-page-title">Login</h1>
       <form method="POST" action="/login">
         ${csrfField}
         ${errorHtml}
-        <div style="margin-bottom: 1rem;">
-          <label for="username" style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Username:</label>
-          <input type="text" id="username" name="username" required${usernameValue} autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-primary); box-sizing: border-box;">
+        <div class="form-group">
+          <label for="username" class="form-label">Username:</label>
+          <input type="text" id="username" name="username" required${usernameValue} autocomplete="off" class="form-input">
         </div>
-        <div style="margin-bottom: 1.5rem;">
-          <label for="password" style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Password:</label>
-          <input type="password" id="password" name="password" required autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-primary); box-sizing: border-box;">
+        <div class="form-group-lg">
+          <label for="password" class="form-label">Password:</label>
+          <input type="password" id="password" name="password" required autocomplete="off" class="form-input">
         </div>
-        <button type="submit" style="width: 100%; background: var(--color-border); color: var(--color-text-primary); padding: 0.75rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 1rem; transition: background 0.2s;">Login</button>
+        <button type="submit" class="full-width-btn">Login</button>
       </form>
-      <p style="text-align: center; margin-top: 1rem; margin-bottom: 0;">
-        <a href="/register" style="color: var(--color-accent-light); text-decoration: none; font-size: 0.9rem;">Don't have an account? Register here</a>
+      <p class="auth-foot">
+        <a href="/register" class="auth-foot-link">Don't have an account? Register here</a>
       </p>
     </div>
   `;
 
   const newsColumn = patchNotesSection || `
-    <div style="background: var(--color-bg-secondary); border: 1px solid var(--color-border); padding: 1rem; border-radius: 8px; height: fit-content;">
-      <h3 style="margin-top: 0; color: var(--color-accent-light); font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+    <div class="auth-card compact">
+      <h3 class="news-section-title">
         <span>📰</span>
         <span>Recent Updates</span>
       </h3>
-      <p style="color: var(--color-text-secondary); font-size: 0.85rem; margin: 0;">No recent updates available.</p>
+      <p class="form-hint" style="margin: 0;">No recent updates available.</p>
     </div>
   `;
 
   return `
-    <div style="max-width: 1400px; margin: 0 auto; padding: 2rem 1rem;">
-      <div class="login-grid" style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+    <div class="auth-page-wrap">
+      <div class="login-grid">
         <div>
           ${updateColumn}
         </div>
@@ -1050,49 +1050,42 @@ async function renderLoginForm(request: Request, username: string = '', error: s
         </div>
       </div>
     </div>
-    <style>
-      @media (min-width: 1024px) {
-        .login-grid {
-          grid-template-columns: 1fr 1.2fr 1fr !important;
-        }
-      }
-    </style>
   `;
 }
 
 // Helper function to render register form with errors
 async function renderRegisterForm(request: Request, username: string = '', error: string = '', csrfToken: string = ''): Promise<string> {
-  const errorHtml = error ? `<div style="color: var(--color-error); font-size: 0.9rem; margin-bottom: 1rem; padding: 0.5rem; background: var(--color-bg-secondary); border: 1px solid var(--color-error); border-radius: 4px;">${escapeHtml(error)}</div>` : '';
+  const errorHtml = error ? `<div class="flash-error">${escapeHtml(error)}</div>` : '';
   const usernameValue = username ? ` value="${escapeHtml(username)}"` : '';
   const csrfField = csrfToken ? `<input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">` : '';
 
   return `
     <h1>Register</h1>
-    <form method="POST" action="/register" id="registerForm" style="max-width: 400px; margin: 0 auto;">
+    <form method="POST" action="/register" id="registerForm" class="register-form">
       ${csrfField}
       ${errorHtml}
-      <div style="margin-bottom: 1rem;">
-        <label for="username" style="display: block; margin-bottom: 0.5rem;">Username:</label>
-        <input type="text" id="username" name="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+"${usernameValue} autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary);">
-        <small style="color: var(--color-text-secondary); font-size: 0.85rem;">3-30 characters, letters, numbers, and underscores only</small>
+      <div class="form-group">
+        <label for="username" class="form-label">Username:</label>
+        <input type="text" id="username" name="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+"${usernameValue} autocomplete="off" class="form-input">
+        <small class="form-hint">3-30 characters, letters, numbers, and underscores only</small>
       </div>
-      <div style="margin-bottom: 1rem;">
-        <label for="password" style="display: block; margin-bottom: 0.5rem;">Password:</label>
-        <input type="password" id="password" name="password" required minlength="6" maxlength="100" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary);">
-        <div id="passwordStrength" style="margin-top: 0.5rem; height: 4px; background: var(--color-bg-secondary); border-radius: 2px; overflow: hidden;">
-          <div id="passwordStrengthBar" style="height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s;"></div>
+      <div class="form-group">
+        <label for="password" class="form-label">Password:</label>
+        <input type="password" id="password" name="password" required minlength="6" maxlength="100" autocomplete="off" class="form-input">
+        <div id="passwordStrength" class="strength-wrap">
+          <div id="passwordStrengthBar" class="strength-bar"></div>
         </div>
-        <div id="passwordStrengthText" style="color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 0.25rem;"></div>
+        <div id="passwordStrengthText" class="strength-text"></div>
       </div>
-      <div style="margin-bottom: 1.5rem;">
-        <label for="confirmPassword" style="display: block; margin-bottom: 0.5rem;">Confirm Password:</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" maxlength="100" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary);">
-        <div id="passwordMatch" style="color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 0.25rem;"></div>
+      <div class="form-group-lg">
+        <label for="confirmPassword" class="form-label">Confirm Password:</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" maxlength="100" autocomplete="off" class="form-input">
+        <div id="passwordMatch" class="form-hint"></div>
       </div>
-      <button type="submit" id="submitBtn" style="width: 100%; background: var(--color-border); color: var(--color-text-primary); padding: 0.75rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 1rem;">Register</button>
+      <button type="submit" id="submitBtn" class="full-width-btn">Register</button>
     </form>
-    <p style="text-align: center; margin-top: 1rem;">
-      <a href="/login" style="color: var(--color-accent-light);">Already have an account? Login here</a>
+    <p class="auth-foot">
+      <a href="/login" class="auth-foot-link">Already have an account? Login here</a>
     </p>
   `;
 }
@@ -1248,19 +1241,19 @@ router.get("/settings", async (request, params, query) => {
 
   return renderPage(`
     <h1>Settings</h1>
-    <p style="color: var(--color-text-secondary); margin-bottom: 1rem;">Customize your interface preferences.</p>
-    ${saved ? '<div style="color: var(--color-success); font-size: 0.9rem; margin-bottom: 1rem; padding: 0.5rem; background: var(--color-bg-secondary); border: 1px solid var(--color-success); border-radius: 4px;">Theme updated successfully.</div>' : ''}
-    <form method="POST" action="/settings/theme" style="max-width: 480px;">
+    <p class="settings-subtitle">Customize your interface preferences.</p>
+    ${saved ? '<div class="flash-success">Theme updated successfully.</div>' : ''}
+    <form method="POST" action="/settings/theme" class="settings-form">
       <input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">
-      <div style="margin-bottom: 1rem;">
-        <label for="theme" style="display: block; margin-bottom: 0.5rem; color: var(--color-text-primary);">Theme</label>
+      <div class="form-group">
+        <label for="theme" class="form-label">Theme</label>
         <select id="theme" name="theme" style="width: 100%;">
           <option value="slate" ${currentTheme === 'slate' ? 'selected' : ''}>Slate</option>
           <option value="slate-contrast" ${currentTheme === 'slate-contrast' ? 'selected' : ''}>Slate Contrast</option>
           <option value="legacy-blue" ${currentTheme === 'legacy-blue' ? 'selected' : ''}>Legacy Blue</option>
         </select>
       </div>
-      <button type="submit" style="background: var(--color-bg-tertiary); color: var(--color-text-primary); border: 1px solid var(--color-border); padding: 0.75rem 1.25rem; border-radius: 4px; cursor: pointer;">Save Theme</button>
+      <button type="submit">Save Theme</button>
     </form>
   `, "Settings - XeoKey", request);
 });
@@ -1284,8 +1277,8 @@ router.post("/settings/theme", async (request, params, query) => {
   if (!verifyCsrfToken(session.sessionId, csrfToken)) {
     return renderPage(`
       <h1>Settings</h1>
-      <div style="color: var(--color-error); font-size: 0.9rem; margin-bottom: 1rem; padding: 0.5rem; background: var(--color-bg-secondary); border: 1px solid var(--color-error); border-radius: 4px;">Invalid security token. Please try again.</div>
-      <p><a href="/settings" style="color: var(--color-accent-light);">Back to Settings</a></p>
+      <div class="flash-error">Invalid security token. Please try again.</div>
+      <p><a href="/settings" class="empty-state-link">Back to Settings</a></p>
     `, "Settings - XeoKey", request);
   }
 
@@ -1817,31 +1810,21 @@ router.get("/api/server/status", async (request, params, query) => {
 // Loading screen while server restarts
 router.get("/update/loading", async (request, params, query) => {
   return renderPage(`
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
-      <div style="font-size: 4rem; margin-bottom: 1rem; animation: spin 2s linear infinite;">🔄</div>
-      <h1 style="color: var(--color-accent-light); margin-bottom: 0.5rem;">Updating Server...</h1>
-      <p style="color: var(--color-text-secondary); margin-bottom: 2rem; max-width: 500px;">
+    <div class="update-page-wrap">
+      <div class="update-spinner">🔄</div>
+      <h1 class="update-page-title">Updating Server...</h1>
+      <p class="update-page-desc">
         The server is pulling the latest updates from GitHub and restarting.
         This page will automatically redirect when the server is ready.
       </p>
-      <div style="background: var(--color-bg-secondary); padding: 1rem; border-radius: 8px; border: 1px solid var(--color-border); max-width: 400px; width: 100%;">
-        <div id="status" style="color: var(--color-success); margin-bottom: 0.5rem;">⏳ Waiting for server to restart...</div>
-        <div style="height: 4px; background: var(--color-bg-primary); border-radius: 2px; overflow: hidden; margin-top: 1rem;">
-          <div id="progressBar" style="height: 100%; width: 0%; background: var(--color-success); transition: width 0.3s; animation: pulse 1.5s ease-in-out infinite;"></div>
+      <div class="update-status-card">
+        <div id="status" class="update-status-text">⏳ Waiting for server to restart...</div>
+        <div class="progress-track">
+          <div id="progressBar" class="progress-fill"></div>
         </div>
-        <div style="color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 0.5rem;" id="elapsedTime">Elapsed: 0s</div>
+        <div class="update-elapsed" id="elapsedTime">Elapsed: 0s</div>
       </div>
     </div>
-    <style>
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-      @keyframes pulse {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 1; }
-      }
-    </style>
     <script>
       let startTime = Date.now();
       let checkCount = 0;
@@ -2199,195 +2182,138 @@ router.get("/", async (request, params, query) => {
   }
 
   // Build dashboard body with statistics - compact design with graphs
+  const totalIssues = duplicateCount + weakPasswordCount;
   const dashboardBody = `
-    <h1 style="margin-bottom: 0.5rem;">Dashboard</h1>
-    <p style="color: var(--color-text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Analytics & System Status</p>
+    <h1 class="dashboard-title">Dashboard</h1>
+    <p class="dashboard-subtitle">Simplified vault overview with actionable security and activity insights.</p>
 
-    <!-- Status Cards Row -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;">${passwordCount}</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.75rem;">Passwords</div>
+    <div class="dashboard-grid metrics">
+      <div class="dashboard-card">
+        <div class="dashboard-value">${passwordCount}</div>
+        <div class="dashboard-label">Passwords Stored</div>
       </div>
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-success); margin-bottom: 0.25rem;">${totpCount}</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.75rem;">TOTP Codes</div>
+      <div class="dashboard-card">
+        <div class="dashboard-value success">${totpCount}</div>
+        <div class="dashboard-label">TOTP Entries</div>
       </div>
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-success); margin-bottom: 0.25rem;" id="totalAdds">-</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.75rem;">Added</div>
+      <div class="dashboard-card ${hasIssues ? 'emphasis-warn' : 'emphasis-ok'}">
+        <div class="dashboard-value ${hasIssues ? 'error' : 'success'}" id="securityIssueTotal">${totalIssues}</div>
+        <div class="dashboard-label">Security Issues</div>
       </div>
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-error); margin-bottom: 0.25rem;" id="totalDeletes">-</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.75rem;">Deleted</div>
-      </div>
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;" id="totalViews">-</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.75rem;">Views</div>
-      </div>
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;" id="totalCopies">-</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.75rem;">Copies</div>
-      </div>
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-error); margin-bottom: 0.25rem;" id="totalErrors">-</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.75rem;">Errors</div>
+      <div class="dashboard-card">
+        <div class="dashboard-value" id="totalEvents">-</div>
+        <div class="dashboard-label">Events (30 Days)</div>
       </div>
     </div>
 
-    <!-- Quick Actions Row -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-      <a href="/passwords/add" style="display: block; background: var(--color-bg-secondary); padding: 1rem; border-radius: 6px; border: 1px solid var(--color-border); text-decoration: none; color: var(--color-text-primary); transition: background 0.2s;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="font-size: 1.5rem;">🔐</span>
-          <div>
-            <div style="font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;">Add Password</div>
-            <div style="color: var(--color-text-secondary); font-size: 0.8rem;">Store a new password</div>
-          </div>
-        </div>
+    <div class="dashboard-health">
+      <div class="dashboard-health-item primary">
+        <span class="status-dot ${isConnected() ? 'ok' : 'bad'}">${isConnected() ? '●' : '○'}</span>
+        <span>Database <strong id="dbStatus" class="dashboard-status-text">${isConnected() ? 'Connected' : 'Disconnected'}</strong></span>
+      </div>
+      <div class="dashboard-health-item" id="dbUptime">DB Uptime: -</div>
+      <div class="dashboard-health-item" id="serverUptime">Server Uptime: -</div>
+      ${dbMetadata ? `<div class="dashboard-health-item">Schema v${dbMetadata.schemaVersion || '?'}</div>` : ''}
+      ${(dbMetadata as any)?.indexesInitialized ? `<div class="dashboard-health-item success">Indexes Optimized</div>` : ''}
+    </div>
+
+    <div class="dashboard-grid actions">
+      <a href="/passwords/add" class="dashboard-action">
+        <div class="dashboard-action-title">Add Password</div>
+        <div class="dashboard-action-subtitle">Store a new credential quickly.</div>
       </a>
-      <a href="/totp/add" style="display: block; background: var(--color-bg-secondary); padding: 1rem; border-radius: 6px; border: 1px solid var(--color-border); text-decoration: none; color: var(--color-text-primary); transition: background 0.2s;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="font-size: 1.5rem;">🔑</span>
-          <div>
-            <div style="font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;">Add TOTP</div>
-            <div style="color: var(--color-text-secondary); font-size: 0.8rem;">Add 2FA authenticator</div>
-          </div>
-        </div>
+      <a href="/totp/add" class="dashboard-action">
+        <div class="dashboard-action-title">Add TOTP</div>
+        <div class="dashboard-action-subtitle">Attach a new 2FA authenticator.</div>
       </a>
-      <a href="/passwords" style="display: block; background: var(--color-bg-secondary); padding: 1rem; border-radius: 6px; border: 1px solid var(--color-border); text-decoration: none; color: var(--color-text-primary); transition: background 0.2s;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="font-size: 1.5rem;">📋</span>
-          <div>
-            <div style="font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;">View Passwords</div>
-            <div style="color: var(--color-text-secondary); font-size: 0.8rem;">Browse all passwords</div>
-          </div>
-        </div>
-      </a>
-      <a href="/totp" style="display: block; background: var(--color-bg-secondary); padding: 1rem; border-radius: 6px; border: 1px solid var(--color-border); text-decoration: none; color: var(--color-text-primary); transition: background 0.2s;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="font-size: 1.5rem;">⏱️</span>
-          <div>
-            <div style="font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;">View TOTP</div>
-            <div style="color: var(--color-text-secondary); font-size: 0.8rem;">Manage 2FA codes</div>
-          </div>
-        </div>
+      <a href="/passwords" class="dashboard-action">
+        <div class="dashboard-action-title">Review Vault</div>
+        <div class="dashboard-action-subtitle">Filter, inspect, and update entries.</div>
       </a>
     </div>
 
-    <!-- System Status Row -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-          <span style="color: ${isConnected() ? 'var(--color-success)' : 'var(--color-error)'}; font-size: 1.2rem;">${isConnected() ? '●' : '○'}</span>
-          <span style="color: var(--color-text-secondary); font-size: 0.85rem;">Database: <span id="dbStatus">${isConnected() ? 'Connected' : 'Disconnected'}</span></span>
-        </div>
-        <div style="color: var(--color-text-secondary); font-size: 0.7rem;" id="dbUptime">Uptime: -</div>
-        ${dbMetadata ? `<div style="color: var(--color-text-secondary); font-size: 0.7rem; margin-top: 0.25rem;">Schema v${dbMetadata.schemaVersion || '?'}</div>` : ''}
+    <div class="dashboard-activity">
+      <div class="dashboard-activity-header">
+        <h3 class="dashboard-activity-title">Vault Activity (Last 30 Days)</h3>
+        <span class="dashboard-activity-updated" id="chartLastUpdate">Loading...</span>
       </div>
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="color: var(--color-text-secondary); font-size: 0.85rem; margin-bottom: 0.25rem;">Server Uptime</div>
-        <div style="color: var(--color-text-secondary); font-size: 0.7rem;" id="serverUptime">-</div>
+      <div class="dashboard-chart-wrap">
+        <canvas id="activityChart"></canvas>
       </div>
-      ${(dbMetadata as any)?.indexesInitialized ? `
-      <div style="background: var(--color-bg-secondary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-          <span style="color: var(--color-success); font-size: 1.2rem;">✓</span>
-          <span style="color: var(--color-text-secondary); font-size: 0.85rem;">Database Indexes</span>
-        </div>
-        <div style="color: var(--color-text-secondary); font-size: 0.7rem;">Optimized</div>
+      <div id="chartNoData" class="dashboard-chart-empty">
+        No activity recorded yet. Vault usage will appear here automatically.
       </div>
-      ` : ''}
-    </div>
-
-    <!-- Charts Row -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-      <div style="background: var(--color-bg-secondary); padding: 1rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <h3 style="color: var(--color-accent-light); font-size: 0.9rem; font-weight: normal; margin: 0;">Activity (Last 30 Days)</h3>
-          <span style="color: var(--color-text-secondary); font-size: 0.75rem;" id="chartLastUpdate">Loading...</span>
-        </div>
-        <div style="position: relative; height: 200px;">
-          <canvas id="activityChart"></canvas>
-        </div>
-        <div id="chartNoData" style="display: none; text-align: center; padding: 2rem; color: var(--color-text-secondary); font-size: 0.9rem;">
-          No activity data available yet. Start using the vault to see analytics!
-        </div>
-      </div>
-      <div style="background: var(--color-bg-secondary); padding: 1rem; border-radius: 6px; border: 1px solid var(--color-border);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <h3 style="color: var(--color-accent-light); font-size: 0.9rem; font-weight: normal; margin: 0;">Event Distribution</h3>
-        </div>
-        <div style="position: relative; height: 200px;">
-          <canvas id="distributionChart"></canvas>
-        </div>
-        <div id="chartNoDataDist" style="display: none; text-align: center; padding: 2rem; color: var(--color-text-secondary); font-size: 0.9rem;">
-          No events recorded yet.
-        </div>
+      <div class="dashboard-grid events">
+        <div class="event-pill"><div class="event-pill-label">Views</div><div id="eventViews" class="event-pill-value">-</div></div>
+        <div class="event-pill"><div class="event-pill-label">Copies</div><div id="eventCopies" class="event-pill-value success">-</div></div>
+        <div class="event-pill"><div class="event-pill-label">Adds</div><div id="eventAdds" class="event-pill-value">-</div></div>
+        <div class="event-pill"><div class="event-pill-label">Edits</div><div id="eventEdits" class="event-pill-value">-</div></div>
+        <div class="event-pill"><div class="event-pill-label">Deletes</div><div id="eventDeletes" class="event-pill-value error">-</div></div>
+        <div class="event-pill"><div class="event-pill-label">Errors</div><div id="eventErrors" class="event-pill-value error">-</div></div>
       </div>
     </div>
 
     ${passwordCount > 0 ? `
 
-      <div style="background: ${hasIssues ? 'var(--color-bg-secondary)' : 'var(--color-bg-secondary)'}; padding: 1.5rem; border-radius: 8px; border: 1px solid ${hasIssues ? 'var(--color-error)' : 'var(--color-success)'}; margin-bottom: 1.5rem;">
-        <h2 style="color: ${hasIssues ? 'var(--color-error)' : 'var(--color-success)'}; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+      <div class="dashboard-security ${hasIssues ? 'has-issues' : 'ok'}">
+        <h2 class="dashboard-security-title ${hasIssues ? 'warn' : 'success'}">
           ${hasIssues ? '⚠' : '✓'} Security Check
         </h2>
         ${hasIssues ? `
-          <div style="color: var(--color-error); margin-bottom: 0.75rem;">
-            <p style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem;">Security Issues Found:</p>
+          <div class="dashboard-security-body">
+            <p class="dashboard-security-lead">Security Issues Found:</p>
             ${duplicateCount > 0 ? `
-              <p style="color: var(--color-text-secondary); margin-bottom: 0.5rem; font-weight: bold;">• ${duplicateCount} duplicate password${duplicateCount > 1 ? 's' : ''} detected:</p>
-              <ul style="color: var(--color-text-secondary); margin-left: 1.5rem; margin-bottom: 0.5rem;">
+              <p class="dashboard-security-note">• ${duplicateCount} duplicate password${duplicateCount > 1 ? 's' : ''} detected:</p>
+              <ul class="dashboard-security-list">
                 ${Array.from(new Set(duplicateEntries.map(e => e.password))).slice(0, 5).map(password => {
                   const entries = duplicateEntries.filter(e => e.password === password);
-                  return `<li style="margin-bottom: 0.25rem;">Used in: ${entries.map(e => escapeHtml(e.website)).join(', ')}</li>`;
+                  return `<li>Used in: ${entries.map(e => escapeHtml(e.website)).join(', ')}</li>`;
                 }).join('')}
-                ${Array.from(new Set(duplicateEntries.map(e => e.password))).length > 5 ? `<li style="color: var(--color-text-secondary);">...and more</li>` : ''}
+                ${Array.from(new Set(duplicateEntries.map(e => e.password))).length > 5 ? `<li>...and more</li>` : ''}
               </ul>
             ` : ''}
             ${weakPasswordCount > 0 ? `
-              <p style="color: var(--color-text-secondary); margin-bottom: 0.5rem; font-weight: bold;">• ${weakPasswordCount} weak password${weakPasswordCount > 1 ? 's' : ''} detected:</p>
-              <ul style="color: var(--color-text-secondary); margin-left: 1.5rem; margin-bottom: 0.5rem;">
-                ${weakEntries.slice(0, 5).map(entry => `<li style="margin-bottom: 0.25rem;"><a href="/passwords/${entry.entryId}" style="color: var(--color-accent-light);">${escapeHtml(entry.website)}</a> (Strength: ${entry.strength <= 2 ? 'Weak' : 'Fair'})</li>`).join('')}
-                ${weakEntries.length > 5 ? `<li style="color: var(--color-text-secondary);">...and ${weakEntries.length - 5} more</li>` : ''}
+              <p class="dashboard-security-note">• ${weakPasswordCount} weak password${weakPasswordCount > 1 ? 's' : ''} detected:</p>
+              <ul class="dashboard-security-list">
+                ${weakEntries.slice(0, 5).map(entry => `<li><a class="dashboard-link" href="/passwords/${entry.entryId}">${escapeHtml(entry.website)}</a> (Strength: ${entry.strength <= 2 ? 'Weak' : 'Fair'})</li>`).join('')}
+                ${weakEntries.length > 5 ? `<li>...and ${weakEntries.length - 5} more</li>` : ''}
               </ul>
             ` : ''}
           </div>
-          <div style="color: var(--color-text-secondary); font-size: 0.9rem;">
-            <p style="margin-bottom: 0.25rem;">Recommendations:</p>
-            ${duplicateCount > 0 ? `<p style="margin-bottom: 0.25rem;">• Use unique passwords for each account</p>` : ''}
-            ${weakPasswordCount > 0 ? `<p style="margin-bottom: 0.25rem;">• Strengthen weak passwords using the password generator</p>` : ''}
+          <div class="dashboard-security-body compact">
+            <p class="dashboard-security-note medium">Recommendations:</p>
+            ${duplicateCount > 0 ? `<p>• Use unique passwords for each account</p>` : ''}
+            ${weakPasswordCount > 0 ? `<p>• Strengthen weak passwords using the password generator</p>` : ''}
           </div>
         ` : `
-          <div style="color: var(--color-success); font-size: 1.2rem; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 1.5rem;">✓</span>
+          <div class="dashboard-security-title success dashboard-security-pass">
+            <span>✓</span>
             <span>Security Check Passed</span>
           </div>
-          <p style="color: var(--color-text-secondary); margin-top: 0.5rem; font-size: 0.9rem;">All passwords are unique and strong.</p>
+          <p class="dashboard-security-body compact top-gap">All passwords are unique and strong.</p>
         `}
       </div>
     ` : `
-      <div style="background: var(--color-bg-secondary); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--color-border); margin-top: 1.5rem; margin-bottom: 1.5rem;">
-        <p style="color: var(--color-text-secondary);">No passwords saved yet. Add your first password to see security statistics.</p>
+      <div class="dashboard-panel spaced">
+        <p class="dashboard-empty-copy">No passwords saved yet. Add your first password to see security statistics.</p>
       </div>
     `}
 
     <!-- Recent Items Row -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+    <div class="dashboard-recent-grid">
       ${recentPasswords.length > 0 ? `
-        <div style="background: var(--color-bg-secondary); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--color-border);">
-          <h2 style="color: var(--color-accent-light); margin-bottom: 1rem; font-size: 1.1rem;">Recent Passwords</h2>
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="dashboard-panel">
+          <h2 class="dashboard-panel-title">Recent Passwords</h2>
+          <div class="dashboard-panel-list">
             ${recentPasswords.map(p => `
-              <a href="/passwords/${p._id}" style="display: block; background: var(--color-bg-primary); padding: 1rem; border-radius: 4px; border: 1px solid var(--color-border); text-decoration: none; color: var(--color-text-primary); transition: background 0.2s;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+              <a href="/passwords/${p._id}" class="dashboard-panel-item">
+                <div class="dashboard-panel-item-row">
                   <div>
-                    <div style="font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;">${escapeHtml(p.website)}</div>
-                    ${p.username ? `<div style="font-size: 0.85rem; color: var(--color-text-secondary);">${escapeHtml(p.username)}</div>` : ''}
-                    <div style="font-size: 0.75rem; color: var(--color-text-secondary); margin-top: 0.25rem;">Added ${new Date(p.createdAt).toLocaleDateString()}</div>
+                    <div class="dashboard-panel-item-title">${escapeHtml(p.website)}</div>
+                    ${p.username ? `<div class="dashboard-panel-item-meta">${escapeHtml(p.username)}</div>` : ''}
+                    <div class="dashboard-panel-item-submeta">Added ${new Date(p.createdAt).toLocaleDateString()}</div>
                   </div>
-                  <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--color-text-secondary);">
+                  <div class="dashboard-panel-stats">
                     <span>👁️ ${p.searchCount || 0}</span>
                     <span>📋 ${p.copyCount || 0}</span>
                   </div>
@@ -2396,56 +2322,56 @@ router.get("/", async (request, params, query) => {
             `).join('')}
           </div>
           ${passwordCount > 3 ? `
-            <div style="margin-top: 1rem; text-align: center;">
-              <a href="/passwords" style="color: var(--color-accent-light); text-decoration: none; font-size: 0.9rem;">View All →</a>
+            <div class="dashboard-panel-view-all">
+              <a href="/passwords">View All →</a>
             </div>
           ` : ''}
         </div>
       ` : ''}
 
       ${totpEntries.length > 0 ? `
-        <div style="background: var(--color-bg-secondary); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--color-border);">
-          <h2 style="color: var(--color-accent-light); margin-bottom: 1rem; font-size: 1.1rem;">TOTP Codes</h2>
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="dashboard-panel">
+          <h2 class="dashboard-panel-title">TOTP Codes</h2>
+          <div class="dashboard-panel-list">
             ${(await Promise.all(totpEntries.map(async (e) => {
               try {
                 const code = await getCurrentTotpCode(e);
                 return `
-                  <div style="background: var(--color-bg-primary); padding: 1rem; border-radius: 4px; border: 1px solid var(--color-border);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div class="dashboard-panel-item">
+                    <div class="dashboard-panel-item-row">
                       <div>
-                        <div style="font-weight: bold; color: var(--color-accent-light); margin-bottom: 0.25rem;">${escapeHtml(e.label)}</div>
-                        ${e.account ? `<div style="font-size: 0.85rem; color: var(--color-text-secondary);">${escapeHtml(e.account)}</div>` : ''}
-                        <div style="font-size: 0.75rem; color: var(--color-text-secondary); margin-top: 0.25rem;">${e.type === 'TOTP' ? 'Time-based' : 'Counter-based'}</div>
+                        <div class="dashboard-panel-item-title">${escapeHtml(e.label)}</div>
+                        ${e.account ? `<div class="dashboard-panel-item-meta">${escapeHtml(e.account)}</div>` : ''}
+                        <div class="dashboard-panel-item-submeta">${e.type === 'TOTP' ? 'Time-based' : 'Counter-based'}</div>
                       </div>
-                      <div style="text-align: right;">
-                        <div style="font-family: monospace; font-size: 1.2rem; font-weight: bold; color: var(--color-success); margin-bottom: 0.25rem;" id="dashboard-totp-${e._id}">${code || '---'}</div>
-                        ${e.type === 'TOTP' ? `<div style="font-size: 0.7rem; color: var(--color-text-secondary);" id="dashboard-totp-timer-${e._id}">Refreshing...</div>` : ''}
+                      <div class="dashboard-totp-side">
+                        <div class="dashboard-totp-code" id="dashboard-totp-${e._id}">${code || '---'}</div>
+                        ${e.type === 'TOTP' ? `<div class="dashboard-totp-timer" id="dashboard-totp-timer-${e._id}">Refreshing...</div>` : ''}
                       </div>
                     </div>
                   </div>
                 `;
               } catch (error) {
                 return `
-                  <div style="background: var(--color-bg-primary); padding: 1rem; border-radius: 4px; border: 1px solid var(--color-border);">
-                    <div style="color: var(--color-accent-light); font-weight: bold;">${escapeHtml(e.label)}</div>
-                    <div style="color: var(--color-text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">Error loading code</div>
+                  <div class="dashboard-panel-item">
+                    <div class="dashboard-panel-item-title">${escapeHtml(e.label)}</div>
+                    <div class="dashboard-panel-item-submeta">Error loading code</div>
                   </div>
                 `;
               }
             }))).join('')}
           </div>
           ${totpCount > 3 ? `
-            <div style="margin-top: 1rem; text-align: center;">
-              <a href="/totp" style="color: var(--color-accent-light); text-decoration: none; font-size: 0.9rem;">View All →</a>
+            <div class="dashboard-panel-view-all">
+              <a href="/totp">View All →</a>
             </div>
           ` : ''}
         </div>
       ` : totpCount === 0 ? `
-        <div style="background: var(--color-bg-secondary); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--color-border);">
-          <h2 style="color: var(--color-accent-light); margin-bottom: 1rem; font-size: 1.1rem;">TOTP Codes</h2>
-          <p style="color: var(--color-text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">No TOTP codes saved yet.</p>
-          <a href="/totp/add" style="display: inline-block; background: var(--color-border); color: var(--color-text-primary); padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; border: 1px solid var(--color-bg-tertiary);">Add TOTP Code</a>
+        <div class="dashboard-panel">
+          <h2 class="dashboard-panel-title">TOTP Codes</h2>
+          <p class="dashboard-empty-copy">No TOTP codes saved yet.</p>
+          <a href="/totp/add" class="dashboard-inline-action">Add TOTP Code</a>
         </div>
       ` : ''}
     </div>
@@ -2490,22 +2416,23 @@ router.get("/", async (request, params, query) => {
                               (analytics.copies || 0) + (analytics.edits || 0) + (analytics.errors || 0) > 0;
 
             const noDataEl = document.getElementById('chartNoData');
-            const noDataDistEl = document.getElementById('chartNoDataDist');
 
             if (!hasAnyData) {
               if (noDataEl) noDataEl.style.display = 'block';
-              if (noDataDistEl) noDataDistEl.style.display = 'block';
             } else {
               if (noDataEl) noDataEl.style.display = 'none';
-              if (noDataDistEl) noDataDistEl.style.display = 'none';
             }
 
             // Update totals
-            document.getElementById('totalAdds').textContent = analytics.adds || 0;
-            document.getElementById('totalDeletes').textContent = analytics.deletes || 0;
-            document.getElementById('totalViews').textContent = analytics.views || 0;
-            document.getElementById('totalCopies').textContent = analytics.copies || 0;
-            document.getElementById('totalErrors').textContent = analytics.errors || 0;
+            const totalEvents = (analytics.adds || 0) + (analytics.deletes || 0) + (analytics.views || 0) +
+              (analytics.copies || 0) + (analytics.edits || 0) + (analytics.errors || 0);
+            document.getElementById('totalEvents').textContent = totalEvents;
+            document.getElementById('eventAdds').textContent = analytics.adds || 0;
+            document.getElementById('eventDeletes').textContent = analytics.deletes || 0;
+            document.getElementById('eventViews').textContent = analytics.views || 0;
+            document.getElementById('eventCopies').textContent = analytics.copies || 0;
+            document.getElementById('eventEdits').textContent = analytics.edits || 0;
+            document.getElementById('eventErrors').textContent = analytics.errors || 0;
 
             // Activity chart
             const activityCtx = document.getElementById('activityChart');
@@ -2643,96 +2570,13 @@ router.get("/", async (request, params, query) => {
               }
             }
 
-            // Distribution chart
-            const distCtx = document.getElementById('distributionChart');
-            if (distCtx) {
-              const chartData = [
-                analytics.views || 0,
-                analytics.copies || 0,
-                analytics.adds || 0,
-                analytics.edits || 0,
-                analytics.deletes || 0,
-                analytics.errors || 0
-              ];
-
-              // Only show non-zero values in legend and data
-              const labels = ['Views', 'Copies', 'Adds', 'Edits', 'Deletes', 'Errors'];
-              const colors = ['var(--color-accent-light)', 'var(--color-success)', 'var(--color-accent-light)', 'var(--color-accent-light)', 'var(--color-error)', 'var(--color-error)'];
-
-              // Filter out zero values for better visualization
-              const filteredData = chartData.map((val, idx) => ({ val, label: labels[idx], color: colors[idx] }))
-                .filter(item => item.val > 0);
-
-              const finalData = filteredData.map(item => item.val);
-              const finalLabels = filteredData.map(item => item.label);
-              const finalColors = filteredData.map(item => item.color);
-
-              // Update existing chart or create new one
-              if (window.distributionChart && window.distributionChart.data) {
-                window.distributionChart.data.labels = finalLabels.length > 0 ? finalLabels : labels;
-                window.distributionChart.data.datasets[0].data = finalData.length > 0 ? finalData : chartData;
-                window.distributionChart.data.datasets[0].backgroundColor = finalColors.length > 0 ? finalColors : colors;
-                window.distributionChart.update('active');
-              } else {
-                // Destroy existing chart if it exists but is invalid
-                if (window.distributionChart && typeof window.distributionChart.destroy === 'function') {
-                  try {
-                    window.distributionChart.destroy();
-                  } catch (e) {
-                    console.warn('Error destroying distribution chart:', e);
-                  }
-                }
-                window.distributionChart = new Chart(distCtx, {
-                  type: 'doughnut',
-                  data: {
-                    labels: finalLabels.length > 0 ? finalLabels : labels,
-                    datasets: [{
-                      data: finalData.length > 0 ? finalData : chartData,
-                      backgroundColor: finalColors.length > 0 ? finalColors : colors,
-                      borderWidth: 2,
-                      borderColor: 'var(--color-bg-primary)'
-                    }]
-                  },
-                  options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        labels: {
-                          color: 'var(--color-text-secondary)',
-                          font: { size: 11 },
-                          padding: 10
-                        },
-                        position: 'bottom'
-                      },
-                      tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        titleColor: 'var(--color-text-primary)',
-                        bodyColor: 'var(--color-text-secondary)',
-                        borderColor: 'var(--color-border)',
-                        borderWidth: 1,
-                        callbacks: {
-                          label: function(context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
-                            const total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return label + ': ' + value + ' (' + percentage + '%)';
-                          }
-                        }
-                      }
-                    }
-                  }
-                });
-              }
-            }
           }
 
           if (statusRes.ok) {
             const status = await statusRes.json();
-            document.getElementById('serverUptime').textContent = formatUptime(status.serverUptime);
+            document.getElementById('serverUptime').textContent = 'Server Uptime: ' + formatUptime(status.serverUptime);
             document.getElementById('dbStatus').textContent = status.dbConnected ? 'Connected' : 'Disconnected';
-            document.getElementById('dbUptime').textContent = status.dbConnected ? 'Uptime: ' + formatUptime(status.dbUptime) : 'Not connected';
+            document.getElementById('dbUptime').textContent = status.dbConnected ? 'DB Uptime: ' + formatUptime(status.dbUptime) : 'DB Uptime: not connected';
           }
         } catch (error) {
           console.error('Error loading analytics:', error);
@@ -2792,7 +2636,7 @@ router.get("/passwords", async (request, params, query) => {
   if (!isConnected()) {
     return renderPage(`
       <h1>All Passwords</h1>
-      <p style="color: var(--color-error);">Database not available.</p>
+      <p class="section-error">Database not available.</p>
     `, "Passwords - XeoKey", request);
   }
 
@@ -2803,14 +2647,14 @@ router.get("/passwords", async (request, params, query) => {
     if (passwords.length === 0) {
       return renderPage(`
         <h1>All Passwords (0)</h1>
-        <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 250px;">
-            <input type="text" id="passwordSearch" placeholder="Search passwords..." disabled autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-secondary); font-size: 0.9rem; cursor: not-allowed;">
+        <div class="list-toolbar">
+          <div class="list-toolbar-search">
+            <input type="text" id="passwordSearch" placeholder="Search passwords..." disabled autocomplete="off" class="search-input-disabled">
           </div>
-          <a href="/passwords/add" style="color: var(--color-accent-light); text-decoration: none; background: var(--color-border); padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--color-bg-tertiary); display: inline-block; white-space: nowrap;">+ Add Password</a>
+          <a href="/passwords/add" class="action-link-btn">+ Add Password</a>
         </div>
         <p>No passwords saved yet.</p>
-        <p><a href="/passwords/add" style="color: var(--color-accent-light);">Add your first password</a></p>
+        <p><a href="/passwords/add" class="empty-state-link">Add your first password</a></p>
       `, "Passwords - XeoKey", request);
     }
 
@@ -2827,24 +2671,23 @@ router.get("/passwords", async (request, params, query) => {
       if (isWeak) issues.push('Weak');
 
       return `
-      <div class="password-entry"
+      <div class="password-entry ${issues.length > 0 ? 'issue' : ''}"
            data-password-id="${p._id}"
            data-website="${escapeHtml(p.website).toLowerCase()}"
            data-username="${p.username ? escapeHtml(p.username).toLowerCase() : ''}"
            data-email="${p.email ? escapeHtml(p.email).toLowerCase() : ''}"
-           data-notes="${p.notes ? escapeHtml(p.notes).toLowerCase() : ''}"
-           ${issues.length > 0 ? `style="border-left: 4px solid var(--color-error);"` : ''}>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-          <h3 style="margin-bottom: 0; color: var(--color-accent-light);">${escapeHtml(p.website)}</h3>
+           data-notes="${p.notes ? escapeHtml(p.notes).toLowerCase() : ''}">
+        <div class="password-entry-head">
+          <h3 class="password-entry-title">${escapeHtml(p.website)}</h3>
           ${issues.length > 0 ? `
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              ${issues.map(issue => `<span style="background: var(--color-bg-secondary); color: var(--color-error); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid var(--color-error);">${issue}</span>`).join('')}
+            <div class="password-entry-issues">
+              ${issues.map(issue => `<span class="password-issue-badge">${issue}</span>`).join('')}
             </div>
           ` : ''}
         </div>
-        ${p.username ? `<p style="color: var(--color-text-secondary); margin-bottom: 0.25rem;">Username: ${escapeHtml(p.username)}</p>` : ''}
-        ${p.email ? `<p style="color: var(--color-text-secondary); margin-bottom: 0.25rem;">Email: ${escapeHtml(p.email)}</p>` : ''}
-        <div style="display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary);">
+        ${p.username ? `<p class="password-entry-meta">Username: ${escapeHtml(p.username)}</p>` : ''}
+        ${p.email ? `<p class="password-entry-meta">Email: ${escapeHtml(p.email)}</p>` : ''}
+        <div class="password-entry-stats">
           <span>👁️ ${p.searchCount || 0} views</span>
           <span>📋 ${p.copyCount || 0} copies</span>
         </div>
@@ -2854,16 +2697,16 @@ router.get("/passwords", async (request, params, query) => {
 
     return renderPage(`
       <h1>All Passwords (${passwordCount})</h1>
-      <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 250px;">
-          <input type="text" id="passwordSearch" placeholder="Search passwords..." autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary); font-size: 0.9rem;">
+      <div class="list-toolbar">
+        <div class="list-toolbar-search">
+          <input type="text" id="passwordSearch" placeholder="Search passwords..." autocomplete="off">
         </div>
-        <a href="/passwords/add" style="color: var(--color-accent-light); text-decoration: none; background: var(--color-border); padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--color-bg-tertiary); display: inline-block; white-space: nowrap;">+ Add Password</a>
+        <a href="/passwords/add" class="action-link-btn">+ Add Password</a>
       </div>
       <div id="passwordListContainer">
         ${passwordList}
       </div>
-      <div id="noResultsMessage" style="display: none; text-align: center; padding: 2rem; color: var(--color-text-secondary);">
+      <div id="noResultsMessage" class="no-results">
         No passwords found matching your search.
       </div>
     `, "Passwords - XeoKey", request);
@@ -2879,7 +2722,7 @@ router.get("/passwords", async (request, params, query) => {
     }
     return renderPage(`
       <h1>All Passwords${passwordCount > 0 ? ' (' + passwordCount + ')' : ''}</h1>
-      <p style="color: var(--color-error);">Error loading passwords.</p>
+      <p class="section-error">Error loading passwords.</p>
     `, "Passwords - XeoKey", request);
   }
 });
@@ -2900,43 +2743,43 @@ router.get("/passwords/add", async (request, params, query) => {
 
   return renderPage(`
     <h1>Add Password</h1>
-    <form method="POST" action="/passwords/add" style="max-width: 600px; margin: 0 auto;">
+    <form method="POST" action="/passwords/add" class="form-card">
       <input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">
-      <div style="margin-bottom: 1rem;">
-        <label for="website" style="display: block; margin-bottom: 0.5rem;">Website/Service *</label>
-        <input type="text" id="website" name="website" required autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary);">
+      <div class="form-group">
+        <label for="website" class="form-label">Website/Service *</label>
+        <input type="text" id="website" name="website" required autocomplete="off">
       </div>
-      <div style="margin-bottom: 1rem;">
-        <label for="username" style="display: block; margin-bottom: 0.5rem;">Username</label>
-        <input type="text" id="username" name="username" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary);">
+      <div class="form-group">
+        <label for="username" class="form-label">Username</label>
+        <input type="text" id="username" name="username" autocomplete="off">
       </div>
-      <div style="margin-bottom: 1rem;">
-        <label for="email" style="display: block; margin-bottom: 0.5rem;">Email</label>
-        <input type="email" id="email" name="email" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary);">
+      <div class="form-group">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" id="email" name="email" autocomplete="off">
       </div>
-      <div style="margin-bottom: 1rem;">
-        <label for="password" style="display: block; margin-bottom: 0.5rem;">Password *</label>
-        <div class="password-input-container" style="display: flex; gap: 0.5rem; align-items: flex-start;">
-          <div style="flex: 1;">
-            <input type="text" id="password" name="password" required autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary);">
-            <div id="passwordStrength" style="margin-top: 0.5rem; height: 4px; background: var(--color-bg-secondary); border-radius: 2px; overflow: hidden;">
-              <div id="passwordStrengthBar" style="height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s;"></div>
+      <div class="form-group">
+        <label for="password" class="form-label">Password *</label>
+        <div class="password-input-container">
+          <div class="password-input-grow">
+            <input type="text" id="password" name="password" required autocomplete="off">
+            <div id="passwordStrength" class="strength-wrap">
+              <div id="passwordStrengthBar" class="strength-bar"></div>
             </div>
-            <div id="passwordStrengthText" style="color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 0.25rem;"></div>
+            <div id="passwordStrengthText" class="strength-text"></div>
           </div>
-          <button type="button" id="generatePasswordBtn" style="background: var(--color-border); color: var(--color-text-primary); padding: 0.5rem 1rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; height: fit-content;">
+          <button type="button" id="generatePasswordBtn" class="generate-btn">
             Generate
           </button>
         </div>
       </div>
-      <div style="margin-bottom: 1.5rem;">
-        <label for="notes" style="display: block; margin-bottom: 0.5rem;">Notes</label>
-        <textarea id="notes" name="notes" rows="4" autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-secondary); color: var(--color-text-primary); font-family: inherit;"></textarea>
+      <div class="form-group-lg">
+        <label for="notes" class="form-label">Notes</label>
+        <textarea id="notes" name="notes" rows="4" autocomplete="off"></textarea>
       </div>
-      <button type="submit" style="width: 100%; background: var(--color-border); color: var(--color-text-primary); padding: 0.75rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 1rem;">Save Password</button>
+      <button type="submit" class="full-width-btn">Save Password</button>
     </form>
-    <p style="text-align: center; margin-top: 1rem;">
-      <a href="/passwords" style="color: var(--color-accent-light);">← Back to Passwords</a>
+    <p class="text-center top-margin">
+      <a href="/passwords" class="empty-state-link">← Back to Passwords</a>
     </p>
   `, "Add Password - XeoKey", request);
 });
@@ -2954,30 +2797,30 @@ router.get("/totp", async (request, params, query) => {
     try {
       code = await getCurrentTotpCode(e);
     } catch {}
-    const account = e.account ? ` <span style="color:var(--color-text-secondary);font-size:0.85rem;">(${escapeHtml(e.account)})</span>` : '';
+    const account = e.account ? ` <span class="totp-item-account">(${escapeHtml(e.account)})</span>` : '';
     const rightControls = e.type === 'HOTP'
-      ? `<a href="/totp/next?id=${e._id}" style="color:var(--color-accent-light);text-decoration:none;border:1px solid var(--color-bg-tertiary);padding:0.35rem 0.75rem;border-radius:4px;margin-right:0.5rem;">Next</a>
-         <a href="/totp/delete?id=${e._id}" style="color:var(--color-error);text-decoration:none;border:1px solid var(--color-bg-tertiary);padding:0.35rem 0.75rem;border-radius:4px;">Delete</a>`
-      : `<a href="/totp/delete?id=${e._id}" style="color:var(--color-error);text-decoration:none;border:1px solid var(--color-bg-tertiary);padding:0.35rem 0.75rem;border-radius:4px;">Delete</a>`;
-    const copyBtn = `<button type="button" class="copy-totp" data-entry-id="${e._id}" data-code="${code}" style="background:var(--color-border);color:var(--color-text-primary);padding:0.35rem 0.75rem;border:1px solid var(--color-bg-tertiary);border-radius:4px;margin-right:0.5rem;">Copy</button>`;
-    const timer = e.type === 'TOTP' ? `<div class="totp-timer" data-period="${e.period || 30}" data-entry-id="${e._id}"><div class="totp-timer-bar" style="width:0%;"></div><span class="totp-timer-text" style="margin-left:0.5rem;color:var(--color-text-secondary);font-size:0.8rem;"></span></div>` : '';
-    return `<div class="totp-item" data-type="${e.type}" data-entry-id="${e._id}" data-period="${e.period || 30}" style="background:var(--color-bg-secondary);padding:0.75rem;border-radius:6px;border:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;">
+      ? `<a href="/totp/next?id=${e._id}" class="totp-control">Next</a>
+         <a href="/totp/delete?id=${e._id}" class="totp-control delete">Delete</a>`
+      : `<a href="/totp/delete?id=${e._id}" class="totp-control delete">Delete</a>`;
+    const copyBtn = `<button type="button" class="copy-totp" data-entry-id="${e._id}" data-code="${code}">Copy</button>`;
+    const timer = e.type === 'TOTP' ? `<div class="totp-timer" data-period="${e.period || 30}" data-entry-id="${e._id}"><div class="totp-timer-bar"></div><span class="totp-timer-text"></span></div>` : '';
+    return `<div class="totp-item" data-type="${e.type}" data-entry-id="${e._id}" data-period="${e.period || 30}">
       <div>
-        <div style="font-weight:600;color:var(--color-text-primary);">${escapeHtml(e.label)}${account} <span style="color:var(--color-text-secondary);font-size:0.8rem;">[${e.type}]</span></div>
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
-          <div id="totpCode-${e._id}" style="color:var(--color-accent-light);font-family:monospace;min-width:5ch;">${code || (e.type==='HOTP' ? '(tap Next to generate)' : '')}</div>
+        <div class="totp-item-title">${escapeHtml(e.label)}${account} <span class="totp-item-type">[${e.type}]</span></div>
+        <div class="totp-item-row">
+          <div id="totpCode-${e._id}" class="totp-code">${code || (e.type==='HOTP' ? '(tap Next to generate)' : '')}</div>
           ${e.type === 'TOTP' ? copyBtn : ''}
         </div>
         ${timer}
       </div>
-      <div>${e.type === 'TOTP' ? '' : copyBtn}${rightControls}</div>
+      <div class="totp-side-controls">${e.type === 'TOTP' ? '' : copyBtn}${rightControls}</div>
     </div>`;
   }));
   const body = `
     <h1>TOTP</h1>
-    <div style="margin-bottom:0.75rem;"><a href="/totp/add" style="color:var(--color-accent-light);text-decoration:none;border:1px solid var(--color-bg-tertiary);padding:0.5rem 1rem;border-radius:4px;display:inline-block;">+ Add TOTP</a></div>
-    <div style="display:flex;flex-direction:column;gap:0.5rem;">
-      ${items.join('') || '<div style="color:var(--color-text-secondary);">No TOTP entries yet.</div>'}
+    <div class="totp-add-link"><a href="/totp/add" class="action-link-btn">+ Add TOTP</a></div>
+    <div class="totp-list">
+      ${items.join('') || '<div class="totp-empty">No TOTP entries yet.</div>'}
     </div>
   `;
   return renderPage(body, "TOTP - XeoKey", request);
@@ -2991,36 +2834,36 @@ router.get("/totp/add", async (request, params, query) => {
   const csrf = createCsrfToken(session.sessionId);
   const body = `
     <h1>Add TOTP</h1>
-    <form method="POST" action="/totp/add" style="max-width:600px;margin:0 auto;">
+    <form method="POST" action="/totp/add" class="form-card">
       <input type="hidden" name="csrfToken" value="${escapeHtml(csrf)}">
-      <div style="margin-bottom:0.75rem;">
-        <label style="display:block;margin-bottom:0.35rem;">Label *</label>
+      <div class="form-group-sm">
+        <label class="form-label-sm">Label *</label>
         <input type="text" name="label" required autocomplete="off">
       </div>
-      <div style="margin-bottom:0.75rem;">
-        <label style="display:block;margin-bottom:0.35rem;">Type</label>
+      <div class="form-group-sm">
+        <label class="form-label-sm">Type</label>
         <select name="type" id="otpType" autocomplete="off">
           <option value="TOTP" selected>TOTP (RFC 6238)</option>
           <option value="HOTP">HOTP (RFC 4226)</option>
         </select>
       </div>
-      <div style="margin-bottom:0.75rem;">
-        <label style="display:block;margin-bottom:0.35rem;">Account (optional)</label>
+      <div class="form-group-sm">
+        <label class="form-label-sm">Account (optional)</label>
         <input type="text" name="account" autocomplete="off">
       </div>
-      <div style="margin-bottom:0.75rem;">
-        <label style="display:block;margin-bottom:0.35rem;">Secret (Base32) *</label>
+      <div class="form-group-sm">
+        <label class="form-label-sm">Secret (Base32) *</label>
         <input type="text" name="secret" required autocomplete="off">
       </div>
-      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
-        <div style="flex:1; display:none;" id="counterField">
-          <label style="display:block;margin-bottom:0.35rem;">Counter (HOTP)</label>
+      <div class="form-inline-row">
+        <div class="form-inline-grow hidden-field" id="counterField">
+          <label class="form-label-sm">Counter (HOTP)</label>
           <input type="number" name="counter" value="0" min="0" autocomplete="off">
         </div>
       </div>
-      <div style="margin-bottom:0.75rem;color:var(--color-text-secondary);">
+      <div class="totp-standards">
         Using recommended standards:
-        <ul style="margin:0.35rem 0 0 1rem;">
+        <ul>
           <li>TOTP/HOTP digits: 6</li>
           <li>TOTP period: 30 seconds</li>
           <li>Algorithm: SHA1 (widely compatible)</li>
@@ -3076,15 +2919,15 @@ router.post("/totp/add", async (request, params, query) => {
       counter: isNaN(counter) ? 0 : counter
     });
     const codesHtml = plaintextBackupCodes && plaintextBackupCodes.length
-      ? `<div style="background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:6px;padding:0.75rem;margin-top:0.75rem;">
-           <div style="color:var(--color-error);margin-bottom:0.25rem;">Save these backup codes in a safe place. They are shown only once.</div>
-           <pre style="background:var(--color-bg-primary);padding:0.5rem;border-radius:4px;border:1px solid var(--color-border);">${plaintextBackupCodes.join('\n')}</pre>
+      ? `<div class="backup-codes">
+           <div class="backup-codes-warning">Save these backup codes in a safe place. They are shown only once.</div>
+           <pre>${plaintextBackupCodes.join('\n')}</pre>
          </div>` : '';
     const body = `
       <h1>TOTP Added</h1>
       <p>Entry "${escapeHtml(entry.label)}" created.</p>
       ${codesHtml}
-      <p style="margin-top:0.75rem;"><a href="/totp" style="color:var(--color-accent-light);">← Back to TOTP list</a></p>
+      <p class="top-gap-sm"><a href="/totp" class="empty-state-link">← Back to TOTP list</a></p>
     `;
     return renderPage(body, "TOTP Added - XeoKey", request);
   } catch (e) {
@@ -3194,14 +3037,14 @@ router.get("/notes", async (request, params, query) => {
     if (noteCount === 0) {
       return renderPage(`
         <h1>Secure Notes (0)</h1>
-        <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 250px;">
-            <input type="text" id="noteSearch" placeholder="Search notes..." disabled autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-secondary); font-size: 0.9rem; cursor: not-allowed;">
+        <div class="list-toolbar">
+          <div class="list-toolbar-search">
+            <input type="text" id="noteSearch" placeholder="Search notes..." disabled autocomplete="off" class="search-input-disabled">
           </div>
-          <a href="/notes/add" style="color: var(--color-accent-light); text-decoration: none; background: var(--color-border); padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--color-bg-tertiary); display: inline-block; white-space: nowrap;">+ Add Note</a>
+          <a href="/notes/add" class="action-link-btn">+ Add Note</a>
         </div>
         <p>No notes saved yet.</p>
-        <p><a href="/notes/add" style="color: var(--color-accent-light);">Create your first note</a></p>
+        <p><a href="/notes/add" class="empty-state-link">Create your first note</a></p>
       `, "Notes - XeoKey", request);
     }
 
@@ -3211,19 +3054,19 @@ router.get("/notes", async (request, params, query) => {
       const preview = note.content.length > 100 ? note.content.substring(0, 100) + '...' : note.content;
 
       return `
-        <div class="note-item" style="background: var(--color-bg-secondary); padding: 1rem; border-radius: 6px; border: 1px solid var(--color-border); margin-bottom: 0.75rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-            <h3 style="margin: 0; color: var(--color-text-primary); font-size: 1.1rem;">${escapeHtml(note.title)}</h3>
-            <div style="display: flex; gap: 0.5rem;">
-              <a href="/notes/${note._id}/edit" style="color: var(--color-accent-light); text-decoration: none; font-size: 0.85rem; padding: 0.35rem 0.75rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; background: var(--color-border); transition: all 0.2s ease; display: inline-block;">✏️ Edit</a>
-              <form method="POST" action="/notes/${note._id}/delete" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this note?');">
+        <div class="note-item">
+          <div class="note-item-head">
+            <h3 class="note-item-title">${escapeHtml(note.title)}</h3>
+            <div class="note-item-actions">
+              <a href="/notes/${note._id}/edit" class="note-edit-btn">✏️ Edit</a>
+              <form method="POST" action="/notes/${note._id}/delete" class="note-delete-form" onsubmit="return confirm('Are you sure you want to delete this note?');">
                 <input type="hidden" name="csrf_token" value="${csrfToken}">
-                <button type="submit" style="color: var(--color-error); background: var(--color-border); border: 1px solid var(--color-bg-tertiary); text-decoration: none; font-size: 0.85rem; cursor: pointer; padding: 0.35rem 0.75rem; border-radius: 4px; transition: all 0.2s ease;">🗑️ Delete</button>
+                <button type="submit" class="note-delete-btn">🗑️ Delete</button>
               </form>
             </div>
           </div>
-          <p style="margin: 0.5rem 0; color: var(--color-text-secondary); font-size: 0.9rem; line-height: 1.4;">${escapeHtml(preview)}</p>
-          <div style="font-size: 0.8rem; color: var(--color-text-secondary);">
+          <p class="note-item-preview">${escapeHtml(preview)}</p>
+          <div class="note-item-meta">
             Created: ${createdDate} | Updated: ${updatedDate}
           </div>
         </div>
@@ -3232,11 +3075,11 @@ router.get("/notes", async (request, params, query) => {
 
     const body = `
       <h1>Secure Notes (${noteCount})</h1>
-      <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 250px;">
-          <input type="text" id="noteSearch" placeholder="Search notes..." autocomplete="off" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-primary); font-size: 0.9rem;">
+      <div class="list-toolbar">
+        <div class="list-toolbar-search">
+          <input type="text" id="noteSearch" placeholder="Search notes..." autocomplete="off" class="form-input">
         </div>
-        <a href="/notes/add" style="color: var(--color-accent-light); text-decoration: none; background: var(--color-border); padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--color-bg-tertiary); display: inline-block; white-space: nowrap;">+ Add Note</a>
+        <a href="/notes/add" class="action-link-btn">+ Add Note</a>
       </div>
       <div id="notesList">
         ${noteList}
@@ -3297,9 +3140,9 @@ router.get("/notes", async (request, params, query) => {
     }
     return renderPage(`
       <h1>Secure Notes (${noteCount})</h1>
-      <p style="color: var(--color-error);">Error loading notes. Please try again.</p>
+      <p class="section-error">Error loading notes. Please try again.</p>
       <div style="margin-bottom: 1.5rem;">
-        <a href="/notes/add" style="color: var(--color-accent-light); text-decoration: none; background: var(--color-border); padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--color-bg-tertiary); display: inline-block;">+ Add Note</a>
+        <a href="/notes/add" class="action-link-btn">+ Add Note</a>
       </div>
     `, "Notes - XeoKey", request);
   }
@@ -3321,22 +3164,22 @@ router.get("/notes/add", async (request, params, query) => {
 
   const body = `
     <h1>Add New Note</h1>
-    <form method="POST" action="/notes/add" style="max-width: 600px;">
+    <form method="POST" action="/notes/add" class="note-form">
       <input type="hidden" name="csrf_token" value="${csrfToken}">
 
-      <div style="margin-bottom: 1rem;">
-        <label for="title" style="display: block; margin-bottom: 0.5rem; color: var(--color-text-primary); font-weight: 500;">Title</label>
-        <input type="text" id="title" name="title" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-primary); font-size: 1rem;">
+      <div class="form-group">
+        <label for="title" class="note-form-label">Title</label>
+        <input type="text" id="title" name="title" required class="note-text-input">
       </div>
 
-      <div style="margin-bottom: 1.5rem;">
-        <label for="content" style="display: block; margin-bottom: 0.5rem; color: var(--color-text-primary); font-weight: 500;">Content</label>
-        <textarea id="content" name="content" required rows="15" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-primary); font-size: 1rem; resize: vertical; font-family: inherit; line-height: 1.5;"></textarea>
+      <div class="form-group-lg">
+        <label for="content" class="note-form-label">Content</label>
+        <textarea id="content" name="content" required rows="15" class="note-textarea"></textarea>
       </div>
 
-      <div style="display: flex; gap: 1rem; align-items: center;">
-        <button type="submit" style="background: var(--color-success); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">Save Note</button>
-        <a href="/notes" style="color: var(--color-accent-light); text-decoration: none;">Cancel</a>
+      <div class="note-form-actions">
+        <button type="submit" class="note-save-btn">Save Note</button>
+        <a href="/notes" class="empty-state-link">Cancel</a>
       </div>
     </form>
   `;
@@ -3413,7 +3256,7 @@ router.get("/notes/:id/edit", async (request, params, query) => {
   if (!isConnected()) {
     return renderPage(`
       <h1>Edit Note</h1>
-      <p style="color: var(--color-error);">Database not available.</p>
+      <p class="section-error">Database not available.</p>
     `, "Edit Note - XeoKey", request);
   }
 
@@ -3433,7 +3276,7 @@ router.get("/notes/:id/edit", async (request, params, query) => {
     if (decryptedContent === null) {
       return renderPage(`
         <h1>Edit Note</h1>
-        <p style="color: var(--color-error);">Unable to decrypt note content.</p>
+        <p class="section-error">Unable to decrypt note content.</p>
       `, "Edit Note - XeoKey", request);
     }
 
@@ -3441,22 +3284,22 @@ router.get("/notes/:id/edit", async (request, params, query) => {
 
     const body = `
       <h1>Edit Note</h1>
-      <form method="POST" action="/notes/${params.id}/update" style="max-width: 600px;">
+      <form method="POST" action="/notes/${params.id}/update" class="note-form">
         <input type="hidden" name="csrf_token" value="${csrfToken}">
 
-        <div style="margin-bottom: 1rem;">
-          <label for="title" style="display: block; margin-bottom: 0.5rem; color: var(--color-text-primary); font-weight: 500;">Title</label>
-          <input type="text" id="title" name="title" required value="${escapeHtml(note.title)}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-primary); font-size: 1rem;">
+        <div class="form-group">
+          <label for="title" class="note-form-label">Title</label>
+          <input type="text" id="title" name="title" required value="${escapeHtml(note.title)}" class="note-text-input">
         </div>
 
-        <div style="margin-bottom: 1.5rem;">
-          <label for="content" style="display: block; margin-bottom: 0.5rem; color: var(--color-text-primary); font-weight: 500;">Content</label>
-          <textarea id="content" name="content" required rows="15" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg-primary); color: var(--color-text-primary); font-size: 1rem; resize: vertical; font-family: inherit; line-height: 1.5;">${escapeHtml(decryptedContent)}</textarea>
+        <div class="form-group-lg">
+          <label for="content" class="note-form-label">Content</label>
+          <textarea id="content" name="content" required rows="15" class="note-textarea">${escapeHtml(decryptedContent)}</textarea>
         </div>
 
-        <div style="display: flex; gap: 1rem; align-items: center;">
-          <button type="submit" style="background: var(--color-success); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">Update Note</button>
-          <a href="/notes" style="color: var(--color-accent-light); text-decoration: none;">Cancel</a>
+        <div class="note-form-actions">
+          <button type="submit" class="note-save-btn">Update Note</button>
+          <a href="/notes" class="empty-state-link">Cancel</a>
         </div>
       </form>
     `;
@@ -3466,7 +3309,7 @@ router.get("/notes/:id/edit", async (request, params, query) => {
     logger.error(`Error loading note for editing: ${error}`);
     return renderPage(`
       <h1>Edit Note</h1>
-      <p style="color: var(--color-error);">Error loading note. Please try again.</p>
+      <p class="section-error">Error loading note. Please try again.</p>
     `, "Edit Note - XeoKey", request);
   }
 });
@@ -5053,7 +4896,7 @@ router.get("/passwords/:id", async (request, params, query) => {
   if (!isConnected()) {
     return renderPage(`
       <h1>Password Details</h1>
-      <p style="color: var(--color-error);">Database not available.</p>
+      <p class="section-error">Database not available.</p>
     `, "Password Details - XeoKey", request);
   }
 
@@ -5067,8 +4910,8 @@ router.get("/passwords/:id", async (request, params, query) => {
     if (!entry) {
       return renderPage(`
         <h1>Password Details</h1>
-        <p style="color: var(--color-error);">Password entry not found.</p>
-        <p><a href="/passwords" style="color: var(--color-accent-light);">← Back to Passwords</a></p>
+        <p class="section-error">Password entry not found.</p>
+        <p><a href="/passwords" class="empty-state-link">← Back to Passwords</a></p>
       `, "Password Details - XeoKey", request);
     }
 
@@ -5111,61 +4954,61 @@ router.get("/passwords/:id", async (request, params, query) => {
 
     return renderPage(`
       <h1>Password Details</h1>
-      <div style="max-width: 600px; margin: 0 auto;">
-        <div style="background: var(--color-bg-secondary); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--color-border); margin-bottom: 1rem;">
+      <div class="pwd-detail-wrap">
+        <div class="pwd-detail-card">
           <div id="entryViewMode" style="display: block;">
-            <h2 style="margin-bottom: 1rem; color: var(--color-accent-light);">${escapeHtml(entry.website)}</h2>
+            <h2 class="pwd-detail-title">${escapeHtml(entry.website)}</h2>
             ${entry.username ? `
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Username:</label>
-                <div style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); font-family: monospace;">${escapeHtml(entry.username)}</div>
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Username:</label>
+                <div class="pwd-mono-val">${escapeHtml(entry.username)}</div>
               </div>
             ` : ''}
             ${entry.email ? `
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Email:</label>
-                <div style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); font-family: monospace;">${escapeHtml(entry.email)}</div>
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Email:</label>
+                <div class="pwd-mono-val">${escapeHtml(entry.email)}</div>
               </div>
             ` : ''}
-            <div style="margin-bottom: 1rem;">
-              <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Password:</label>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <div style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-secondary); font-family: monospace; flex: 1; text-align: center;">
-                  •••••••••••••••••
+            <div class="pwd-detail-field">
+              <label class="pwd-detail-label">Password:</label>
+              <div class="pwd-copy-row">
+                <div class="pwd-masked-val">
+                  &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;
                 </div>
-                <button type="button" id="copyPasswordBtn" data-password="${passwordData}" data-entry-id="${entryId}" style="background: var(--color-border); color: var(--color-text-primary); padding: 0.75rem 1.5rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap;">
+                <button type="button" id="copyPasswordBtn" data-password="${passwordData}" data-entry-id="${entryId}" class="pwd-copy-btn">
                   Copy Password
                 </button>
               </div>
-              <div id="copyStatus" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-success); display: none;"></div>
-              <div style="margin-top: 0.75rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary); font-size: 0.9rem;">Password Strength:</label>
-                <div style="height: 4px; background: var(--color-bg-secondary); border-radius: 2px; overflow: hidden; margin-bottom: 0.25rem;">
-                  <div style="height: 100%; width: ${strengthPercentage}%; background-color: ${strengthColor}; transition: width 0.3s, background-color 0.3s;"></div>
+              <div id="copyStatus" class="pwd-copy-feedback"></div>
+              <div class="pwd-strength">
+                <label class="pwd-detail-label sm">Password Strength:</label>
+                <div class="pwd-strength-track">
+                  <div class="pwd-strength-bar" style="width: ${strengthPercentage}%; background-color: ${strengthColor};"></div>
                 </div>
-                <div style="color: ${strengthColor}; font-size: 0.85rem; font-weight: bold;">${strengthText}</div>
+                <div class="pwd-strength-text" style="color: ${strengthColor};">${strengthText}</div>
               </div>
             </div>
             ${entry.notes ? `
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Notes:</label>
-                <div style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); white-space: pre-wrap;">${escapeHtml(entry.notes)}</div>
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Notes:</label>
+                <div class="pwd-notes-val">${escapeHtml(entry.notes)}</div>
               </div>
             ` : ''}
-            <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: 0.85rem;">
+            <div class="pwd-detail-timestamp">
               Created: ${new Date(entry.createdAt).toLocaleString()}<br>
               Updated: ${new Date(entry.updatedAt).toLocaleString()}
             </div>
-            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border); display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--color-text-secondary);">
+            <div class="pwd-detail-stats">
               <div>
-                <span style="color: var(--color-accent-light); font-weight: bold;">👁️ Views:</span> <span id="viewCount">${(entry.searchCount || 0)}</span>
+                <span class="pwd-stat-label">👁️ Views:</span> <span id="viewCount">${(entry.searchCount || 0)}</span>
               </div>
               <div>
-                <span style="color: var(--color-accent-light); font-weight: bold;">📋 Copies:</span> <span id="copyCount" data-copy-count>${(entry.copyCount || 0)}</span>
+                <span class="pwd-stat-label">📋 Copies:</span> <span id="copyCount" data-copy-count>${(entry.copyCount || 0)}</span>
               </div>
             </div>
-            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-              <button type="button" id="editEntryBtn" style="background: var(--color-accent-light); color: var(--color-bg-primary); padding: 0.75rem 1.5rem; border: 1px solid var(--color-accent-light); border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap;">
+            <div class="pwd-detail-actions">
+              <button type="button" id="editEntryBtn" class="pwd-edit-btn">
                 Edit Entry
               </button>
             </div>
@@ -5173,55 +5016,55 @@ router.get("/passwords/:id", async (request, params, query) => {
           <div id="entryEditMode" style="display: none;">
             <form id="editEntryForm" method="POST" action="/passwords/${entryId}/update">
               <input type="hidden" name="csrfToken" value="${getOrCreateCsrfToken(session.sessionId)}">
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Website:</label>
-                <input type="text" id="editWebsiteInput" name="website" value="${escapeHtml(entry.website)}" autocomplete="off" style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); width: 100%; font-size: 0.9rem; box-sizing: border-box;" required>
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Website:</label>
+                <input type="text" id="editWebsiteInput" name="website" value="${escapeHtml(entry.website)}" autocomplete="off" class="pwd-edit-input" required>
               </div>
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Username:</label>
-                <input type="text" id="editUsernameInput" name="username" value="${entry.username ? escapeHtml(entry.username) : ''}" autocomplete="off" style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); width: 100%; font-family: monospace; font-size: 0.9rem; box-sizing: border-box;">
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Username:</label>
+                <input type="text" id="editUsernameInput" name="username" value="${entry.username ? escapeHtml(entry.username) : ''}" autocomplete="off" class="pwd-edit-input mono">
               </div>
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Email:</label>
-                <input type="email" id="editEmailInput" name="email" value="${entry.email ? escapeHtml(entry.email) : ''}" autocomplete="off" style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); width: 100%; font-family: monospace; font-size: 0.9rem; box-sizing: border-box;">
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Email:</label>
+                <input type="email" id="editEmailInput" name="email" value="${entry.email ? escapeHtml(entry.email) : ''}" autocomplete="off" class="pwd-edit-input mono">
               </div>
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Password:</label>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                  <input type="password" id="editPasswordInput" name="password" value="${passwordData}" autocomplete="off" style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); font-family: monospace; flex: 1; font-size: 0.9rem;" required>
-                  <button type="button" id="togglePasswordVisibility" style="background: var(--color-border); color: var(--color-text-primary); padding: 0.75rem 1rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap;">
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Password:</label>
+                <div class="pwd-edit-row">
+                  <input type="password" id="editPasswordInput" name="password" value="${passwordData}" autocomplete="off" class="pwd-edit-input mono" style="flex: 1;" required>
+                  <button type="button" id="togglePasswordVisibility" class="pwd-toggle-btn">
                     Show
                   </button>
                 </div>
-                <div id="editPasswordStrength" style="margin-top: 0.75rem; margin-bottom: 0.5rem;">
-                  <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary); font-size: 0.9rem;">Password Strength:</label>
-                  <div style="height: 4px; background: var(--color-bg-secondary); border-radius: 2px; overflow: hidden; margin-bottom: 0.25rem;">
-                    <div id="editPasswordStrengthBar" style="height: 100%; width: ${strengthPercentage}%; background-color: ${strengthColor}; transition: width 0.3s, background-color 0.3s;"></div>
+                <div id="editPasswordStrength" class="pwd-strength" style="margin-bottom: 0.5rem;">
+                  <label class="pwd-detail-label sm">Password Strength:</label>
+                  <div class="pwd-strength-track">
+                    <div id="editPasswordStrengthBar" class="pwd-strength-bar" style="width: ${strengthPercentage}%; background-color: ${strengthColor};"></div>
                   </div>
-                  <div id="editPasswordStrengthText" style="color: ${strengthColor}; font-size: 0.85rem; font-weight: bold;">${strengthText}</div>
+                  <div id="editPasswordStrengthText" class="pwd-strength-text" style="color: ${strengthColor};">${strengthText}</div>
                 </div>
               </div>
-              <div style="margin-bottom: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">Notes:</label>
-                <textarea id="editNotesInput" name="notes" rows="4" autocomplete="off" style="background: var(--color-bg-primary); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); color: var(--color-text-primary); width: 100%; font-size: 0.9rem; box-sizing: border-box; resize: vertical; font-family: inherit;">${entry.notes ? escapeHtml(entry.notes) : ''}</textarea>
+              <div class="pwd-detail-field">
+                <label class="pwd-detail-label">Notes:</label>
+                <textarea id="editNotesInput" name="notes" rows="4" autocomplete="off" class="pwd-edit-input" style="resize: vertical; font-family: inherit;">${entry.notes ? escapeHtml(entry.notes) : ''}</textarea>
               </div>
-              <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1.5rem;">
-                <button type="submit" style="background: var(--color-success); color: var(--color-bg-primary); padding: 0.75rem 1.5rem; border: 1px solid var(--color-success); border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap;">
+              <div class="pwd-edit-footer">
+                <button type="submit" class="pwd-save-btn">
                   Save Entry
                 </button>
-                <button type="button" id="cancelEditEntryBtn" style="background: var(--color-border); color: var(--color-text-primary); padding: 0.75rem 1.5rem; border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap;">
+                <button type="button" id="cancelEditEntryBtn">
                   Cancel
                 </button>
               </div>
-              <div id="editEntryStatus" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-success); display: none;"></div>
+              <div id="editEntryStatus" class="pwd-edit-status"></div>
             </form>
           </div>
         </div>
-        <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1rem;">
-          <a href="/passwords" style="color: var(--color-accent-light); text-decoration: none;">← Back to Passwords</a>
-          <form method="POST" action="/passwords/${entryId}/delete" id="deletePasswordForm" style="margin: 0; margin-left: auto;">
+        <div class="pwd-detail-toolbar">
+          <a href="/passwords" class="empty-state-link">← Back to Passwords</a>
+          <form method="POST" action="/passwords/${entryId}/delete" id="deletePasswordForm" class="pwd-delete-form">
             <input type="hidden" name="csrfToken" value="${createCsrfToken(session.sessionId)}">
-            <button type="submit" style="background: var(--color-error); color: var(--color-bg-primary); padding: 0.5rem 1rem; border: 1px solid var(--color-error); border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+            <button type="submit" class="pwd-delete-btn">
               Delete Password
             </button>
           </form>
@@ -5232,8 +5075,8 @@ router.get("/passwords/:id", async (request, params, query) => {
     logger.error(`Error fetching password: ${error}`);
     return renderPage(`
       <h1>Password Details</h1>
-      <p style="color: var(--color-error);">Error loading password entry.</p>
-      <p><a href="/passwords" style="color: var(--color-accent-light);">← Back to Passwords</a></p>
+      <p class="section-error">Error loading password entry.</p>
+      <p><a href="/passwords" class="empty-state-link">← Back to Passwords</a></p>
     `, "Password Details - XeoKey", request);
   }
 });
