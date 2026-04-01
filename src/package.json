@@ -5,15 +5,15 @@
   "type": "module",
   "main": "server.ts",
   "scripts": {
-    "dev": "../scripts/bun-runtime.sh run --watch server.ts",
-    "start": "../scripts/bun-runtime.sh run server.ts",
-    "host": "../scripts/bun-runtime.sh run host.ts",
-    "typecheck": "../scripts/bun-runtime.sh x tsc --noEmit",
-    "test": "../scripts/bun-runtime.sh test",
-    "test:unit": "../scripts/bun-runtime.sh test tests/unit",
-    "test:integration": "../scripts/bun-runtime.sh test tests/integration",
-    "test:watch": "../scripts/bun-runtime.sh test --watch",
-    "test:coverage": "../scripts/bun-runtime.sh test --coverage"
+    "dev": "bun run --watch server.ts",
+    "start": "bun run server.ts",
+    "host": "bun run host.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test",
+    "test:unit": "bun test tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
   },
   "keywords": [
     "password-manager",
