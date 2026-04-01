@@ -48,6 +48,13 @@ if (document.readyState === 'loading') {
   setTimeout(tryInit, 0);
 }
 
+const UI_COLORS = {
+  neutral: 'var(--color-bg-tertiary)',
+  error: 'var(--color-error)',
+  accent: 'var(--color-accent)',
+  success: 'var(--color-success)',
+};
+
 // Side drawer code removed - using bottom navigation instead
 
 function toggleDropdown(button) {
@@ -82,31 +89,31 @@ function checkPasswordStrength(password) {
 
   if (password.length === 0) {
     strengthBar.style.width = '0%';
-    strengthBar.style.backgroundColor = '#4d4d4d';
+    strengthBar.style.backgroundColor = UI_COLORS.neutral;
     strengthText.textContent = '';
     return { strength: 0, valid: false };
   }
 
   let percentage = 0;
-  let color = '#d4a5a5'; // Weak - red
+  let color = UI_COLORS.error;
   let text = 'Weak';
   let valid = false;
 
   if (strength <= 2) {
     percentage = 33;
-    color = '#d4a5a5';
+    color = UI_COLORS.error;
     text = 'Weak';
   } else if (strength <= 4) {
     percentage = 66;
-    color = '#d4a5a5';
+    color = UI_COLORS.error;
     text = 'Fair';
   } else if (strength <= 5) {
     percentage = 80;
-    color = '#9db4d4';
+    color = UI_COLORS.accent;
     text = 'Good';
   } else {
     percentage = 100;
-    color = '#7fb069';
+    color = UI_COLORS.success;
     text = 'Strong';
     valid = true;
   }
@@ -137,11 +144,11 @@ function checkPasswordMatch() {
 
   if (password === confirmPassword) {
     matchDiv.textContent = '✓ Passwords match';
-    matchDiv.style.color = '#7fb069';
+    matchDiv.style.color = UI_COLORS.success;
     return true;
   } else {
     matchDiv.textContent = '✗ Passwords do not match';
-    matchDiv.style.color = '#d4a5a5';
+    matchDiv.style.color = UI_COLORS.error;
     return false;
   }
 }
@@ -251,7 +258,7 @@ document.addEventListener('click', async function(event) {
   if (!password) {
     if (statusDiv) {
       statusDiv.textContent = 'Error: Password not available';
-      statusDiv.style.color = '#d4a5a5';
+      statusDiv.style.color = UI_COLORS.error;
       statusDiv.style.display = 'block';
       setTimeout(() => {
         if (statusDiv) statusDiv.style.display = 'none';
@@ -298,24 +305,24 @@ document.addEventListener('click', async function(event) {
 
     if (statusDiv) {
       statusDiv.textContent = '✓ Password copied to clipboard!';
-      statusDiv.style.color = '#7fb069';
+      statusDiv.style.color = UI_COLORS.success;
       statusDiv.style.display = 'block';
     }
 
     // Update button text temporarily
     const originalText = copyBtn.textContent;
     copyBtn.textContent = 'Copied!';
-    copyBtn.style.background = '#7fb069';
+    copyBtn.style.background = UI_COLORS.success;
 
     setTimeout(() => {
       if (statusDiv) statusDiv.style.display = 'none';
       copyBtn.textContent = originalText;
-      copyBtn.style.background = '#3d3d3d';
+      copyBtn.style.background = UI_COLORS.neutral;
     }, 2000);
   } else {
     if (statusDiv) {
       statusDiv.textContent = '✗ Failed to copy. Please try again.';
-      statusDiv.style.color = '#d4a5a5';
+      statusDiv.style.color = UI_COLORS.error;
       statusDiv.style.display = 'block';
       setTimeout(() => {
         if (statusDiv) statusDiv.style.display = 'none';
@@ -537,15 +544,15 @@ document.addEventListener('click', async function(event) {
     const originalText = generateBtn.textContent;
     if (copied) {
       generateBtn.textContent = 'Copied!';
-      generateBtn.style.background = '#7fb069';
+      generateBtn.style.background = UI_COLORS.success;
     } else {
       generateBtn.textContent = 'Generated';
-      generateBtn.style.background = '#9db4d4';
+      generateBtn.style.background = UI_COLORS.accent;
     }
 
     setTimeout(() => {
       generateBtn.textContent = originalText;
-      generateBtn.style.background = '#3d3d3d';
+      generateBtn.style.background = UI_COLORS.neutral;
     }, 2000);
   }
 });
@@ -893,7 +900,7 @@ document.addEventListener('submit', function(event) {
     event.preventDefault();
     if (statusDiv) {
       statusDiv.textContent = '✗ Website is required';
-      statusDiv.style.color = '#d4a5a5';
+      statusDiv.style.color = UI_COLORS.error;
       statusDiv.style.display = 'block';
       setTimeout(() => {
         statusDiv.style.display = 'none';
@@ -907,7 +914,7 @@ document.addEventListener('submit', function(event) {
     event.preventDefault();
     if (statusDiv) {
       statusDiv.textContent = '✗ Password is required';
-      statusDiv.style.color = '#d4a5a5';
+      statusDiv.style.color = UI_COLORS.error;
       statusDiv.style.display = 'block';
       setTimeout(() => {
         statusDiv.style.display = 'none';
@@ -954,28 +961,28 @@ function updateEditPasswordStrength(password) {
 
 
   let percentage = 0;
-  let color = '#4d4d4d';
+  let color = UI_COLORS.neutral;
   let text = 'Unknown';
 
   if (password.length === 0) {
     percentage = 0;
-    color = '#4d4d4d';
+    color = UI_COLORS.neutral;
     text = '';
   } else if (strength <= 2) {
     percentage = 33;
-    color = '#d4a5a5';
+    color = UI_COLORS.error;
     text = 'Weak';
   } else if (strength <= 4) {
     percentage = 66;
-    color = '#d4a5a5';
+    color = UI_COLORS.error;
     text = 'Fair';
   } else if (strength <= 5) {
     percentage = 80;
-    color = '#9db4d4';
+    color = UI_COLORS.accent;
     text = 'Good';
   } else {
     percentage = 100;
-    color = '#7fb069';
+    color = UI_COLORS.success;
     text = 'Strong';
   }
 

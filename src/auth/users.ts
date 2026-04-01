@@ -7,8 +7,18 @@ export interface User {
   _id?: ObjectId | string;
   username: string;
   passwordHash: string;
+  theme?: 'slate' | 'slate-contrast' | 'legacy-blue';
   createdAt: Date;
   lastLogin?: Date;
+}
+
+const ALLOWED_THEMES = new Set(['slate', 'slate-contrast', 'legacy-blue']);
+
+function normalizeTheme(theme?: string): 'slate' | 'slate-contrast' | 'legacy-blue' {
+  if (theme && ALLOWED_THEMES.has(theme)) {
+    return theme as 'slate' | 'slate-contrast' | 'legacy-blue';
+  }
+  return 'slate';
 }
 
 // Create a new user
@@ -41,6 +51,7 @@ export async function createUser(username: string, password: string): Promise<Us
     const user: User = {
       username: trimmedUsername,
       passwordHash,
+      theme: 'slate',
       createdAt: new Date(),
     };
 
@@ -103,6 +114,7 @@ export async function authenticateUser(username: string, password: string): Prom
     const userWithStringId: User = {
       username: user.username,
       passwordHash: user.passwordHash,
+      theme: normalizeTheme(user.theme),
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
       _id: user._id ? (typeof user._id === 'string' ? user._id : user._id.toString()) : undefined
@@ -131,15 +143,16 @@ export async function getUserById(userId: string): Promise<User | null> {
     const db = getDatabase();
     const usersCollection = db.collection('users');
     const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-    
+
     if (!user) {
       return null;
     }
-    
+
     // Convert ObjectId to string for consistency
     return {
       username: user.username,
       passwordHash: user.passwordHash,
+      theme: normalizeTheme(user.theme),
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
       _id: user._id.toString()
@@ -163,12 +176,43 @@ export async function getUserByUsername(username: string): Promise<User | null> 
     const db = getDatabase();
     const usersCollection = db.collection<User>('users');
 
-    return await usersCollection.findOne({
+    const user = await usersCollection.findOne({
       username: { $regex: new RegExp(`^${trimmedUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
     });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      ...user,
+      theme: normalizeTheme(user.theme),
+    };
   } catch (error) {
     logger.error(`Failed to get user by username ${trimmedUsername}: ${error}`);
     return null;
+  }
+}
+
+export async function updateUserTheme(userId: string, theme: string): Promise<boolean> {
+  if (!userId || typeof userId !== 'string' || !ObjectId.isValid(userId)) {
+    return false;
+  }
+
+  const normalizedTheme = normalizeTheme(theme);
+
+  try {
+    const db = getDatabase();
+    const usersCollection = db.collection<User>('users');
+    const result = await usersCollection.updateOne(
+      { _id: new ObjectId(userId) } as any,
+      { $set: { theme: normalizedTheme } }
+    );
+
+    return result.modifiedCount > 0 || result.matchedCount > 0;
+  } catch (error) {
+    logger.error(`Failed to update theme for user ${userId}: ${error}`);
+    return false;
   }
 }
 

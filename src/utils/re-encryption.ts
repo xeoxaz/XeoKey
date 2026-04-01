@@ -2,7 +2,7 @@ import { logger } from './logger';
 import { getDatabase } from '../db/mongodb';
 import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
-import { encryptPassword, decryptPassword } from '../models/password';
+import { encryptOptionalPasswordValue, encryptPassword, decryptOptionalPasswordValue, decryptPassword } from '../models/password';
 import { encryptNoteContent, decryptNoteContent } from '../models/notes';
 
 const MAX_DETAILED_REENCRYPTION_ERROR_LOGS = 3;
@@ -74,15 +74,15 @@ async function reEncryptPasswords(db: any, result: ReEncryptionResult): Promise<
     try {
       // Decrypt using fallback system
       const decryptedPassword = await decryptPassword(password.password);
-      const decryptedUsername = password.username ? await decryptPassword(password.username) : '';
-      const decryptedEmail = password.email ? await decryptPassword(password.email) : '';
-      const decryptedNotes = password.notes ? await decryptPassword(password.notes) : '';
+      const decryptedUsername = await decryptOptionalPasswordValue(password.username);
+      const decryptedEmail = await decryptOptionalPasswordValue(password.email);
+      const decryptedNotes = await decryptOptionalPasswordValue(password.notes);
 
       // Re-encrypt with current key
       const newEncryptedPassword = encryptPassword(decryptedPassword);
-      const newEncryptedUsername = decryptedUsername ? encryptPassword(decryptedUsername) : undefined;
-      const newEncryptedEmail = decryptedEmail ? encryptPassword(decryptedEmail) : undefined;
-      const newEncryptedNotes = decryptedNotes ? encryptPassword(decryptedNotes) : undefined;
+      const newEncryptedUsername = encryptOptionalPasswordValue(decryptedUsername);
+      const newEncryptedEmail = encryptOptionalPasswordValue(decryptedEmail);
+      const newEncryptedNotes = encryptOptionalPasswordValue(decryptedNotes);
 
       // Update the database
       const updateData: any = {

@@ -99,6 +99,43 @@ export function encryptPassword(password: string): string {
   return iv.toString('hex') + ':' + encrypted;
 }
 
+export function isEncryptedPasswordValue(value?: string | null): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{32}:[0-9a-f]+$/i.test(value);
+}
+
+export function encryptOptionalPasswordValue(value?: string | null): string | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  return encryptPassword(value);
+}
+
+export async function decryptOptionalPasswordValue(value?: string | null): Promise<string | undefined> {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (!isEncryptedPasswordValue(value)) {
+    return value;
+  }
+
+  return decryptPassword(value);
+}
+
+async function normalizePasswordEntry(entry: PasswordEntry | null): Promise<PasswordEntry | null> {
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    ...entry,
+    username: await decryptOptionalPasswordValue(entry.username),
+    email: await decryptOptionalPasswordValue(entry.email),
+    notes: await decryptOptionalPasswordValue(entry.notes),
+  };
+}
+
 // Decrypt password with fallback key support and multiple format handling
 export async function decryptPassword(encrypted: string): Promise<string> {
   const algorithm = 'aes-256-cbc';
@@ -248,14 +285,17 @@ export async function createPasswordEntry(
   const passwordsCollection = db.collection<PasswordEntry>('passwords');
 
   const encryptedPassword = encryptPassword(password);
+  const encryptedUsername = encryptOptionalPasswordValue(username);
+  const encryptedEmail = encryptOptionalPasswordValue(email);
+  const encryptedNotes = encryptOptionalPasswordValue(notes);
 
   const entry: PasswordEntry = {
     userId,
     website,
-    username,
-    email,
+    username: encryptedUsername,
+    email: encryptedEmail,
     password: encryptedPassword,
-    notes,
+    notes: encryptedNotes,
     createdAt: new Date(),
     updatedAt: new Date(),
     searchCount: 0,
@@ -278,7 +318,12 @@ export async function createPasswordEntry(
     passwordLogger.debug('Post-creation validation skipped');
   }
 
-  return entry;
+  return {
+    ...entry,
+    username,
+    email,
+    notes,
+  };
 }
 
 // Get all passwords for a user, sorted by most searched/copied first, then alphabetically
@@ -331,7 +376,11 @@ export async function getUserPasswords(
     }
   }
 
-  return Array.from(uniqueResults.values());
+  const normalizedResults = await Promise.all(
+    Array.from(uniqueResults.values()).map((result) => normalizePasswordEntry(result))
+  );
+
+  return normalizedResults.filter((result): result is PasswordEntry => result !== null);
 }
 
 // Get most recent passwords for a user (sorted by createdAt descending)
@@ -369,7 +418,11 @@ export async function getRecentPasswords(userId: string, limit: number = 3): Pro
       }
     }
 
-    return Array.from(uniqueResults.values());
+    const normalizedResults = await Promise.all(
+      Array.from(uniqueResults.values()).map((result) => normalizePasswordEntry(result))
+    );
+
+    return normalizedResults.filter((result): result is PasswordEntry => result !== null);
   } catch (error) {
     passwordLogger.error(`Error in getRecentPasswords: ${error}`);
     return [];
@@ -404,7 +457,7 @@ export async function getPasswordEntry(entryId: string, userId: string): Promise
       } as any);
     }
 
-    return entry;
+    return await normalizePasswordEntry(entry);
   } catch (error) {
     passwordLogger.error(`Error in getPasswordEntry: ${error}`);
     return null;
@@ -511,13 +564,13 @@ export async function updatePasswordEntry(
   if (updates.website !== undefined) {
     updateFields.website = updates.website;
   }
-  if (updates.username !== undefined) updateFields.username = updates.username;
-  if (updates.email !== undefined) updateFields.email = updates.email;
+  if (updates.username !== undefined) updateFields.username = encryptOptionalPasswordValue(updates.username);
+  if (updates.email !== undefined) updateFields.email = encryptOptionalPasswordValue(updates.email);
   if (updates.password !== undefined) updateFields.password = encryptPassword(updates.password);
   // Notes can be explicitly set to empty string or null to clear it
   if (updates.notes !== undefined) {
     // Allow empty string to clear notes, or set to null if empty
-    updateFields.notes = updates.notes === '' ? undefined : updates.notes;
+    updateFields.notes = updates.notes === '' ? undefined : encryptOptionalPasswordValue(updates.notes);
   }
 
   // Verify we have at least one field to update (besides updatedAt)
@@ -673,47 +726,18 @@ export async function findPasswordEntriesByIdentifier(
       userIdConditions.push({ userId: new ObjectId(userIdString) });
     }
 
-    // Build query: must match userId AND website
-    let query: any = {
-      $or: userIdConditions.map(uid => ({ ...uid, website })),
-    };
+    const results = await passwordsCollection.find({
+      $or: userIdConditions.map((uid) => ({ ...uid, website })),
+    } as any).toArray();
 
-    // If username is provided, include it in the match (match exact or missing/null)
-    if (username !== undefined && username !== null && username !== '') {
-      // Match exact username or entries without username
-      query.$or = query.$or.map((q: any) => ({
-        ...q,
-        $or: [
-          { username: username },
-          { username: { $exists: false } },
-          { username: null },
-          { username: '' },
-        ]
-      }));
-    }
-
-    // If email is provided, include it in the match (match exact or missing/null)
-    if (email !== undefined && email !== null && email !== '') {
-      // Match exact email or entries without email
-      query.$or = query.$or.map((q: any) => {
-        const existing = q.$or || [q];
-        return existing.map((cond: any) => ({
-          ...cond,
-          $or: [
-            { email: email },
-            { email: { $exists: false } },
-            { email: null },
-            { email: '' },
-          ]
-        }));
-      }).flat();
-    }
-
-    // Find all matching entries
-    const results = await passwordsCollection.find(query as any).toArray();
+    const normalizedResults = await Promise.all(results.map((entry) => normalizePasswordEntry(entry)));
 
     // Filter more precisely for username/email match
-    let filteredResults = results.filter(entry => {
+    const filteredResults = normalizedResults.filter((entry): entry is PasswordEntry => {
+      if (!entry) {
+        return false;
+      }
+
       // Must match website
       if (entry.website !== website) return false;
 

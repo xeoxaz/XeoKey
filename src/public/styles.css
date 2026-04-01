@@ -1,15 +1,15 @@
-/* CSS Variables for consistent theming - Blue-tinted dark mode (GitHub/Copilot style) */
+/* CSS Variables for consistent theming - Slate-gray system theme */
 :root {
-  --color-bg-primary: #0d1117;
-  --color-bg-secondary: #161b22;
-  --color-bg-tertiary: #1c2128;
-  --color-border: #30363d;
-  --color-text-primary: #e6edf3;
-  --color-text-secondary: #8b949e;
-  --color-accent: #58a6ff;
-  --color-accent-light: #79c0ff;
-  --color-success: #3fb950;
-  --color-error: #f85149;
+  --color-bg-primary: #1f252d;
+  --color-bg-secondary: #262e37;
+  --color-bg-tertiary: #2f3944;
+  --color-border: #414d5b;
+  --color-text-primary: #e3e9f0;
+  --color-text-secondary: #aab5c2;
+  --color-accent: #8ea9c3;
+  --color-accent-light: #b3c6d8;
+  --color-success: #7ea98c;
+  --color-error: #c98585;
 
   /* Modern easing curves for smooth animations */
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
@@ -31,13 +31,47 @@
   /* Border & Shadow */
   --border-radius: 8px;
   --border-radius-sm: 6px;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 8px rgba(8, 10, 14, 0.32);
+  --shadow-md: 0 4px 16px rgba(8, 10, 14, 0.42);
+  --shadow-lg: 0 8px 24px rgba(8, 10, 14, 0.52);
 
   /* Glow effects */
-  --glow-accent: 0 0 12px rgba(88, 166, 255, 0.3);
-  --glow-accent-strong: 0 0 16px rgba(88, 166, 255, 0.5);
+  --glow-accent: 0 0 12px rgba(142, 169, 195, 0.28);
+  --glow-accent-strong: 0 0 16px rgba(142, 169, 195, 0.45);
+
+  /* Shared interaction overlays */
+  --overlay-hover: rgba(255, 255, 255, 0.06);
+  --focus-ring: rgba(142, 169, 195, 0.22);
+}
+
+body[data-theme='slate-contrast'] {
+  --color-bg-primary: #141a20;
+  --color-bg-secondary: #1b232c;
+  --color-bg-tertiary: #26313d;
+  --color-border: #4d5c6f;
+  --color-text-primary: #f3f7fb;
+  --color-text-secondary: #c2ccd8;
+  --color-accent: #9eb8d0;
+  --color-accent-light: #c8d8e6;
+  --color-success: #8fbe9d;
+  --color-error: #d99898;
+  --overlay-hover: rgba(255, 255, 255, 0.1);
+  --focus-ring: rgba(158, 184, 208, 0.32);
+}
+
+body[data-theme='legacy-blue'] {
+  --color-bg-primary: #151b2e;
+  --color-bg-secondary: #1c2440;
+  --color-bg-tertiary: #27325a;
+  --color-border: #3b4e86;
+  --color-text-primary: #e8edff;
+  --color-text-secondary: #aab9e6;
+  --color-accent: #7b95d9;
+  --color-accent-light: #abc0f3;
+  --color-success: #6fa3a5;
+  --color-error: #c9869f;
+  --overlay-hover: rgba(171, 192, 243, 0.1);
+  --focus-ring: rgba(123, 149, 217, 0.3);
 }
 
 * {
@@ -55,7 +89,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.6;
   color: var(--color-text-primary);
-  background: var(--color-bg-primary);
+  background: radial-gradient(1200px 700px at 15% -10%, #354351 0%, var(--color-bg-primary) 45%) fixed;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -458,7 +492,7 @@ code {
   padding: 0.2rem 0.4rem;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
-  color: #c9d1d9;
+  color: var(--color-text-primary);
   border: 1px solid var(--color-border);
 }
 
@@ -501,7 +535,7 @@ input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--color-accent);
   background-color: var(--color-bg-primary);
-  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15), var(--shadow-md);
+  box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow-md);
   transform: translateY(-1px);
 }
 
@@ -540,7 +574,7 @@ button::before {
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--overlay-hover);
   transform: translate(-50%, -50%);
   transition: width var(--transition-slow), height var(--transition-slow);
 }
@@ -565,7 +599,7 @@ button:active {
 
 button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.25), var(--shadow-md);
+  box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow-md);
 }
 
 /* Footer */
@@ -616,7 +650,7 @@ footer p {
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--overlay-hover);
   transform: translate(-50%, -50%);
   transition: width var(--transition-slow), height var(--transition-slow);
 }
@@ -669,7 +703,7 @@ footer p {
   border-radius: 8px;
   transition: all var(--transition);
   position: relative;
-  -webkit-tap-highlight-color: rgba(88, 166, 255, 0.3);
+  -webkit-tap-highlight-color: var(--focus-ring);
   touch-action: manipulation;
   flex: 1;
   max-width: 25%;
@@ -807,7 +841,7 @@ footer p {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(88, 166, 255, 0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(142, 169, 195, 0.1), transparent);
   transition: left var(--transition-slow);
 }
 

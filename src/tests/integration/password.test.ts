@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
+import { ObjectId } from 'mongodb';
 import { setupTestEnv, cleanupTestEnv, randomString } from '../helpers/test-utils';
 import { connectMongoDB, closeMongoDB } from '../../db/mongodb';
 import { createUser } from '../../auth/users';
@@ -9,7 +10,9 @@ import {
   getDecryptedPassword,
   updatePasswordEntry,
   deletePasswordEntry,
+  encryptPassword,
 } from '../../models/password';
+import { reEncryptAllData } from '../../utils/re-encryption';
 
 describe('Password Management Integration Tests', () => {
   let userId: string;
@@ -74,6 +77,34 @@ describe('Password Management Integration Tests', () => {
       expect(entry.password).not.toBe(password);
       expect(entry.password).toContain(':'); // Encrypted format: IV:encrypted
     });
+
+    it('should encrypt secondary fields at rest while returning plaintext values', async () => {
+      const entry = await createPasswordEntry(
+        userId,
+        'example.com',
+        'mypassword123',
+        'testuser',
+        'test@example.com',
+        'Test notes'
+      );
+
+      const { getDatabase } = await import('../../db/mongodb');
+      const db = getDatabase();
+      const rawEntry = await db.collection('passwords').findOne({ _id: new ObjectId(entry._id!) });
+
+      expect(rawEntry).toBeDefined();
+      expect(rawEntry?.username).not.toBe('testuser');
+      expect(rawEntry?.email).not.toBe('test@example.com');
+      expect(rawEntry?.notes).not.toBe('Test notes');
+      expect(rawEntry?.username).toContain(':');
+      expect(rawEntry?.email).toContain(':');
+      expect(rawEntry?.notes).toContain(':');
+
+      const retrieved = await getPasswordEntry(entry._id!, userId);
+      expect(retrieved?.username).toBe('testuser');
+      expect(retrieved?.email).toBe('test@example.com');
+      expect(retrieved?.notes).toBe('Test notes');
+    });
   });
 
   describe('Password Retrieval', () => {
@@ -103,6 +134,29 @@ describe('Password Management Integration Tests', () => {
       expect(retrieved).not.toBeNull();
       expect(retrieved?.website).toBe('example.com');
     });
+
+    it('should read legacy plaintext secondary fields without failing', async () => {
+      const { getDatabase } = await import('../../db/mongodb');
+      const db = getDatabase();
+
+      const insertResult = await db.collection('passwords').insertOne({
+        userId,
+        website: 'legacy.example.com',
+        username: 'legacy-user',
+        email: 'legacy@example.com',
+        password: encryptPassword('legacy-password'),
+        notes: 'legacy notes',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const retrieved = await getPasswordEntry(insertResult.insertedId.toString(), userId);
+
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.username).toBe('legacy-user');
+      expect(retrieved?.email).toBe('legacy@example.com');
+      expect(retrieved?.notes).toBe('legacy notes');
+    });
   });
 
   describe('Password Update', () => {
@@ -121,6 +175,36 @@ describe('Password Management Integration Tests', () => {
 
       const decrypted = await getDecryptedPassword(entry._id!, userId);
       expect(decrypted).toBe('newpassword');
+    });
+
+    it('should re-encrypt legacy plaintext secondary fields', async () => {
+      const { getDatabase } = await import('../../db/mongodb');
+      const db = getDatabase();
+
+      const insertResult = await db.collection('passwords').insertOne({
+        userId,
+        website: 'legacy.example.com',
+        username: 'legacy-user',
+        email: 'legacy@example.com',
+        password: encryptPassword('legacy-password'),
+        notes: 'legacy notes',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await reEncryptAllData();
+
+      expect(result.passwords.failed).toBe(0);
+
+      const rawEntry = await db.collection('passwords').findOne({ _id: insertResult.insertedId });
+      expect(rawEntry?.username).toContain(':');
+      expect(rawEntry?.email).toContain(':');
+      expect(rawEntry?.notes).toContain(':');
+
+      const retrieved = await getPasswordEntry(insertResult.insertedId.toString(), userId);
+      expect(retrieved?.username).toBe('legacy-user');
+      expect(retrieved?.email).toBe('legacy@example.com');
+      expect(retrieved?.notes).toBe('legacy notes');
     });
   });
 
