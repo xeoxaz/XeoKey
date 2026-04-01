@@ -19,16 +19,15 @@ XeoKey uses environment variables for configuration. You can set these in a `.en
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017` | No* |
-| `MONGO_URI` | Alternative MongoDB URI variable | Same as above | No |
+| `MONGODB_URI` | MongoDB connection string for the fixed `XeoKey` database | `mongodb://localhost:27017/XeoKey` | No* |
 
 \* MongoDB is optional - the server will run without it, but password storage won't work.
 
 **Example MongoDB URIs:**
-- Local: `mongodb://localhost:27017`
+- Local: `mongodb://localhost:27017/XeoKey`
 - With authentication: `mongodb://username:password@localhost:27017`
-- Remote: `mongodb://user:pass@host:27017/dbname`
-- MongoDB Atlas: `mongodb+srv://username:password@cluster.mongodb.net/dbname`
+- Remote: `mongodb://user:pass@host:27017/XeoKey`
+- MongoDB Atlas: `mongodb+srv://username:password@cluster.mongodb.net/XeoKey`
 
 **⚠️ CRITICAL WARNING: Database Backups**
 
@@ -78,7 +77,7 @@ PORT=3000
 NODE_ENV=production
 
 # Database Configuration
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://localhost:27017/XeoKey
 
 # Security (REQUIRED for production)
 SESSION_SECRET=your-super-secret-session-key-at-least-32-characters-long
@@ -96,7 +95,7 @@ LOG_LEVEL=info
 ```env
 NODE_ENV=development
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://localhost:27017/XeoKey
 DEBUG=true
 LOG_LEVEL=debug
 ```
@@ -106,7 +105,7 @@ LOG_LEVEL=debug
 ```env
 NODE_ENV=production
 PORT=3000
-MONGODB_URI=mongodb://your-production-db:27017
+MONGODB_URI=mongodb://your-production-db:27017/XeoKey
 SESSION_SECRET=<strong-random-32-char-key>
 ENCRYPTION_KEY=<strong-random-key>
 DEBUG=false

@@ -86,16 +86,16 @@ Common issues and solutions for XeoKey.
 
 2. **Check MongoDB connection string:**
    - Verify `MONGODB_URI` in `.env` is correct
-   - Format: `mongodb://localhost:27017` (or your MongoDB server)
-   - For MongoDB Atlas: `mongodb+srv://username:password@cluster.mongodb.net/dbname`
+   - Format: `mongodb://localhost:27017/XeoKey` (or your MongoDB server with `/XeoKey`)
+   - For MongoDB Atlas: `mongodb+srv://username:password@cluster.mongodb.net/XeoKey`
 
 3. **Test MongoDB connection:**
    ```bash
    # Using MongoDB shell
-   mongosh mongodb://localhost:27017
+   mongosh mongodb://localhost:27017/XeoKey
 
    # Or test from command line
-   mongosh "mongodb://localhost:27017" --eval "db.adminCommand('ping')"
+   mongosh "mongodb://localhost:27017/XeoKey" --eval "db.adminCommand('ping')"
    ```
 
 4. **Check network connectivity:**
@@ -171,7 +171,7 @@ Common issues and solutions for XeoKey.
 
 2. **Restore from backup:**
    ```bash
-   mongorestore --uri="mongodb://localhost:27017" /backup/path
+   mongorestore --uri="mongodb://localhost:27017/XeoKey" /backup/path
    ```
 
 3. **If no backups exist:**

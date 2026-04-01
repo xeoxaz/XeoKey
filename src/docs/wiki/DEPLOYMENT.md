@@ -257,7 +257,7 @@ Use services like:
 
 1. **Regular backups (REQUIRED):**
    ```bash
-   mongodump --uri="mongodb://localhost:27017" --out=/backup/path
+   mongodump --uri="mongodb://localhost:27017/XeoKey" --out=/backup/path
    ```
    - **Recommended frequency:** Daily backups minimum
    - **Store backups in multiple locations:** Local + remote (cloud storage)
@@ -266,7 +266,7 @@ Use services like:
 2. **Automated backups (HIGHLY RECOMMENDED):**
    ```bash
    # Add to crontab (runs daily at 2 AM)
-   0 2 * * * mongodump --uri="mongodb://localhost:27017" --out=/backup/path/$(date +\%Y-\%m-\%d)
+   0 2 * * * mongodump --uri="mongodb://localhost:27017/XeoKey" --out=/backup/path/$(date +\%Y-\%m-\%d)
    ```
    - Automate backups to prevent human error
    - Keep multiple backup copies (last 7-30 days)
@@ -280,7 +280,7 @@ Use services like:
 
 4. **Test restore procedures (REQUIRED):**
    ```bash
-   mongorestore --uri="mongodb://localhost:27017" /backup/path
+   mongorestore --uri="mongodb://localhost:27017/XeoKey" /backup/path
    ```
    - **Test backups monthly** to ensure they work
    - A backup that can't be restored is useless

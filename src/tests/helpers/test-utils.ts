@@ -8,7 +8,7 @@ import { MongoClient, Db } from 'mongodb';
  * Test database configuration
  */
 export const TEST_CONFIG = {
-  MONGODB_URI: process.env.TEST_MONGODB_URI || 'mongodb://localhost:27017',
+  MONGODB_URI: process.env.TEST_MONGODB_URI || 'mongodb://localhost:27017/XeoKey_Test',
   DATABASE_NAME: 'XeoKey_Test',
   SESSION_SECRET: 'test-session-secret-key-at-least-32-characters-long-for-testing',
   ENCRYPTION_KEY: 'test-encryption-key-for-testing-purposes-only',

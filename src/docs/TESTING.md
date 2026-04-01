@@ -100,7 +100,7 @@ Tests use a separate database (`XeoKey_Test`) to avoid affecting development dat
 Set `TEST_MONGODB_URI` to use a different MongoDB instance:
 
 ```bash
-TEST_MONGODB_URI=mongodb://localhost:27017 bun test
+TEST_MONGODB_URI=mongodb://localhost:27017/XeoKey_Test bun test
 ```
 
 ## Writing New Tests

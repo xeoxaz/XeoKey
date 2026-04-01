@@ -8,7 +8,7 @@
     "dev": "cd src && bun run dev",
     "start": "cd src && bun run start",
     "host": "cd src && bun run host",
-    "typecheck": "cd src && bun run typecheck",
+    "typecheck": "cd src && bunx tsc --noEmit",
     "test": "cd src && bun test",
     "test:unit": "cd src && bun test tests/unit",
     "test:integration": "cd src && bun test tests/integration",

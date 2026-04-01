@@ -27,7 +27,8 @@ export const SECURITY_CONFIG = {
 // Database Configuration
 export const DATABASE_CONFIG = {
   DEFAULT_NAME: 'XeoKey',
-  DEFAULT_URI: 'mongodb://localhost:27017',
+  TEST_NAME: 'XeoKey_Test',
+  DEFAULT_URI: 'mongodb://localhost:27017/XeoKey',
   CONNECTION_TIMEOUT: 10000, // 10 seconds
 } as const;
 

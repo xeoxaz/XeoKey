@@ -166,7 +166,7 @@ export class ProcessManager {
       logger.info(`Starting ${this.serverPath}`);
 
       // Spawn server process
-      serverProcess = spawn(['bun', 'run', this.serverPath], {
+      serverProcess = spawn([process.execPath, 'run', this.serverPath], {
         cwd: this.serverDir,
         stdout: 'pipe',
         stderr: 'pipe',

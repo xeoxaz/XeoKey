@@ -35,7 +35,7 @@ PORT=3000
 NODE_ENV=production
 
 # Database Configuration
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://localhost:27017/XeoKey
 
 # Security (REQUIRED for production)
 SESSION_SECRET=your-super-secret-session-key-at-least-32-characters-long

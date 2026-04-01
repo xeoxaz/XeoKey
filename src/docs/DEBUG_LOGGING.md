@@ -65,7 +65,7 @@ PORT=3000
 NODE_ENV=development
 
 # Database Configuration
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://localhost:27017/XeoKey
 
 # Security
 SESSION_SECRET=your-secret-key

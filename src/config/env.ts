@@ -2,7 +2,7 @@
  * Environment variable validation and configuration
  */
 
-import { SESSION_CONFIG } from './constants';
+import { DATABASE_CONFIG, SESSION_CONFIG } from './constants';
 
 interface EnvConfig {
   port: number;
@@ -35,7 +35,7 @@ export function validateEnv(): EnvConfig {
   }
 
   // MongoDB URI
-  const mongodbUri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017';
+  const mongodbUri = process.env.MONGODB_URI || DATABASE_CONFIG.DEFAULT_URI;
 
   // SESSION_SECRET validation
   const sessionSecret = process.env.SESSION_SECRET;

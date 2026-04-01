@@ -42,7 +42,7 @@ A secure, self-hosted password manager built with Bun and MongoDB. Features incl
    NODE_ENV=production
 
    # Database Configuration
-   MONGODB_URI=mongodb://localhost:27017
+   MONGODB_URI=mongodb://localhost:27017/XeoKey
 
    # Security (REQUIRED for production)
    SESSION_SECRET=your-super-secret-session-key-at-least-32-characters-long
@@ -164,8 +164,7 @@ XeoKey/
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `PORT` | Server port number | `3000` | No |
-| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017` | No* |
-| `MONGO_URI` | Alternative MongoDB URI variable | Same as above | No |
+| `MONGODB_URI` | MongoDB connection string for the fixed `XeoKey` database | `mongodb://localhost:27017/XeoKey` | No* |
 | `SESSION_SECRET` | Secret key for session signing | `change-this-secret-key-in-production` | Yes (production) |
 | `ENCRYPTION_KEY` | Key for password encryption | `default-encryption-key-change-in-production` | Yes (production) |
 | `NODE_ENV` | Environment mode (`production` or `development`) | `development` | No |

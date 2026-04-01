@@ -53,7 +53,7 @@ Tests use a separate test database (`XeoKey_Test`) to avoid affecting developmen
 
 Tests automatically set up the following environment variables:
 - `NODE_ENV=test`
-- `MONGODB_URI` (from `TEST_MONGODB_URI` or defaults to `mongodb://localhost:27017`)
+- `MONGODB_URI` (from `TEST_MONGODB_URI` or defaults to `mongodb://localhost:27017/XeoKey_Test`)
 - `SESSION_SECRET` (test secret)
 - `ENCRYPTION_KEY` (test key)
 - `LOG_LEVEL=error` (suppress logs during tests)
@@ -61,7 +61,7 @@ Tests automatically set up the following environment variables:
 You can override the MongoDB URI by setting `TEST_MONGODB_URI`:
 
 ```bash
-TEST_MONGODB_URI=mongodb://localhost:27017 bun test
+TEST_MONGODB_URI=mongodb://localhost:27017/XeoKey_Test bun test
 ```
 
 ## Writing Tests
