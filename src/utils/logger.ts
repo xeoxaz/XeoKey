@@ -23,6 +23,18 @@ function getLogLevel(): LogLevel {
   return nodeEnv === 'production' ? 'info' : 'info';
 }
 
+function getConsoleLogLevel(): LogLevel {
+  const consoleLevelEnv = process.env.CONSOLE_LOG_LEVEL || '';
+  const validLogLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+
+  if (consoleLevelEnv && validLogLevels.includes(consoleLevelEnv.toLowerCase() as LogLevel)) {
+    return consoleLevelEnv.toLowerCase() as LogLevel;
+  }
+
+  // Keep console concise by default.
+  return 'warn';
+}
+
 // Check if debug mode is enabled
 export function isDebugMode(): boolean {
   const debugEnv = process.env.DEBUG || process.env.DEBUG_MODE || '';
@@ -45,6 +57,8 @@ class SimpleLogger {
   private name: string;
   private options: LoggerOptions;
   private logLevel: LogLevel;
+  private consoleLogLevel: LogLevel;
+  private static readonly CONSOLE_MAX_LEN = 220;
 
   constructor(name: string, options: LoggerOptions = {}) {
     this.name = name;
@@ -55,6 +69,7 @@ class SimpleLogger {
       ...options
     };
     this.logLevel = this.options.logLevel || getLogLevel();
+    this.consoleLogLevel = getConsoleLogLevel();
 
     // Ensure log directory exists
     if (this.options.enableFileLogging && this.options.logFilePath) {
@@ -77,6 +92,10 @@ class SimpleLogger {
     return LOG_LEVELS[level] >= LOG_LEVELS[this.logLevel];
   }
 
+  private shouldLogToConsole(level: LogLevel): boolean {
+    return LOG_LEVELS[level] >= LOG_LEVELS[this.consoleLogLevel];
+  }
+
   private formatTime(): string {
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
@@ -85,13 +104,59 @@ class SimpleLogger {
     return `${hours}:${minutes}:${seconds}`;
   }
 
-  private formatMessage(level: LogLevel, message: string, ...args: any[]): string {
+  private stripEmojis(text: string): string {
+    // Remove common emoji/pictograph ranges and variation selectors.
+    return text
+      .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+      .replace(/[\u{2600}-\u{27BF}]/gu, '')
+      .replace(/[\u{FE0E}\u{FE0F}]/gu, '');
+  }
+
+  private compactArg(arg: any): string {
+    if (arg === null || arg === undefined) {
+      return String(arg);
+    }
+
+    if (arg instanceof Error) {
+      return arg.message;
+    }
+
+    if (typeof arg === 'string') {
+      return this.stripEmojis(arg).replace(/\s+/g, ' ').trim();
+    }
+
+    if (typeof arg === 'number' || typeof arg === 'boolean') {
+      return String(arg);
+    }
+
+    if (Array.isArray(arg)) {
+      return `[${arg.length} items]`;
+    }
+
+    if (typeof arg === 'object') {
+      const keys = Object.keys(arg).slice(0, 4);
+      return `{${keys.join(',')}}`;
+    }
+
+    return String(arg);
+  }
+
+  private clip(text: string, maxLen: number = SimpleLogger.CONSOLE_MAX_LEN): string {
+    const normalized = this.stripEmojis(text).replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLen) {
+      return normalized;
+    }
+    return normalized.slice(0, maxLen - 1) + '...';
+  }
+
+  private formatMessage(_level: LogLevel, message: string, ...args: any[]): string {
     const timestamp = this.formatTime();
-    const formattedArgs = args.length > 0 ? ' ' + args.map(arg =>
-      typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-    ).join(' ') : '';
-    
-    return `[${timestamp}] ${message}${formattedArgs}`;
+    const compactMessage = this.clip(message);
+    const formattedArgs = args.length > 0
+      ? ' ' + args.map(arg => this.compactArg(arg)).join(' ')
+      : '';
+
+    return `[${timestamp}] ${compactMessage}${this.clip(formattedArgs, 100)}`;
   }
 
   private async writeToFile(message: string): Promise<void> {
@@ -112,28 +177,21 @@ class SimpleLogger {
       return;
     }
 
-    const timestamp = this.formatTime();
-    const formattedArgs = args.length > 0 ? ' ' + args.map(arg =>
-      typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-    ).join(' ') : '';
-
-    // More vibrant and friendly colors
-    const colors: Record<LogLevel, string> = {
-      debug: '\x1b[38;5;147m', // Soft purple
-      info: '\x1b[38;5;82m',  // Bright green
-      warn: '\x1b[38;5;226m', // Bright yellow
-      error: '\x1b[38;5;203m' // Coral red
-    };
+    // Slate-gray for all console output with subtle level tag.
     const reset = '\x1b[0m';
-    const gray = '\x1b[38;5;245m'; // Soft gray
+    const slateGray = '\x1b[38;5;102m';
+    const dimSlate = '\x1b[38;5;245m';
 
-    // Clean format with just timestamp and message
-    const consoleMessage = `${gray}[${timestamp}]${reset} ${colors[level]}${message}${formattedArgs}${reset}`;
-
-    console.log(consoleMessage);
+    if (this.shouldLogToConsole(level)) {
+      const compact = this.formatMessage(level, message, ...args);
+      const levelTag = level.toUpperCase().padEnd(5, ' ');
+      const consoleMessage = `${dimSlate}${levelTag}${reset} ${slateGray}${compact}${reset}`;
+      console.log(consoleMessage);
+    }
 
     // File logging (plain format, async, don't wait)
-    const fileMessage = `[${timestamp}] [${level.toUpperCase()}] [${this.name}] ${message}${formattedArgs}`;
+    const timestamp = this.formatTime();
+    const fileMessage = `[${timestamp}] [${level.toUpperCase()}] [${this.name}] ${this.clip(message, 500)}`;
     this.writeToFile(fileMessage).catch(() => {
       // Ignore file write errors
     });

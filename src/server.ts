@@ -5625,6 +5625,45 @@ const port = getPort();
 const serverStartTime = Date.now();
 let dbConnectTime: number | null = null;
 
+function printStartupMotd(
+  uiPort: number,
+  dbReady: boolean,
+  updateSummary: string,
+  recentUpdate: string,
+  latestChanges: string[]
+): void {
+  const reset = '\x1b[0m';
+  const slate = '\x1b[38;5;102m';
+  const slateDim = '\x1b[38;5;245m';
+  const line = `${slateDim}------------------------------------------------------------${reset}`;
+  const uiUrl = `http://localhost:${uiPort}`;
+  const asciiArt = [
+    ' __  __                 _  __           ',
+    ' \\ \/ /___  ___  _   __| |/ /___ _   _ ',
+    '  \\  // _ \\/ _ \\| | | |   // _ \\ | | |',
+    '  /  \\  __/ (_) | |_| | . \\  __/ |_| |',
+    ' /_/\\_\\___|\\___/ \\__, |_|\\_\\___|\\__, |',
+    '                 |___/          |___/ '
+  ];
+
+  console.log(line);
+  for (const artLine of asciiArt) {
+    console.log(`${slate}${artLine}${reset}`);
+  }
+  console.log(`${slate}XeoKey MOTD${reset}`);
+  console.log(`${slateDim}Status:${reset} ${dbReady ? 'database connected' : 'database unavailable (running in degraded mode)'}`);
+  console.log(`${slateDim}GitHub:${reset} ${updateSummary}`);
+  console.log(`${slateDim}Recent Update:${reset} ${recentUpdate}`);
+  if (latestChanges.length > 0) {
+    console.log(`${slateDim}Latest changes:${reset}`);
+    for (const change of latestChanges) {
+      console.log(`${slateDim}- ${change}${reset}`);
+    }
+  }
+  console.log(`${slateDim}UI:${reset} Visit ${uiUrl} for ui`);
+  console.log(line);
+}
+
 // Make available globally for API endpoint
 (globalThis as any).serverStartTime = serverStartTime;
 (globalThis as any).dbConnectTime = dbConnectTime;
@@ -5687,4 +5726,56 @@ logger.info(`Server running at http://localhost:${server.port}`);
 if (isConnected()) {
   logger.info('MongoDB connected to database: XeoKey');
 }
+
+// Always print startup summary, regardless of logger console level.
+void (async () => {
+  let updateSummary = 'unknown';
+  let recentUpdate = 'unknown';
+  let latestChanges: string[] = [];
+
+  try {
+    const { checkForUpdates } = await import('./utils/git-update');
+    const updateStatus = await checkForUpdates();
+
+    try {
+      const recentCommitProc = Bun.spawn([
+        'git',
+        'log',
+        '-1',
+        '--date=short',
+        '--pretty=format:%cd | %s'
+      ], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+      const recentCommitOutput = await new Response(recentCommitProc.stdout).text();
+      const recentCommitError = await new Response(recentCommitProc.stderr).text();
+      if (!recentCommitError.trim() && recentCommitOutput.trim()) {
+        recentUpdate = recentCommitOutput.trim();
+      } else if (recentCommitError.trim()) {
+        recentUpdate = 'unable to read local git history';
+      }
+    } catch {
+      recentUpdate = 'unable to read local git history';
+    }
+
+    if (!updateStatus.isGitRepo) {
+      updateSummary = 'not a git repository';
+    } else if (updateStatus.error) {
+      updateSummary = `update check failed (${updateStatus.error})`;
+    } else if (updateStatus.hasUpdates) {
+      const commitCount = updateStatus.commitMessages?.length || 0;
+      updateSummary = `${commitCount} update(s) available`;
+      latestChanges = (updateStatus.commitMessages || []).slice(0, 3);
+    } else {
+      updateSummary = 'up to date';
+    }
+  } catch (error) {
+    updateSummary = 'update check unavailable';
+    recentUpdate = 'update check unavailable';
+  }
+
+  const activePort = typeof server.port === 'number' ? server.port : port;
+  printStartupMotd(activePort, dbConnected, updateSummary, recentUpdate, latestChanges);
+})();
 
