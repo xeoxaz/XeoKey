@@ -430,7 +430,14 @@ function initVaultSessionTimer() {
   if (!timer || !fill) return; // only present when logged in
 
   const DURATION_MS = 5 * 60 * 1000; // 5 minutes
-  let deadlineMs = 0; // pulled from server so it persists across page loads
+  const IDLE_GRACE_MS = 5000; // User is considered active briefly after interactions
+  const TOUCH_COOLDOWN_MS = 20000; // Throttle heartbeats to the server
+
+  let remainingMs = DURATION_MS;
+  let lastFrameTs = Date.now();
+  let lastActivityTs = Date.now();
+  let lastTouchTs = 0;
+  let touchInFlight = false;
   let expired = false;
 
   // Keep CSS in sync even if header layout changes
@@ -441,8 +448,9 @@ function initVaultSessionTimer() {
       const res = await fetch('/session/remaining', { cache: 'no-store' });
       if (!res.ok) return false;
       const data = await res.json();
-      const remainingMs = (data && typeof data.remainingMs === 'number') ? data.remainingMs : 0;
-      deadlineMs = Date.now() + Math.max(0, remainingMs);
+      const serverRemaining = (data && typeof data.remainingMs === 'number') ? data.remainingMs : 0;
+      remainingMs = Math.max(0, serverRemaining);
+      lastFrameTs = Date.now();
       return true;
     } catch (error) {
       // Expected - server is restarting
@@ -450,14 +458,68 @@ function initVaultSessionTimer() {
     }
   }
 
+  async function touchSession() {
+    if (touchInFlight) return false;
+    const now = Date.now();
+    if ((now - lastTouchTs) < TOUCH_COOLDOWN_MS) return false;
+
+    touchInFlight = true;
+    try {
+      const res = await fetch('/session/touch', {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = '/logout';
+        }
+        return false;
+      }
+      const data = await res.json();
+      const serverRemaining = (data && typeof data.remainingMs === 'number') ? data.remainingMs : 0;
+      remainingMs = Math.max(remainingMs, Math.max(0, serverRemaining));
+      lastTouchTs = now;
+      return true;
+    } catch (error) {
+      return false;
+    } finally {
+      touchInFlight = false;
+    }
+  }
+
+  function onUserActivity() {
+    lastActivityTs = Date.now();
+    void touchSession();
+  }
+
+  const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+  activityEvents.forEach(eventName => {
+    window.addEventListener(eventName, onUserActivity, { passive: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      onUserActivity();
+      void syncFromServer();
+    }
+  });
+
   function tick() {
     if (expired) return;
     const now = Date.now();
-    const remaining = Math.max(0, deadlineMs - now);
-    const pct = Math.max(0, Math.min(100, (remaining / DURATION_MS) * 100));
+    const delta = Math.max(0, now - lastFrameTs);
+    lastFrameTs = now;
+
+    const isIdle = (now - lastActivityTs) > IDLE_GRACE_MS;
+    if (isIdle) {
+      remainingMs = Math.max(0, remainingMs - delta);
+    }
+
+    const pct = Math.max(0, Math.min(100, (remainingMs / DURATION_MS) * 100));
     fill.style.width = pct + '%';
 
-    if (remaining <= 0) {
+    if (remainingMs <= 0) {
       expired = true;
       // Hard logout so server session is cleared
       window.location.href = '/logout';
@@ -475,7 +537,8 @@ function initVaultSessionTimer() {
       // Keep bar full until we have the first authoritative timestamp
       fill.style.width = '100%';
       const ok = await syncFromServer();
-      if (ok && deadlineMs > Date.now()) {
+      if (ok && remainingMs > 0) {
+        onUserActivity();
         requestAnimationFrame(tick);
         return;
       }

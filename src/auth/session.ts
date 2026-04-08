@@ -45,6 +45,7 @@ interface CachedSession {
 const sessionCache = new Map<string, CachedSession>();
 const CACHE_TTL = 30 * 1000; // Cache for 30 seconds
 const MAX_CACHE_SIZE = 1000; // Maximum number of cached sessions
+const SESSION_REFRESH_INTERVAL = 15 * 1000; // Avoid DB writes on every request
 
 // Clean up expired cache entries periodically
 setInterval(() => {
@@ -116,7 +117,38 @@ export async function createSession(userId: string, username: string): Promise<s
 }
 
 // Get session by session ID (with caching)
-export async function getSession(sessionId: string): Promise<Session | null> {
+async function refreshSessionActivity(
+  sessionsCollection: ReturnType<ReturnType<typeof getDatabase>['collection']>,
+  sessionId: string,
+  session: Session
+): Promise<Session> {
+  const now = new Date();
+  const elapsed = now.getTime() - new Date(session.lastAccessed).getTime();
+
+  if (elapsed < SESSION_REFRESH_INTERVAL) {
+    return session;
+  }
+
+  const refreshedSession: Session = {
+    ...session,
+    lastAccessed: now,
+    expiresAt: new Date(now.getTime() + SESSION_DURATION),
+  };
+
+  await sessionsCollection.updateOne(
+    { sessionId },
+    { $set: { lastAccessed: refreshedSession.lastAccessed, expiresAt: refreshedSession.expiresAt } }
+  );
+
+  sessionCache.set(sessionId, {
+    session: refreshedSession,
+    expiresAt: Date.now() + CACHE_TTL,
+  });
+
+  return refreshedSession;
+}
+
+export async function getSession(sessionId: string, options: { refresh?: boolean } = {}): Promise<Session | null> {
   // Input validation
   if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
     return null;
@@ -124,12 +156,25 @@ export async function getSession(sessionId: string): Promise<Session | null> {
 
   const trimmedSessionId = sessionId.trim();
 
+  const shouldRefresh = options.refresh !== false;
+
   // Check cache first
   const cached = sessionCache.get(trimmedSessionId);
   if (cached && cached.expiresAt > Date.now()) {
     // Cache hit - verify session hasn't expired
     if (cached.session.expiresAt > new Date()) {
-      return cached.session;
+      if (!shouldRefresh) {
+        return cached.session;
+      }
+
+      try {
+        const db = getDatabase();
+        const sessionsCollection = db.collection<Session>('sessions');
+        return await refreshSessionActivity(sessionsCollection as any, trimmedSessionId, cached.session);
+      } catch (updateError) {
+        logger.warn(`Failed to refresh session activity for cached session ${trimmedSessionId}: ${updateError}`);
+        return cached.session;
+      }
     } else {
       // Session expired, remove from cache
       sessionCache.delete(trimmedSessionId);
@@ -146,25 +191,34 @@ export async function getSession(sessionId: string): Promise<Session | null> {
     });
 
     if (session) {
+      let activeSession: Session = {
+        sessionId: session.sessionId,
+        userId: session.userId,
+        username: session.username,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        lastAccessed: session.lastAccessed,
+      };
+
+      if (shouldRefresh) {
+        // Refresh sliding expiration for active users
+        try {
+          activeSession = await refreshSessionActivity(sessionsCollection as any, trimmedSessionId, activeSession);
+        } catch (updateError) {
+          logger.warn(`Failed to refresh session activity for ${trimmedSessionId}: ${updateError}`);
+        }
+      }
+
       // Cache the session
       sessionCache.set(trimmedSessionId, {
-        session,
+        session: activeSession,
         expiresAt: Date.now() + CACHE_TTL,
       });
 
-      // Update last accessed time (don't fail if update fails)
-      try {
-        await sessionsCollection.updateOne(
-          { sessionId: trimmedSessionId },
-          { $set: { lastAccessed: new Date() } }
-        );
-      } catch (updateError) {
-        logger.warn(`Failed to update last accessed time for session ${trimmedSessionId}: ${updateError}`);
-        // Continue - session retrieval was successful
-      }
+      return activeSession;
     }
 
-    return session;
+    return null;
   } catch (error) {
     logger.error(`Failed to get session ${trimmedSessionId}: ${error}`);
     return null; // Return null on error to prevent authentication bypass

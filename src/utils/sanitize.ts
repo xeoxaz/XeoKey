@@ -1,17 +1,22 @@
 // Input sanitization utilities
 
 // Sanitize string input - remove dangerous characters and trim
-export function sanitizeString(input: string): string {
+export function sanitizeString(input: string, maxLength: number | null = 100): string {
   if (typeof input !== 'string') {
     return '';
   }
 
-  return input
+  const sanitized = input
     .trim()
     .replace(/[<>]/g, '') // Remove angle brackets
     .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+=/gi, '') // Remove event handlers
-    .slice(0, 100); // Limit length to 100 characters
+    .replace(/on\w+=/gi, ''); // Remove event handlers
+
+  if (typeof maxLength === 'number' && maxLength >= 0) {
+    return sanitized.slice(0, maxLength);
+  }
+
+  return sanitized;
 }
 
 // Sanitize website name - less restrictive than sanitizeString

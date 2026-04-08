@@ -31,6 +31,16 @@ describe('sanitizeString', () => {
     expect(sanitizeString(longString).length).toBe(100);
   });
 
+  it('should support custom length limits', () => {
+    const longString = 'a'.repeat(250);
+    expect(sanitizeString(longString, 200).length).toBe(200);
+  });
+
+  it('should allow unlimited length when maxLength is null', () => {
+    const longString = 'a'.repeat(5000);
+    expect(sanitizeString(longString, null).length).toBe(5000);
+  });
+
   it('should return empty string for non-string input', () => {
     expect(sanitizeString(null as any)).toBe('');
     expect(sanitizeString(undefined as any)).toBe('');

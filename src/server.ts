@@ -1304,7 +1304,36 @@ router.get("/session/remaining", async (request, params, query) => {
     return createErrorResponse(401, "Unauthorized");
   }
 
-  const session = await getSession(sessionId);
+  const session = await getSession(sessionId, { refresh: false });
+  if (!session) {
+    return createErrorResponse(401, "Unauthorized");
+  }
+
+  const remainingMs = Math.max(0, session.expiresAt.getTime() - Date.now());
+  return Response.json(
+    { remainingMs },
+    {
+      headers: {
+        ...SECURITY_HEADERS,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    }
+  );
+});
+
+// Touch session activity to extend idle timeout on active user interaction
+router.post("/session/touch", async (request, params, query) => {
+  if (!isConnected()) {
+    return createErrorResponse(503, "Database not available");
+  }
+
+  const sessionId = getSessionIdFromRequest(request);
+  if (!sessionId) {
+    return createErrorResponse(401, "Unauthorized");
+  }
+
+  const session = await getSession(sessionId, { refresh: true });
   if (!session) {
     return createErrorResponse(401, "Unauthorized");
   }
@@ -3058,7 +3087,7 @@ router.get("/notes", async (request, params, query) => {
           <div class="note-item-head">
             <h3 class="note-item-title">${escapeHtml(note.title)}</h3>
             <div class="note-item-actions">
-              <a href="/notes/${note._id}/edit" class="note-edit-btn">✏️ Edit</a>
+              <a href="/notes/${note._id}" class="note-edit-btn note-view-btn">👁️ View</a>
               <form method="POST" action="/notes/${note._id}/delete" class="note-delete-form" onsubmit="return confirm('Are you sure you want to delete this note?');">
                 <input type="hidden" name="csrf_token" value="${csrfToken}">
                 <button type="submit" class="note-delete-btn">🗑️ Delete</button>
@@ -3105,10 +3134,10 @@ router.get("/notes", async (request, params, query) => {
         document.addEventListener('DOMContentLoaded', function() {
           const style = document.createElement('style');
           style.textContent = \`
-            .note-item a[href*="/edit"] {
+            .note-item .note-view-btn {
               transition: all 0.2s ease !important;
             }
-            .note-item a[href*="/edit"]:hover {
+            .note-item .note-view-btn:hover {
               background: var(--color-success) !important;
               border-color: var(--color-border) !important;
               transform: translateY(-1px);
@@ -3206,8 +3235,8 @@ router.post("/notes/add", async (request, params, query) => {
   try {
     const formData = await request.formData();
     const csrfToken = formData.get('csrf_token') as string;
-    const title = sanitizeString(formData.get('title') as string);
-    const content = sanitizeString(formData.get('content') as string);
+    const title = sanitizeString(formData.get('title') as string, 200);
+    const content = sanitizeString(formData.get('content') as string, null);
 
     // Verify CSRF token
     if (!csrfToken || !await verifyCsrfToken(session.sessionId, csrfToken)) {
@@ -3241,7 +3270,7 @@ router.post("/notes/add", async (request, params, query) => {
   }
 });
 
-router.get("/notes/:id/edit", async (request, params, query) => {
+router.get("/notes/:id", async (request, params, query) => {
   const session = await attachSession(request);
   if (!session) {
     return new Response(null, {
@@ -3255,9 +3284,9 @@ router.get("/notes/:id/edit", async (request, params, query) => {
 
   if (!isConnected()) {
     return renderPage(`
-      <h1>Edit Note</h1>
+      <h1>Note Details</h1>
       <p class="section-error">Database not available.</p>
-    `, "Edit Note - XeoKey", request);
+    `, "Note Details - XeoKey", request);
   }
 
   try {
@@ -3275,43 +3304,143 @@ router.get("/notes/:id/edit", async (request, params, query) => {
     const decryptedContent = await getDecryptedNoteContent(params.id, session.userId);
     if (decryptedContent === null) {
       return renderPage(`
-        <h1>Edit Note</h1>
+        <h1>Note Details</h1>
         <p class="section-error">Unable to decrypt note content.</p>
-      `, "Edit Note - XeoKey", request);
+        <p><a href="/notes" class="empty-state-link">← Back to Notes</a></p>
+      `, "Note Details - XeoKey", request);
     }
 
     const csrfToken = await getOrCreateCsrfToken(session.sessionId);
+    const startInEditMode = query.get('mode') === 'edit';
+    const viewDisplay = startInEditMode ? 'none' : 'block';
+    const editDisplay = startInEditMode ? 'block' : 'none';
+
+    const createdAt = new Date(note.createdAt).toLocaleString();
+    const updatedAt = new Date(note.updatedAt).toLocaleString();
 
     const body = `
-      <h1>Edit Note</h1>
-      <form method="POST" action="/notes/${params.id}/update" class="note-form">
-        <input type="hidden" name="csrf_token" value="${csrfToken}">
-
-        <div class="form-group">
-          <label for="title" class="note-form-label">Title</label>
-          <input type="text" id="title" name="title" required value="${escapeHtml(note.title)}" class="note-text-input">
+      <h1>Note Details</h1>
+      <div style="max-width: 900px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem;">
+          <a href="/notes" class="note-delete-btn" style="width: 112px; height: 40px; box-sizing: border-box; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-primary); border-color: var(--color-border);">Back</a>
+          <button type="button" id="noteViewBtn" class="note-delete-btn" style="width: 112px; height: 40px; box-sizing: border-box; display: ${editDisplay}; align-items: center; justify-content: center; text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-primary); border-color: var(--color-border);">View</button>
+          <button type="button" id="noteEditBtn" class="note-save-btn" style="width: 112px; height: 40px; box-sizing: border-box; display: ${viewDisplay}; align-items: center; justify-content: center; text-align: center;">Edit</button>
+          <button type="submit" id="noteUpdateBtn" form="noteUpdateForm" class="note-save-btn" style="width: 112px; height: 40px; box-sizing: border-box; display: ${editDisplay}; align-items: center; justify-content: center; text-align: center;">Save</button>
+          <button type="button" id="noteCancelEditBtn" class="note-delete-btn" style="width: 112px; height: 40px; box-sizing: border-box; display: ${editDisplay}; align-items: center; justify-content: center; text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-primary); border-color: var(--color-border);">Cancel</button>
+          <button type="submit" form="noteDeleteForm" class="note-delete-btn" style="width: 112px; height: 40px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; text-align: center; margin-left: auto;">Delete</button>
         </div>
 
-        <div class="form-group-lg">
-          <label for="content" class="note-form-label">Content</label>
-          <textarea id="content" name="content" required rows="15" class="note-textarea">${escapeHtml(decryptedContent)}</textarea>
+        <div class="note-item" style="margin-bottom: 1rem;">
+          <form id="noteUpdateForm" method="POST" action="/notes/${params.id}/update" class="note-form" style="margin: 0;">
+            <input type="hidden" name="csrf_token" value="${csrfToken}">
+
+            <div class="form-group">
+              <label for="titleInput" class="note-form-label">Title</label>
+              <h2 id="noteTitleText" class="note-item-title" style="margin: 0; display: ${viewDisplay};">${escapeHtml(note.title)}</h2>
+              <input type="text" id="titleInput" name="title" required value="${escapeHtml(note.title)}" class="note-text-input" style="display: ${editDisplay};">
+            </div>
+
+            <div class="form-group-lg">
+              <label for="contentInput" class="note-form-label">Content</label>
+              <div id="noteContentText" class="pwd-notes-val" style="white-space: pre-wrap; min-height: 10rem; display: ${viewDisplay};">${escapeHtml(decryptedContent)}</div>
+              <textarea id="contentInput" name="content" required rows="15" class="note-textarea" style="display: ${editDisplay};">${escapeHtml(decryptedContent)}</textarea>
+            </div>
+
+            <div class="note-item-meta" style="margin-top: 1rem;">
+              Created: ${createdAt}<br>
+              Updated: ${updatedAt}
+            </div>
+          </form>
         </div>
 
-        <div class="note-form-actions">
-          <button type="submit" class="note-save-btn">Update Note</button>
-          <a href="/notes" class="empty-state-link">Cancel</a>
-        </div>
-      </form>
+        <form id="noteDeleteForm" method="POST" action="/notes/${params.id}/delete" onsubmit="return confirm('Are you sure you want to delete this note?');">
+          <input type="hidden" name="csrf_token" value="${csrfToken}">
+        </form>
+      </div>
+
+      <script>
+        (function() {
+          const titleText = document.getElementById('noteTitleText');
+          const titleInput = document.getElementById('titleInput');
+          const contentText = document.getElementById('noteContentText');
+          const contentInput = document.getElementById('contentInput');
+          const viewBtn = document.getElementById('noteViewBtn');
+          const editBtn = document.getElementById('noteEditBtn');
+          const updateBtn = document.getElementById('noteUpdateBtn');
+          const cancelBtn = document.getElementById('noteCancelEditBtn');
+          const initialTitle = ${JSON.stringify(note.title)};
+          const initialContent = ${JSON.stringify(decryptedContent)};
+
+          if (!titleText || !titleInput || !contentText || !contentInput) return;
+
+          function setEditMode(isEditing) {
+            titleText.style.display = isEditing ? 'none' : 'block';
+            contentText.style.display = isEditing ? 'none' : 'block';
+            titleInput.style.display = isEditing ? 'block' : 'none';
+            contentInput.style.display = isEditing ? 'block' : 'none';
+
+            if (viewBtn) viewBtn.style.display = isEditing ? 'inline-flex' : 'none';
+            if (editBtn) editBtn.style.display = isEditing ? 'none' : 'inline-flex';
+            if (updateBtn) updateBtn.style.display = isEditing ? 'inline-flex' : 'none';
+            if (cancelBtn) cancelBtn.style.display = isEditing ? 'inline-flex' : 'none';
+          }
+
+          if (editBtn) {
+            editBtn.addEventListener('click', function() {
+              setEditMode(true);
+              titleInput.focus();
+              titleInput.select();
+            });
+          }
+
+          if (viewBtn) {
+            viewBtn.addEventListener('click', function() {
+              setEditMode(false);
+            });
+          }
+
+          if (cancelBtn) {
+            cancelBtn.addEventListener('click', function() {
+              titleInput.value = initialTitle;
+              contentInput.value = initialContent;
+              setEditMode(false);
+            });
+          }
+        })();
+      </script>
     `;
 
-    return renderPage(body, "Edit Note - XeoKey", request);
+    return renderPage(body, "Note Details - XeoKey", request);
   } catch (error) {
-    logger.error(`Error loading note for editing: ${error}`);
+    logger.error(`Error loading note details: ${error}`);
     return renderPage(`
-      <h1>Edit Note</h1>
+      <h1>Note Details</h1>
       <p class="section-error">Error loading note. Please try again.</p>
-    `, "Edit Note - XeoKey", request);
+      <p><a href="/notes" class="empty-state-link">← Back to Notes</a></p>
+    `, "Note Details - XeoKey", request);
   }
+});
+
+// Backward compatibility route for old edit URLs
+router.get("/notes/:id/edit", async (request, params, query) => {
+  const session = await attachSession(request);
+  if (!session) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...SECURITY_HEADERS,
+        Location: '/login',
+      },
+    });
+  }
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      ...SECURITY_HEADERS,
+      Location: `/notes/${params.id}?mode=edit`,
+    },
+  });
 });
 
 router.post("/notes/:id/update", async (request, params, query) => {
@@ -3333,8 +3462,8 @@ router.post("/notes/:id/update", async (request, params, query) => {
   try {
     const formData = await request.formData();
     const csrfToken = formData.get('csrf_token') as string;
-    const title = sanitizeString(formData.get('title') as string);
-    const content = sanitizeString(formData.get('content') as string);
+    const title = sanitizeString(formData.get('title') as string, 200);
+    const content = sanitizeString(formData.get('content') as string, null);
 
     // Verify CSRF token
     if (!csrfToken || !await verifyCsrfToken(session.sessionId, csrfToken)) {
@@ -5635,22 +5764,16 @@ function printStartupMotd(
   const reset = '\x1b[0m';
   const slate = '\x1b[38;5;102m';
   const slateDim = '\x1b[38;5;245m';
-  const line = `${slateDim}------------------------------------------------------------${reset}`;
   const uiUrl = `http://localhost:${uiPort}`;
   const asciiArt = [
-    ' __  __                 _  __           ',
-    ' \\ \/ /___  ___  _   __| |/ /___ _   _ ',
-    '  \\  // _ \\/ _ \\| | | |   // _ \\ | | |',
-    '  /  \\  __/ (_) | |_| | . \\  __/ |_| |',
-    ' /_/\\_\\___|\\___/ \\__, |_|\\_\\___|\\__, |',
-    '                 |___/          |___/ '
+    '░█░█░█▀▀░█▀█░█░█░█▀▀░█░█',
+    '░▄▀▄░█▀▀░█░█░█▀▄░█▀▀░░█░',
+    '░▀░▀░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░'
   ];
 
-  console.log(line);
   for (const artLine of asciiArt) {
     console.log(`${slate}${artLine}${reset}`);
   }
-  console.log(`${slate}XeoKey MOTD${reset}`);
   console.log(`${slateDim}Status:${reset} ${dbReady ? 'database connected' : 'database unavailable (running in degraded mode)'}`);
   console.log(`${slateDim}GitHub:${reset} ${updateSummary}`);
   console.log(`${slateDim}Recent Update:${reset} ${recentUpdate}`);
@@ -5661,7 +5784,6 @@ function printStartupMotd(
     }
   }
   console.log(`${slateDim}UI:${reset} Visit ${uiUrl} for ui`);
-  console.log(line);
 }
 
 // Make available globally for API endpoint
@@ -5776,6 +5898,7 @@ void (async () => {
   }
 
   const activePort = typeof server.port === 'number' ? server.port : port;
+  console.clear();
   printStartupMotd(activePort, dbConnected, updateSummary, recentUpdate, latestChanges);
 })();
 
