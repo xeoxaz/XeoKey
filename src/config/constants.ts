@@ -28,8 +28,16 @@ export const SECURITY_CONFIG = {
 export const DATABASE_CONFIG = {
   DEFAULT_NAME: 'XeoKey',
   TEST_NAME: 'XeoKey_Test',
-  DEFAULT_URI: 'mongodb://localhost:27017/XeoKey',
+  DEFAULT_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/XeoKey',
   CONNECTION_TIMEOUT: 10000, // 10 seconds
+} as const;
+
+// ONYX user-service configuration. ONYX is the source of truth for credentials
+// and identity; xeokey delegates login/registration to it. See MIGRATION.md.
+export const ONYX_CONFIG = {
+  // Base URL of the ONYX API. Override with the ONYX_API_URL env var.
+  BASE_URL: process.env.ONYX_API_URL || 'http://127.0.0.1:8080',
+  REQUEST_TIMEOUT: 10000, // 10 seconds
 } as const;
 
 // Encryption Configuration

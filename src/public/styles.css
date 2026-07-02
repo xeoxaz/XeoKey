@@ -119,24 +119,6 @@ header:hover {
   box-shadow: var(--shadow-md);
 }
 
-/* Session Timer */
-.session-timer {
-  width: 100%;
-  height: 3px;
-  background: transparent;
-  overflow: hidden;
-  position: relative;
-  z-index: 1001;
-}
-
-.session-timer-fill {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-light));
-  transition: width var(--transition-fast);
-  box-shadow: var(--glow-accent);
-}
-
 /* Navigation */
 header nav {
   display: flex;
@@ -153,6 +135,19 @@ header nav {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+}
+
+.brand-home {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  transition: all var(--transition);
+}
+
+.brand-home:hover {
+  transform: translateY(-1px);
 }
 
 .brand-link {
@@ -174,7 +169,9 @@ header nav {
 }
 
 .brand-icon {
-  font-size: 1.3rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  object-fit: contain;
   line-height: 1;
 }
 
@@ -624,53 +621,6 @@ footer {
 footer p {
   margin: 0;
   padding: 0;
-}
-
-.report-bug-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: 0.4rem 0.8rem;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  text-decoration: none;
-  border-radius: var(--border-radius);
-  font-size: 0.75rem;
-  transition: all var(--transition);
-  border: 1px solid var(--color-border);
-  position: relative;
-  overflow: hidden;
-}
-
-.report-bug-btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: var(--overlay-hover);
-  transform: translate(-50%, -50%);
-  transition: width var(--transition-slow), height var(--transition-slow);
-}
-
-.report-bug-btn:hover {
-  background: var(--color-border);
-  border-color: var(--color-accent);
-  transform: translateY(-1px);
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-md);
-}
-
-.report-bug-btn:hover::before {
-  width: 200px;
-  height: 200px;
-}
-
-.report-bug-btn:active {
-  transform: translateY(0);
-  transition: all var(--transition-fast);
 }
 
 /* Bottom Navigation (Mobile) */
@@ -1578,18 +1528,6 @@ footer p {
     z-index: 1000 !important;
   }
 
-  #sessionTimer.session-timer {
-    position: fixed !important;
-    bottom: calc(60px + 1rem + max(0px, env(safe-area-inset-bottom, 0px))) !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    z-index: 1002 !important;
-    height: 3px !important;
-    top: auto !important;
-    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.6) !important;
-  }
-
   main {
     padding: 0.75rem;
     padding-bottom: 80px !important;
@@ -1616,11 +1554,6 @@ footer p {
 
   .footer-content {
     gap: 0.5rem;
-  }
-
-  .report-bug-btn {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.65rem;
   }
 
   .password-input-container {
@@ -1819,7 +1752,7 @@ footer p {
 
 /* ---- Auth / Login page ---- */
 .auth-page-wrap {
-  max-width: 1400px;
+  max-width: 460px;
   margin: 0 auto;
   padding: 2rem 1rem;
 }
@@ -2020,8 +1953,7 @@ footer p {
 
 /* Register form */
 .register-form {
-  max-width: 400px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 /* Settings page */

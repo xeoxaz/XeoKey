@@ -177,15 +177,21 @@ class SimpleLogger {
       return;
     }
 
-    // Slate-gray for all console output with subtle level tag.
+    // Use level-specific colors while keeping timestamps readable.
     const reset = '\x1b[0m';
     const slateGray = '\x1b[38;5;102m';
     const dimSlate = '\x1b[38;5;245m';
+    const levelColors: Record<LogLevel, string> = {
+      debug: '\x1b[38;5;117m',
+      info: '\x1b[38;5;84m',
+      warn: '\x1b[38;5;214m',
+      error: '\x1b[38;5;203m',
+    };
 
     if (this.shouldLogToConsole(level)) {
       const compact = this.formatMessage(level, message, ...args);
       const levelTag = level.toUpperCase().padEnd(5, ' ');
-      const consoleMessage = `${dimSlate}${levelTag}${reset} ${slateGray}${compact}${reset}`;
+      const consoleMessage = `${levelColors[level]}${levelTag}${reset} ${dimSlate}${compact}${reset} ${slateGray}[${this.name}]${reset}`;
       console.log(consoleMessage);
     }
 

@@ -183,12 +183,13 @@ Description=XeoKey Password Manager
 After=network.target
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=all
 User=your-user
 WorkingDirectory=/path/to/XeoKey
 Environment="NODE_ENV=production"
 EnvironmentFile=/path/to/.env
-ExecStart=/usr/local/bin/bun run start
+ExecStart=/usr/local/bin/bun run host
 Restart=always
 RestartSec=10
 

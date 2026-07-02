@@ -5,7 +5,8 @@ After=network.target mongodb.service
 Wants=mongodb.service
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=all
 User=xeo
 Group=xeo
 WorkingDirectory=/home/xeo/xeokey

@@ -40,7 +40,7 @@ describe('Session Timer and Expiry Integration', () => {
     }
   });
 
-  it('creates sessions with ~5 minute expiry and cookie max-age 300s', async () => {
+  it('creates sessions with ~7 day expiry and matching cookie max-age', async () => {
     const username = `user_${randomString(6)}`;
     const password = 'testpassword123';
     const user = await createUser(username, password);
@@ -55,14 +55,15 @@ describe('Session Timer and Expiry Integration', () => {
     const expiresAt = session!.expiresAt.getTime();
     const createdAt = session!.createdAt.getTime();
 
-    // Expiry should be approximately 5 minutes after creation
+    // Expiry should be approximately 7 days after creation
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
     const deltaMs = expiresAt - createdAt;
-    expect(deltaMs).toBeGreaterThanOrEqual(5 * 60 * 1000 - 2000); // allow small skew
-    expect(deltaMs).toBeLessThanOrEqual(5 * 60 * 1000 + 2000);
+    expect(deltaMs).toBeGreaterThanOrEqual(SEVEN_DAYS_MS - 2000); // allow small skew
+    expect(deltaMs).toBeLessThanOrEqual(SEVEN_DAYS_MS + 2000);
 
-    // Cookie should advertise Max-Age=300
+    // Cookie should advertise the matching Max-Age (in seconds)
     const cookie = createSessionCookie(sessionId);
-    expect(cookie).toMatch(/Max-Age=300/);
+    expect(cookie).toMatch(new RegExp(`Max-Age=${SEVEN_DAYS_MS / 1000}`));
 
     // Remaining should decrease over time
     const remaining1 = expiresAt - after;

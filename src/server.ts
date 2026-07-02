@@ -8,7 +8,8 @@ import { connectMongoDB, closeMongoDB, isConnected } from './db/mongodb';
 // Authentication
 import { createSession, getSession, deleteSession, getSessionIdFromRequest, createSessionCookie, createLogoutCookie } from './auth/session';
 import { listTotpEntries, createTotpEntry, getCurrentTotpCode } from './models/totp';
-import { authenticateUser, createUser, getUserById, updateUserTheme } from './auth/users';
+import { authenticateUser, createUser, getUserById, updateUserTheme, upsertLocalProfile } from './auth/users';
+import { onyxLogin, onyxRegister } from './auth/onyx-client';
 
 // Password management
 import { createPasswordEntry, getUserPasswords, getPasswordEntry, getDecryptedPassword, updatePasswordEntry, deletePasswordEntry } from './models/password';
@@ -296,8 +297,6 @@ async function getHeader(title: string = "XeoKey", session: { username: string; 
   if (!session) {
     // Hide nav-main and nav-actions sections using CSS (more reliable than regex)
     header = header.replace('</head>', '<style>.nav-main, .nav-actions { display: none !important; }</style></head>');
-    // Remove session timer bar
-    header = header.replace(/<div id="sessionTimer"[\s\S]*?<\/div>\s*/m, '');
   } else {
     // Add login/logout menu items for logged in users
     const authMenu = `<div class="nav-item dropdown">
@@ -858,22 +857,11 @@ async function renderLoginForm(request: Request, username: string = '', error: s
   const usernameValue = username ? ` value="${escapeHtml(username)}"` : '';
   const csrfField = csrfToken ? `<input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">` : '';
 
-  // Check for GitHub updates and patch notes
-  let updateNotification = '';
-  let patchNotesSection = '';
-  let gitStatusNotification = '';
+  // Surface system warnings (encryption health) on the login page.
   let encryptionDiagnosticNotification = '';
   let autoReEncryptionNotification = '';
 
   try {
-    // Check Git status first
-    const { checkGitStatus, generateGitInstallPrompt } = await import('./utils/git-installer');
-    const gitStatus = await checkGitStatus();
-
-    if (!gitStatus.installed) {
-      gitStatusNotification = generateGitInstallPrompt(gitStatus);
-    }
-
     // Check for encryption issues
     try {
       const { runEncryptionDiagnostics, generateDiagnosticReport, isUsingDefaultKey } = await import('./utils/encryption-diagnostics');
@@ -897,7 +885,6 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     }
 
     // Check for auto re-encryption status
-    let autoReEncryptionNotification = '';
     try {
       const { checkAutoReEncryption, generateAutoReEncryptionStatusHTML } = await import('./utils/auto-re-encryption');
       const { shouldTrigger, status } = await checkAutoReEncryption();
@@ -909,145 +896,34 @@ async function renderLoginForm(request: Request, username: string = '', error: s
     } catch (error) {
       logger.debug(`Auto re-encryption check failed: ${error}`);
     }
-
-    const { checkForUpdates, getPatchNotes } = await import('./utils/git-update');
-    const updateStatus = await checkForUpdates();
-    const patchNotes = await getPatchNotes(10);
-
-    if (updateStatus.hasUpdates && updateStatus.isGitRepo) {
-      const currentShort = updateStatus.currentCommit?.substring(0, 7) || 'unknown';
-      const remoteShort = updateStatus.remoteCommit?.substring(0, 7) || 'unknown';
-      const commitMessages = updateStatus.commitMessages || [];
-
-      const updatesList = commitMessages.length > 0 ? `
-        <div class="update-commits">
-          <p class="update-commits-label">What's new (${commitMessages.length} ${commitMessages.length === 1 ? 'commit' : 'commits'}):</p>
-          <ul class="update-commits-list">
-            ${commitMessages.map(msg => `<li class="update-commit-item">${escapeHtml(msg)}</li>`).join('')}
-          </ul>
-        </div>
-      ` : '';
-
-      updateNotification = `
-        <div id="updateNotification" class="update-card">
-          <div class="update-card-header">
-            <div class="update-card-icon">🔄</div>
-            <div class="update-card-body">
-              <h3 class="update-card-title">Update Available</h3>
-              <p class="update-card-meta">
-                Current: <code style="background: var(--color-bg-primary); padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(currentShort)}</code> →
-                Remote: <code style="background: var(--color-bg-primary); padding: 0.125rem 0.25rem; border-radius: 2px;">${escapeHtml(remoteShort)}</code>
-              </p>
-            </div>
-          </div>
-          ${updatesList}
-          ${process.env.SYSTEMD_SERVICE === 'true' || process.env.INVOCATION_ID !== undefined ? `
-            <div style="background: var(--color-bg-secondary); border: 1px solid var(--color-border); padding: 0.75rem; border-radius: 4px; margin-bottom: 0.75rem;">
-              <p style="margin: 0; color: var(--color-text-secondary); font-size: 0.8rem;">
-                ⚙️ <strong>SystemD Service Detected:</strong> Use <code style="background: var(--color-bg-primary); padding: 0.125rem 0.25rem; border-radius: 2px;">sudo ./xeokey-update.sh</code> for reliable updates
-              </p>
-            </div>
-          ` : ''}
-          <form method="POST" action="/update/pull-and-restart" id="updateForm">
-            ${csrfField}
-            <button type="submit" class="update-pull-btn">
-              Pull & Restart Server
-            </button>
-          </form>
-        </div>
-        <script>
-          document.getElementById('updateForm')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            // Show loading screen
-            window.location.href = '/update/loading';
-            // Submit form in background
-            fetch('/update/pull-and-restart', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: new URLSearchParams(new FormData(this))
-            }).catch(() => {
-              // Expected - server is restarting
-            });
-          });
-        </script>
-      `;
-    }
-
-    // Show patch notes/news feed - each update in its own card
-    if (patchNotes.length > 0) {
-      patchNotesSection = `
-        <div>
-          <h3 class="news-section-title">
-            <span>📰</span>
-            <span>Recent Updates</span>
-          </h3>
-          <div class="news-feed">
-            ${patchNotes.map((msg) => `
-              <div class="news-item">
-                <p class="news-item-text">${escapeHtml(msg)}</p>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
   } catch (error) {
-    // Silently fail - update check is optional
-    logger.debug(`Update check failed: ${error}`);
+    // Silently fail - system status checks are optional
+    logger.debug(`Login status check failed: ${error}`);
   }
 
-  // Build 3-column layout for desktop
-  const updateColumn = autoReEncryptionNotification || encryptionDiagnosticNotification || gitStatusNotification || (updateNotification ? updateNotification.replace(/<div id="updateNotification"/, '<div id="updateNotification" style="height: fit-content;"') : `
-    <div class="auth-card compact">
-      <h3 class="auth-section-title">System Status</h3>
-      <p style="color: var(--color-success); font-size: 0.85rem; margin: 0;">✓ Up to date</p>
-    </div>
-  `);
-
-  const loginColumn = `
-    <div class="auth-card">
-      <h1 class="auth-page-title">Login</h1>
-      <form method="POST" action="/login">
-        ${csrfField}
-        ${errorHtml}
-        <div class="form-group">
-          <label for="username" class="form-label">Username:</label>
-          <input type="text" id="username" name="username" required${usernameValue} autocomplete="off" class="form-input">
-        </div>
-        <div class="form-group-lg">
-          <label for="password" class="form-label">Password:</label>
-          <input type="password" id="password" name="password" required autocomplete="off" class="form-input">
-        </div>
-        <button type="submit" class="full-width-btn">Login</button>
-      </form>
-      <p class="auth-foot">
-        <a href="/register" class="auth-foot-link">Don't have an account? Register here</a>
-      </p>
-    </div>
-  `;
-
-  const newsColumn = patchNotesSection || `
-    <div class="auth-card compact">
-      <h3 class="news-section-title">
-        <span>📰</span>
-        <span>Recent Updates</span>
-      </h3>
-      <p class="form-hint" style="margin: 0;">No recent updates available.</p>
-    </div>
-  `;
+  const noticesHtml = `${autoReEncryptionNotification}${encryptionDiagnosticNotification}`;
 
   return `
     <div class="auth-page-wrap">
-      <div class="login-grid">
-        <div>
-          ${updateColumn}
-        </div>
-        <div>
-          ${loginColumn}
-        </div>
-        <div>
-          ${newsColumn}
-        </div>
+      ${noticesHtml}
+      <div class="auth-card">
+        <h1 class="auth-page-title">Login</h1>
+        <form method="POST" action="/login">
+          ${csrfField}
+          ${errorHtml}
+          <div class="form-group">
+            <label for="username" class="form-label">Username:</label>
+            <input type="text" id="username" name="username" required${usernameValue} autocomplete="off" class="form-input">
+          </div>
+          <div class="form-group-lg">
+            <label for="password" class="form-label">Password:</label>
+            <input type="password" id="password" name="password" required autocomplete="off" class="form-input">
+          </div>
+          <button type="submit" class="full-width-btn">Login</button>
+        </form>
+        <p class="auth-foot">
+          <a href="/register" class="auth-foot-link">Don't have an account? Register here</a>
+        </p>
       </div>
     </div>
   `;
@@ -1060,33 +936,37 @@ async function renderRegisterForm(request: Request, username: string = '', error
   const csrfField = csrfToken ? `<input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">` : '';
 
   return `
-    <h1>Register</h1>
-    <form method="POST" action="/register" id="registerForm" class="register-form">
-      ${csrfField}
-      ${errorHtml}
-      <div class="form-group">
-        <label for="username" class="form-label">Username:</label>
-        <input type="text" id="username" name="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+"${usernameValue} autocomplete="off" class="form-input">
-        <small class="form-hint">3-30 characters, letters, numbers, and underscores only</small>
+    <div class="auth-page-wrap">
+      <div class="auth-card">
+        <h1 class="auth-page-title">Register</h1>
+        <form method="POST" action="/register" id="registerForm" class="register-form">
+          ${csrfField}
+          ${errorHtml}
+          <div class="form-group">
+            <label for="username" class="form-label">Username:</label>
+            <input type="text" id="username" name="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+"${usernameValue} autocomplete="off" class="form-input">
+            <small class="form-hint">3-30 characters, letters, numbers, and underscores only</small>
+          </div>
+          <div class="form-group">
+            <label for="password" class="form-label">Password:</label>
+            <input type="password" id="password" name="password" required minlength="6" maxlength="100" autocomplete="off" class="form-input">
+            <div id="passwordStrength" class="strength-wrap">
+              <div id="passwordStrengthBar" class="strength-bar"></div>
+            </div>
+            <div id="passwordStrengthText" class="strength-text"></div>
+          </div>
+          <div class="form-group-lg">
+            <label for="confirmPassword" class="form-label">Confirm Password:</label>
+            <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" maxlength="100" autocomplete="off" class="form-input">
+            <div id="passwordMatch" class="form-hint"></div>
+          </div>
+          <button type="submit" id="submitBtn" class="full-width-btn">Register</button>
+        </form>
+        <p class="auth-foot">
+          <a href="/login" class="auth-foot-link">Already have an account? Login here</a>
+        </p>
       </div>
-      <div class="form-group">
-        <label for="password" class="form-label">Password:</label>
-        <input type="password" id="password" name="password" required minlength="6" maxlength="100" autocomplete="off" class="form-input">
-        <div id="passwordStrength" class="strength-wrap">
-          <div id="passwordStrengthBar" class="strength-bar"></div>
-        </div>
-        <div id="passwordStrengthText" class="strength-text"></div>
-      </div>
-      <div class="form-group-lg">
-        <label for="confirmPassword" class="form-label">Confirm Password:</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" maxlength="100" autocomplete="off" class="form-input">
-        <div id="passwordMatch" class="form-hint"></div>
-      </div>
-      <button type="submit" id="submitBtn" class="full-width-btn">Register</button>
-    </form>
-    <p class="auth-foot">
-      <a href="/login" class="auth-foot-link">Already have an account? Login here</a>
-    </p>
+    </div>
   `;
 }
 
@@ -1168,8 +1048,10 @@ router.post("/login", async (request, params, query) => {
       return renderLoginPage(formHtml, "Login - XeoKey", request);
     }
 
-    const user = await authenticateUser(username, password);
-    if (!user) {
+    // Authenticate against ONYX (the user service). The returned id equals the
+    // local users._id for migrated users, keying xeokey's session and vault data.
+    const onyxUser = await onyxLogin(username, password);
+    if (!onyxUser) {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderLoginForm(request, rawUsername, "Invalid username or password.", newCsrfToken);
@@ -1179,8 +1061,12 @@ router.post("/login", async (request, params, query) => {
     // Reset rate limit on successful login
     resetRateLimit(request, 'login');
 
+    // Ensure a local profile exists (idempotent) so theme/lookups work even for
+    // users created directly in ONYX.
+    await upsertLocalProfile(onyxUser.id, onyxUser.username);
+
     // Create new session (regenerate session ID to prevent fixation)
-    const sessionId = await createSession(user._id!.toString(), user.username);
+    const sessionId = await createSession(onyxUser.id, onyxUser.username);
     const cookie = createSessionCookie(sessionId, request);
 
     return new Response(null, {
@@ -1293,63 +1179,6 @@ router.post("/settings/theme", async (request, params, query) => {
   });
 });
 
-// Returns remaining session time for the current logged-in user (ms)
-router.get("/session/remaining", async (request, params, query) => {
-  if (!isConnected()) {
-    return createErrorResponse(503, "Database not available");
-  }
-
-  const sessionId = getSessionIdFromRequest(request);
-  if (!sessionId) {
-    return createErrorResponse(401, "Unauthorized");
-  }
-
-  const session = await getSession(sessionId, { refresh: false });
-  if (!session) {
-    return createErrorResponse(401, "Unauthorized");
-  }
-
-  const remainingMs = Math.max(0, session.expiresAt.getTime() - Date.now());
-  return Response.json(
-    { remainingMs },
-    {
-      headers: {
-        ...SECURITY_HEADERS,
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-      },
-    }
-  );
-});
-
-// Touch session activity to extend idle timeout on active user interaction
-router.post("/session/touch", async (request, params, query) => {
-  if (!isConnected()) {
-    return createErrorResponse(503, "Database not available");
-  }
-
-  const sessionId = getSessionIdFromRequest(request);
-  if (!sessionId) {
-    return createErrorResponse(401, "Unauthorized");
-  }
-
-  const session = await getSession(sessionId, { refresh: true });
-  if (!session) {
-    return createErrorResponse(401, "Unauthorized");
-  }
-
-  const remainingMs = Math.max(0, session.expiresAt.getTime() - Date.now());
-  return Response.json(
-    { remainingMs },
-    {
-      headers: {
-        ...SECURITY_HEADERS,
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-      },
-    }
-  );
-});
 
 router.get("/register", async (request, params, query) => {
   const session = await attachSession(request);
@@ -1365,7 +1194,7 @@ router.get("/register", async (request, params, query) => {
   const tempSessionId = 'temp_' + Date.now();
   const csrfToken = createCsrfToken(tempSessionId);
   const formHtml = await renderRegisterForm(request, '', '', csrfToken);
-  return renderPage(formHtml, "Register - XeoKey", request);
+  return renderLoginPage(formHtml, "Register - XeoKey", request);
 });
 
 router.post("/register", async (request, params, query) => {
@@ -1380,7 +1209,7 @@ router.post("/register", async (request, params, query) => {
     const tempSessionId = 'temp_' + Date.now();
     const csrfToken = createCsrfToken(tempSessionId);
     const formHtml = await renderRegisterForm(request, '', `Too many registration attempts. Please try again in ${minutesRemaining} minute(s).`, csrfToken);
-    return renderPage(formHtml, "Register - XeoKey", request);
+    return renderLoginPage(formHtml, "Register - XeoKey", request);
   }
 
   const formData = await request.formData();
@@ -1395,7 +1224,7 @@ router.post("/register", async (request, params, query) => {
     const tempSessionId = 'temp_' + Date.now();
     const newCsrfToken = createCsrfToken(tempSessionId);
     const formHtml = await renderRegisterForm(request, rawUsername, "Invalid security token. Please try again.", newCsrfToken);
-    return renderPage(formHtml, "Register - XeoKey", request);
+    return renderLoginPage(formHtml, "Register - XeoKey", request);
   }
 
   try {
@@ -1410,7 +1239,7 @@ router.post("/register", async (request, params, query) => {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderRegisterForm(request, rawUsername, usernameValidation.error || "Invalid username format.", newCsrfToken);
-      return renderPage(formHtml, "Register - XeoKey", request);
+      return renderLoginPage(formHtml, "Register - XeoKey", request);
     }
 
     const passwordValidation = validatePassword(password);
@@ -1418,7 +1247,7 @@ router.post("/register", async (request, params, query) => {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderRegisterForm(request, rawUsername, passwordValidation.error || "Invalid password.", newCsrfToken);
-      return renderPage(formHtml, "Register - XeoKey", request);
+      return renderLoginPage(formHtml, "Register - XeoKey", request);
     }
 
     // Check if passwords match
@@ -1426,15 +1255,30 @@ router.post("/register", async (request, params, query) => {
       const tempSessionId = 'temp_' + Date.now();
       const newCsrfToken = createCsrfToken(tempSessionId);
       const formHtml = await renderRegisterForm(request, rawUsername, "Passwords do not match.", newCsrfToken);
-      return renderPage(formHtml, "Register - XeoKey", request);
+      return renderLoginPage(formHtml, "Register - XeoKey", request);
     }
 
-    const user = await createUser(username, password);
+    // Register in ONYX (the user service). xeokey has no email, so register by
+    // username only. ONYX mints the id and owns the credentials.
+    const result = await onyxRegister(username, password);
+    if (!result.ok) {
+      const message = 'conflict' in result
+        ? 'Username already exists.'
+        : result.validationError;
+      const tempSessionId = 'temp_' + Date.now();
+      const newCsrfToken = createCsrfToken(tempSessionId);
+      const formHtml = await renderRegisterForm(request, rawUsername, message, newCsrfToken);
+      return renderLoginPage(formHtml, "Register - XeoKey", request);
+    }
+    const user = result.user;
 
     // Reset rate limit on successful registration
     resetRateLimit(request, 'register');
 
-    const sessionId = await createSession(user._id!.toString(), user.username);
+    // Create the local profile (theme etc.) keyed by the ONYX id.
+    await upsertLocalProfile(user.id, user.username);
+
+    const sessionId = await createSession(user.id, user.username);
     const cookie = createSessionCookie(sessionId, request);
 
     return new Response(null, {
@@ -1454,7 +1298,7 @@ router.post("/register", async (request, params, query) => {
     const tempSessionId = 'temp_' + Date.now();
     const newCsrfToken = createCsrfToken(tempSessionId);
     const formHtml = await renderRegisterForm(request, rawUsername, errorMessage, newCsrfToken);
-    return renderPage(formHtml, "Register - XeoKey", request);
+    return renderLoginPage(formHtml, "Register - XeoKey", request);
   }
 });
 
@@ -1478,69 +1322,6 @@ router.get("/styles.css", async (request, params, query) => {
   } catch (error) {
     logger.error(`Error serving CSS: ${error}`);
     return createErrorResponse(500, "Error loading CSS file");
-  }
-});
-
-// Git Management Routes
-// API endpoint to check Git status
-router.get("/api/git-status", async (request, params, query) => {
-  try {
-    const { checkGitStatus } = await import('./utils/git-installer');
-    const status = await checkGitStatus();
-
-    return new Response(JSON.stringify(status), {
-      headers: {
-        ...SECURITY_HEADERS,
-        'Content-Type': 'application/json',
-      },
-    });
-  } catch (error: any) {
-    logger.error(`Error checking Git status: ${error}`);
-    return new Response(JSON.stringify({ installed: false, error: error.message || 'Unknown error' }), {
-      headers: {
-        ...SECURITY_HEADERS,
-        'Content-Type': 'application/json',
-      },
-    });
-  }
-});
-
-// API endpoint to install Git automatically
-router.post("/api/install-git", async (request, params, query) => {
-  try {
-    const { installGitAutomatically, canInstallGitAutomatically } = await import('./utils/git-installer');
-
-    if (!canInstallGitAutomatically()) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Automatic installation is only supported on Linux. Please install Git manually.'
-      }), {
-        headers: {
-          ...SECURITY_HEADERS,
-          'Content-Type': 'application/json',
-        },
-      });
-    }
-
-    const result = await installGitAutomatically();
-
-    return new Response(JSON.stringify(result), {
-      headers: {
-        ...SECURITY_HEADERS,
-        'Content-Type': 'application/json',
-      },
-    });
-  } catch (error: any) {
-    logger.error(`Error installing Git: ${error}`);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message || 'Unknown error'
-    }), {
-      headers: {
-        ...SECURITY_HEADERS,
-        'Content-Type': 'application/json',
-      },
-    });
   }
 });
 
@@ -1749,32 +1530,7 @@ router.get("/api/encryption/key-info", async (request, params, query) => {
   }
 });
 
-// Update Management Routes
-// API endpoint to check for updates
-router.get("/api/update/status", async (request, params, query) => {
-  try {
-    const { checkForUpdates } = await import('./utils/git-update');
-    const status = await checkForUpdates(query.get('force') === 'true');
-
-    return new Response(JSON.stringify(status), {
-      headers: {
-        ...SECURITY_HEADERS,
-        'Content-Type': 'application/json',
-      },
-    });
-  } catch (error: any) {
-    logger.error(`Error checking update status: ${error}`);
-    return new Response(JSON.stringify({ hasUpdates: false, error: error.message || 'Unknown error' }), {
-      headers: {
-        ...SECURITY_HEADERS,
-        'Content-Type': 'application/json',
-      },
-      status: 500,
-    });
-  }
-});
-
-// Server status API endpoint for loading page
+// Server status API endpoint
 router.get("/api/server/status", async (request, params, query) => {
   try {
     const serverStartTime = (globalThis as any).serverStartTime || Date.now();
@@ -1836,202 +1592,6 @@ router.get("/api/server/status", async (request, params, query) => {
   }
 });
 
-// Loading screen while server restarts
-router.get("/update/loading", async (request, params, query) => {
-  return renderPage(`
-    <div class="update-page-wrap">
-      <div class="update-spinner">🔄</div>
-      <h1 class="update-page-title">Updating Server...</h1>
-      <p class="update-page-desc">
-        The server is pulling the latest updates from GitHub and restarting.
-        This page will automatically redirect when the server is ready.
-      </p>
-      <div class="update-status-card">
-        <div id="status" class="update-status-text">⏳ Waiting for server to restart...</div>
-        <div class="progress-track">
-          <div id="progressBar" class="progress-fill"></div>
-        </div>
-        <div class="update-elapsed" id="elapsedTime">Elapsed: 0s</div>
-      </div>
-    </div>
-    <script>
-      let startTime = Date.now();
-      let checkCount = 0;
-      const maxChecks = 60; // Check for up to 60 seconds
-
-      function updateElapsed() {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        document.getElementById('elapsedTime').textContent = 'Elapsed: ' + elapsed + 's';
-
-        // Update progress bar (up to 90% while checking)
-        const progress = Math.min(90, (elapsed / 60) * 90);
-        document.getElementById('progressBar').style.width = progress + '%';
-      }
-
-      function checkServer() {
-        checkCount++;
-
-        // Update elapsed time
-        updateElapsed();
-
-        // Check server status API for detailed information
-        fetch('/api/server/status', { method: 'GET', cache: 'no-cache' })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Server not responding');
-            }
-            return response.json();
-          })
-          .then(data => {
-            // Update status message based on server phase
-            const statusEl = document.getElementById('status');
-            const progressBar = document.getElementById('progressBar');
-
-            switch(data.status) {
-              case 'starting':
-                statusEl.textContent = '🔄 ' + data.message;
-                statusEl.style.color = 'var(--color-accent-light)';
-                break;
-              case 'connecting':
-                statusEl.textContent = '🔌 ' + data.message;
-                statusEl.style.color = 'var(--color-accent-light)';
-                break;
-              case 'ready':
-                statusEl.textContent = '✅ Server is ready!';
-                statusEl.style.color = 'var(--color-success)';
-                progressBar.style.width = '100%';
-                progressBar.style.background = 'var(--color-success)';
-
-                // Redirect to login after a brief delay
-                setTimeout(() => {
-                  window.location.href = '/login?updated=true';
-                }, 1000);
-                return; // Stop checking
-              default:
-                statusEl.textContent = '⏳ ' + (data.message || 'Waiting for server...');
-                statusEl.style.color = 'var(--color-accent-light)';
-            }
-
-            // Show additional info if available
-            if (data.uptimeFormatted) {
-              const elapsedEl = document.getElementById('elapsedTime');
-              const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-              elapsedEl.textContent = 'Elapsed: ' + elapsedSeconds + 's | Server uptime: ' + data.uptimeFormatted;
-            }
-
-            // Continue checking if not ready
-            if (data.status !== 'ready' && checkCount < maxChecks) {
-              setTimeout(checkServer, 1000);
-            }
-          })
-          .catch(() => {
-            // Server is not responding yet
-            const statusEl = document.getElementById('status');
-
-            if (checkCount < 5) {
-              statusEl.textContent = '🔄 Server is restarting...';
-              statusEl.style.color = 'var(--color-accent-light)';
-            } else if (checkCount < 15) {
-              statusEl.textContent = '⏳ Pulling updates and starting server...';
-              statusEl.style.color = 'var(--color-accent-light)';
-            } else {
-              statusEl.textContent = '⏳ Waiting for server to come online...';
-              statusEl.style.color = 'var(--color-accent-light)';
-            }
-
-            if (checkCount >= maxChecks) {
-              statusEl.textContent = '⚠️ Server taking longer than expected. Please refresh manually.';
-              statusEl.style.color = 'var(--color-accent)';
-              document.getElementById('progressBar').style.background = 'var(--color-accent)';
-
-              // Show manual refresh option
-              setTimeout(() => {
-                const refreshBtn = document.createElement('button');
-                refreshBtn.textContent = 'Refresh Page';
-                refreshBtn.style.cssText = 'margin-top: 1rem; padding: 0.5rem 1rem; background: var(--color-border); color: var(--color-text-primary); border: 1px solid var(--color-bg-tertiary); border-radius: 4px; cursor: pointer;';
-                refreshBtn.onclick = () => window.location.reload();
-                statusEl.parentElement.appendChild(refreshBtn);
-              }, 1000);
-              return;
-            }
-
-            // Continue checking
-            setTimeout(checkServer, 1000);
-          });
-      }
-
-      // Start checking after a brief delay
-      setTimeout(checkServer, 2000);
-
-      // Update elapsed time every second
-      setInterval(updateElapsed, 1000);
-    </script>
-  `, "Updating Server - XeoKey", request);
-});
-
-// Pull updates and restart server
-router.post("/update/pull-and-restart", async (request, params, query) => {
-  try {
-    const formData = await request.formData();
-    const csrfToken = formData.get('csrfToken')?.toString() || '';
-
-    // Verify CSRF token (basic check, session may not exist for login page)
-    const session = await attachSession(request);
-    if (session && !verifyCsrfToken(session.sessionId, csrfToken)) {
-      return renderPage(`
-        <h1>Update Failed</h1>
-        <p style="color: var(--color-error);">Invalid CSRF token.</p>
-        <p><a href="/login" style="color: var(--color-accent-light);">← Back to Login</a></p>
-      `, "Update Failed - XeoKey", request);
-    }
-
-    const { prepareRestart, triggerRestart } = await import('./utils/git-update');
-    const result = await prepareRestart();
-
-    if (!result.success) {
-      logger.error(`Failed to prepare restart: ${result.error}`);
-      return renderPage(`
-        <h1>Update Failed</h1>
-        <p style="color: var(--color-error);">Failed to prepare restart: ${escapeHtml(result.error || 'Unknown error')}</p>
-        <p style="color: var(--color-text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">
-          Make sure you have git installed and the repository is configured correctly.
-        </p>
-        <p><a href="/login" style="color: var(--color-accent-light);">← Back to Login</a></p>
-      `, "Update Failed - XeoKey", request);
-    }
-
-    logger.info(`Prepared for restart. Restart script will pull updates and start new server.`);
-
-    // Send response first, then trigger restart
-    const response = renderPage(`
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
-        <h1 style="color: var(--color-success);">✅ Restarting Server...</h1>
-        <p style="color: var(--color-text-secondary); margin: 0.5rem 0;">The restart script will pull updates and start the new server.</p>
-        <p style="color: var(--color-text-secondary); margin: 1rem 0;">Restarting server...</p>
-        <p style="color: var(--color-text-secondary); font-size: 0.9rem;">Redirecting to loading screen...</p>
-      </div>
-      <script>
-        // Immediately redirect to loading screen
-        window.location.href = '/update/loading';
-      </script>
-    `, "Updates Pulled - XeoKey", request);
-
-    // Trigger restart after response is sent (non-blocking)
-    setTimeout(async () => {
-      await triggerRestart();
-    }, 1000);
-
-    return response;
-  } catch (error: any) {
-    logger.error(`Error in pull-and-restart: ${error}`);
-    return renderPage(`
-      <h1>Update Error</h1>
-      <p style="color: var(--color-error);">An error occurred: ${escapeHtml(error.message || 'Unknown error')}</p>
-      <p><a href="/login" style="color: var(--color-accent-light);">← Back to Login</a></p>
-    `, "Update Error - XeoKey", request);
-  }
-});
-
 // Serve favicon
 router.get("/favicon.ico", async (request, params, query) => {
   try {
@@ -2049,6 +1609,26 @@ router.get("/favicon.ico", async (request, params, query) => {
     });
   } catch (error) {
     return createErrorResponse(404, "Favicon not found");
+  }
+});
+
+// Serve brand logo
+router.get("/frostal.png", async (request, params, query) => {
+  try {
+    const logoFile = Bun.file("public/frostal.png");
+    if (!(await logoFile.exists())) {
+      return createErrorResponse(404, "Logo not found");
+    }
+    const logo = await logoFile.arrayBuffer();
+    return new Response(logo, {
+      headers: {
+        ...SECURITY_HEADERS,
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=31536000",
+      },
+    });
+  } catch (error) {
+    return createErrorResponse(404, "Logo not found");
   }
 });
 
@@ -4123,9 +3703,6 @@ router.get("/health", async (request, params, query) => {
               <button type="button" onclick="checkServerStatus()" style="background: var(--color-bg-tertiary); color: var(--color-accent-light); border: 1px solid var(--color-border); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
                 Server Status
               </button>
-              <button type="button" onclick="checkUpdateStatus()" style="background: var(--color-bg-tertiary); color: var(--color-accent-light); border: 1px solid var(--color-border); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                Updates
-              </button>
             </div>
           </div>
 
@@ -4371,35 +3948,6 @@ router.get("/health", async (request, params, query) => {
             showResults(output);
           } catch (error) {
             showResults(\`Failed to check server status: \${error.message}\`);
-          }
-        }
-
-        async function checkUpdateStatus() {
-          showResults('Checking for updates...');
-          try {
-            const response = await fetch('/api/update/status');
-            const data = await response.json();
-
-            let output = \`Update Status\\n\\n\`;
-            output += \`Has Updates: \${data.hasUpdates ? 'Yes' : 'No'}\`;
-            output += \`\\nGit Repository: \${data.isGitRepo ? 'Yes' : 'No'}\`;
-
-            if (data.hasUpdates && data.isGitRepo) {
-              output += \`\\n\\nAvailable Updates:\`;
-              if (data.commitMessages && data.commitMessages.length > 0) {
-                data.commitMessages.slice(0, 10).forEach((msg, i) => {
-                  output += \`\\n  \${i + 1}. \${msg}\`;
-                });
-              }
-            }
-
-            if (data.error) {
-              output += \`\\n\\nError: \${data.error}\`;
-            }
-
-            showResults(output);
-          } catch (error) {
-            showResults(\`Failed to check update status: \${error.message}\`);
           }
         }
 
@@ -5723,6 +5271,26 @@ async function handleRequest(request: Request): Promise<Response> {
       }
     }
 
+    if (pathname === "/frostal.png") {
+      try {
+        const logoFile = Bun.file("public/frostal.png");
+        const exists = await logoFile.exists();
+        if (!exists) {
+          return createErrorResponse(404, "Logo not found");
+        }
+        const logo = await logoFile.arrayBuffer();
+        return new Response(logo, {
+          headers: {
+            ...SECURITY_HEADERS,
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=31536000",
+          },
+        });
+      } catch (error) {
+        return createErrorResponse(404, "Logo not found");
+      }
+    }
+
     // Resolve route using router
     const response = await router.resolve(request, pathname);
 
@@ -5753,17 +5321,26 @@ async function handleRequest(request: Request): Promise<Response> {
 const port = getPort();
 const serverStartTime = Date.now();
 let dbConnectTime: number | null = null;
+const PROJECT_CONSOLE_TITLE = 'Xeokey';
+
+function setConsoleTitle(title: string): void {
+  process.title = title;
+  if (process.stdout?.isTTY) {
+    process.stdout.write(`\x1b]0;${title}\x07`);
+  }
+}
 
 function printStartupMotd(
   uiPort: number,
   dbReady: boolean,
-  updateSummary: string,
-  recentUpdate: string,
-  latestChanges: string[]
+  recentUpdate: string
 ): void {
   const reset = '\x1b[0m';
+  const brand = '\x1b[38;5;117m';
   const slate = '\x1b[38;5;102m';
   const slateDim = '\x1b[38;5;245m';
+  const success = '\x1b[38;5;84m';
+  const warning = '\x1b[38;5;214m';
   const uiUrl = `http://localhost:${uiPort}`;
   const asciiArt = [
     '░█░█░█▀▀░█▀█░█░█░█▀▀░█░█',
@@ -5771,24 +5348,24 @@ function printStartupMotd(
     '░▀░▀░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░'
   ];
 
+  const statusText = dbReady
+    ? `${success}database connected${reset}`
+    : `${warning}database unavailable (running in degraded mode)${reset}`;
+
   for (const artLine of asciiArt) {
     console.log(`${slate}${artLine}${reset}`);
   }
-  console.log(`${slateDim}Status:${reset} ${dbReady ? 'database connected' : 'database unavailable (running in degraded mode)'}`);
-  console.log(`${slateDim}GitHub:${reset} ${updateSummary}`);
+  console.log(`${brand}Xeokey${reset} ${slateDim}startup${reset}`);
+  console.log(`${slateDim}Status:${reset} ${statusText}`);
   console.log(`${slateDim}Recent Update:${reset} ${recentUpdate}`);
-  if (latestChanges.length > 0) {
-    console.log(`${slateDim}Latest changes:${reset}`);
-    for (const change of latestChanges) {
-      console.log(`${slateDim}- ${change}${reset}`);
-    }
-  }
   console.log(`${slateDim}UI:${reset} Visit ${uiUrl} for ui`);
 }
 
 // Make available globally for API endpoint
 (globalThis as any).serverStartTime = serverStartTime;
 (globalThis as any).dbConnectTime = dbConnectTime;
+
+setConsoleTitle(PROJECT_CONSOLE_TITLE);
 
 // Initialize templates before starting server
 await loadTemplates();
@@ -5851,54 +5428,32 @@ if (isConnected()) {
 
 // Always print startup summary, regardless of logger console level.
 void (async () => {
-  let updateSummary = 'unknown';
   let recentUpdate = 'unknown';
-  let latestChanges: string[] = [];
 
   try {
-    const { checkForUpdates } = await import('./utils/git-update');
-    const updateStatus = await checkForUpdates();
-
-    try {
-      const recentCommitProc = Bun.spawn([
-        'git',
-        'log',
-        '-1',
-        '--date=short',
-        '--pretty=format:%cd | %s'
-      ], {
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
-      const recentCommitOutput = await new Response(recentCommitProc.stdout).text();
-      const recentCommitError = await new Response(recentCommitProc.stderr).text();
-      if (!recentCommitError.trim() && recentCommitOutput.trim()) {
-        recentUpdate = recentCommitOutput.trim();
-      } else if (recentCommitError.trim()) {
-        recentUpdate = 'unable to read local git history';
-      }
-    } catch {
+    const recentCommitProc = Bun.spawn([
+      'git',
+      'log',
+      '-1',
+      '--date=short',
+      '--pretty=format:%cd | %s'
+    ], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const recentCommitOutput = await new Response(recentCommitProc.stdout).text();
+    const recentCommitError = await new Response(recentCommitProc.stderr).text();
+    if (!recentCommitError.trim() && recentCommitOutput.trim()) {
+      recentUpdate = recentCommitOutput.trim();
+    } else if (recentCommitError.trim()) {
       recentUpdate = 'unable to read local git history';
     }
-
-    if (!updateStatus.isGitRepo) {
-      updateSummary = 'not a git repository';
-    } else if (updateStatus.error) {
-      updateSummary = `update check failed (${updateStatus.error})`;
-    } else if (updateStatus.hasUpdates) {
-      const commitCount = updateStatus.commitMessages?.length || 0;
-      updateSummary = `${commitCount} update(s) available`;
-      latestChanges = (updateStatus.commitMessages || []).slice(0, 3);
-    } else {
-      updateSummary = 'up to date';
-    }
   } catch (error) {
-    updateSummary = 'update check unavailable';
-    recentUpdate = 'update check unavailable';
+    recentUpdate = 'unable to read local git history';
   }
 
   const activePort = typeof server.port === 'number' ? server.port : port;
   console.clear();
-  printStartupMotd(activePort, dbConnected, updateSummary, recentUpdate, latestChanges);
+  printStartupMotd(activePort, dbConnected, recentUpdate);
 })();
 

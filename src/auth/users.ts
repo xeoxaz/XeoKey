@@ -127,6 +127,32 @@ export async function authenticateUser(username: string, password: string): Prom
   }
 }
 
+// Ensure a local profile row exists for a user whose credentials live in ONYX.
+//
+// Auth and identity are owned by ONYX; xeokey keeps a lightweight `users` doc
+// (keyed by the ONYX id, with no passwordHash) to hold xeokey-only fields such
+// as `theme`. Idempotent: a no-op for migrated/existing users. Used after a
+// successful ONYX login or registration so theme settings and lookups work.
+export async function upsertLocalProfile(userId: string, username: string): Promise<void> {
+  if (!userId || !ObjectId.isValid(userId)) {
+    return;
+  }
+
+  try {
+    const db = getDatabase();
+    const usersCollection = db.collection<User>('users');
+    await usersCollection.updateOne(
+      { _id: new ObjectId(userId) } as any,
+      { $setOnInsert: { username, theme: 'slate', createdAt: new Date() } },
+      { upsert: true }
+    );
+  } catch (error) {
+    // Non-fatal: the session still works without a local profile (theme falls
+    // back to the default). Log and continue.
+    logger.warn(`Failed to upsert local profile for ${userId}: ${error}`);
+  }
+}
+
 // Get user by ID
 export async function getUserById(userId: string): Promise<User | null> {
   // Input validation

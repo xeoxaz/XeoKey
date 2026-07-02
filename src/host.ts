@@ -13,6 +13,7 @@ import { logger } from './utils/logger';
 import { existsSync, watchFile, unlink, unwatchFile } from 'fs';
 import { writeFile as writeFileAsync } from 'fs/promises';
 import { join } from 'path';
+import { spawn } from 'bun';
 
 // Determine project root - if we're in src/, go up one level
 function getProjectRoot(): string {
@@ -25,6 +26,15 @@ function getProjectRoot(): string {
 
 const projectRoot = getProjectRoot();
 const RESTART_FLAG_FILE = join(projectRoot, '.restart-requested');
+
+function setConsoleTitle(title: string): void {
+  process.title = title;
+  if (process.stdout?.isTTY) {
+    process.stdout.write(`\x1b]0;${title}\x07`);
+  }
+}
+
+setConsoleTitle('Xeokey');
 
 logger.info('Host wrapper starting...');
 
@@ -66,6 +76,37 @@ function setupRestartWatcher() {
   logger.info('Watching for restart flags...');
 }
 
+function shouldNotifySystemd(): boolean {
+  return process.env.NOTIFY_SOCKET !== undefined ||
+    process.env.SYSTEMD_SERVICE === 'true' ||
+    process.env.INVOCATION_ID !== undefined;
+}
+
+async function notifySystemdReady(): Promise<void> {
+  if (!shouldNotifySystemd()) {
+    return;
+  }
+
+  try {
+    const proc = spawn(['/usr/bin/systemd-notify', '--ready'], {
+      stdout: 'ignore',
+      stderr: 'ignore',
+      env: {
+        ...process.env,
+      },
+    });
+
+    const exitCode = await proc.exited;
+    if (exitCode === 0) {
+      logger.info('Sent systemd ready notification');
+    } else {
+      logger.warn(`systemd-notify --ready exited with code ${exitCode}`);
+    }
+  } catch (error: any) {
+    logger.warn(`Failed to send systemd ready notification: ${error.message || error}`);
+  }
+}
+
 // Start the server
 async function main() {
   try {
@@ -78,6 +119,9 @@ async function main() {
 
     // Setup restart watcher
     setupRestartWatcher();
+
+    // Signal readiness to systemd when running as a service
+    await notifySystemdReady();
 
     logger.info('Host wrapper ready');
 

@@ -26,6 +26,14 @@
    sudo systemctl start xeokey
    ```
 
+5. **Verify the loaded unit uses host + notify**:
+   ```bash
+   sudo systemctl cat xeokey
+   # Expect:
+   # Type=notify
+   # ExecStart=/usr/bin/bun run host
+   ```
+
 ## Service Configuration
 
 ### User and Permissions
@@ -181,7 +189,15 @@ sudo /usr/local/bin/xeokey-update
 
 ## Integration with Web Interface
 
-The web update flow already supports systemd-aware restart handling. No process-manager integration is required.
+When running under systemd, use the host wrapper (`bun run host`) so service readiness is reported with `systemd-notify --ready`.
+
+If startup times out, the loaded unit likely still uses `bun run start` with `Type=notify`. In that case, copy the repository service file again and reload systemd:
+
+```bash
+sudo cp xeokey.service /etc/systemd/system/xeokey.service
+sudo systemctl daemon-reload
+sudo systemctl restart xeokey
+```
 
 ## Monitoring
 

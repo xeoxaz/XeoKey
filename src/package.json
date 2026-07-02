@@ -8,6 +8,8 @@
     "dev": "bun run --watch server.ts",
     "start": "bun run server.ts",
     "host": "bun run host.ts",
+    "migrate:onyx": "bun run scripts/migrate-to-onyx.ts",
+    "migrate:onyx:apply": "bun run scripts/migrate-to-onyx.ts --apply",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test",
     "test:unit": "bun test tests/unit",
